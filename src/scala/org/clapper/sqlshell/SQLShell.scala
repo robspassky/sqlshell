@@ -1,20 +1,28 @@
+package org.clapper.sqlshell
+
 import grizzled.cmd._
-import grizzled.string.implicits._
+import grizzled.GrizzledString._
+import grizzled.config.Configuration
+import java.sql._
 
-class SQLShell extends CommandInterpreter("sqlshell")
+object Ident
 {
-    private var Version = "0.1"
-    private var Name = "sqlshell"
-    private var Copyright = "Copyright (c) 2009 Brian M. Clapper. " +
-                            "All rights reserved."
+    val Version = "0.1"
+    val Name = "sqlshell"
+    val Copyright = "Copyright (c) 2009 Brian M. Clapper. All rights reserved."
 
+    val IdentString = "%s, version %s\n%s" format (Name, Version, Copyright)
+}
+
+class SQLShell(val config: Configuration, val connection: Connection)
+    extends CommandInterpreter("sqlshell")
+{
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this))
 
     override def preLoop =
     {
-        println(Name + ", version " + Version)
-        println(Copyright)
+        println(Ident.IdentString)
         println("Using " + readline + " readline implementation.")
     }
 
@@ -27,7 +35,4 @@ class SQLShell extends CommandInterpreter("sqlshell")
             ""
         else
             line
-
-    def main(args: Array[String]): Unit =
-        mainLoop
 }

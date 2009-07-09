@@ -97,6 +97,14 @@ You must set the SCALA_HOME environment variable.
 
   <property file="build.properties"/>
 
+  <condition property="jopt-simple.jar" value="${env.JOPT_SIMPLE_JAR}">
+    <isset property="env.JOPT_SIMPLE_JAR"/>
+  </condition>
+  <condition property="jopt-simple.jar"
+             value="${env.HOME}/java/classes/jopt-simple-3.1.jar">
+    <not><isset property="env.JOPT_SIMPLE_JAR"/></not>
+  </condition>
+
   <condition property="grizzled.jar" value="${env.GRIZZLED_JAR}">
     <isset property="env.GRIZZLED_JAR"/>
   </condition>
@@ -129,6 +137,7 @@ You must set the SCALA_HOME environment variable.
   <path id="lib.classpath">
     <pathelement location="${scala.library}"/>
     <pathelement location="${grizzled.jar}"/>
+    <pathelement location="${jopt-simple.jar}"/>
 
     <fileset dir="${scala.extra.lib.dir}">
       <include name="**/*.jar"/>
