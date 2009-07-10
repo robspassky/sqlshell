@@ -97,6 +97,16 @@ You must set the SCALA_HOME environment variable.
 
   <property file="build.properties"/>
 
+  <!-- locate joda-time -->
+  <condition property="joda-time.jar" value="${env.JODA_TIME_JAR}">
+    <isset property="env.JODA_TIME_JAR"/>
+  </condition>
+  <condition property="joda-time.jar"
+             value="${env.HOME}/java/classes/joda-time-1.6.jar">
+    <not><isset property="env.JODA_TIME_JAR"/></not>
+  </condition>
+
+  <!-- locate jopt-simple -->
   <condition property="jopt-simple.jar" value="${env.JOPT_SIMPLE_JAR}">
     <isset property="env.JOPT_SIMPLE_JAR"/>
   </condition>
@@ -105,6 +115,7 @@ You must set the SCALA_HOME environment variable.
     <not><isset property="env.JOPT_SIMPLE_JAR"/></not>
   </condition>
 
+  <!-- locate Grizzled -->
   <condition property="grizzled.jar" value="${env.GRIZZLED_JAR}">
     <isset property="env.GRIZZLED_JAR"/>
   </condition>
@@ -138,6 +149,7 @@ You must set the SCALA_HOME environment variable.
     <pathelement location="${scala.library}"/>
     <pathelement location="${grizzled.jar}"/>
     <pathelement location="${jopt-simple.jar}"/>
+    <pathelement location="${joda-time.jar}"/>
 
     <fileset dir="${scala.extra.lib.dir}">
       <include name="**/*.jar"/>

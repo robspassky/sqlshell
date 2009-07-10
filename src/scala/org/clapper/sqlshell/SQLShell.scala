@@ -1,6 +1,7 @@
 package org.clapper.sqlshell
 
 import grizzled.cmd._
+import grizzled.readline.ListCompleter
 import grizzled.GrizzledString._
 import grizzled.config.Configuration
 
@@ -36,10 +37,11 @@ class SQLShell(val config: Configuration,
     extends CommandInterpreter("sqlshell")
 {
     private[sqlshell] val settings = MutableMap[String, (SettingType, Any)](
-        "showbinary" -> (IntSetting, 0),
-        "autocommit" -> (BooleanSetting, true),
-        "stacktrace" -> (BooleanSetting, showStackTraces),
-        "timings"    -> (BooleanSetting, true)
+        "autocommit"    -> (BooleanSetting, true),
+        "showbinary"    -> (IntSetting, 0),
+        "showrowcount"  -> (BooleanSetting, true),
+        "showtimings"   -> (BooleanSetting, true),
+        "stacktrace"    -> (BooleanSetting, showStackTraces)
     )
 
     println(Ident.IdentString)
@@ -48,7 +50,9 @@ class SQLShell(val config: Configuration,
     loadSettings(config)
 
     val connector = new DatabaseConnector(config)
-    val connection = connector.connect(dbInfo)
+    val connectionInfo = connector.connect(dbInfo)
+    val connection = connectionInfo.connection
+    val historyPath = connectionInfo.configInfo.get("history")
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this),
                         new SelectHandler(this, connection),
@@ -57,12 +61,30 @@ class SQLShell(val config: Configuration,
     // Allow "." characters in commands.
     override def StartCommandIdentifier = super.StartCommandIdentifier + "."
 
-    override def preLoop =
+    override def preLoop: Unit =
     {
+        historyPath match
+        {
+            case None =>
+                return
+
+            case Some(path) =>
+                println("Loading history from \"" + path + "\"...")
+                history.load(path)
+        }
     }
 
-    override def postLoop =
+    override def postLoop: Unit =
     {
+        historyPath match
+        {
+            case None =>
+                return
+
+            case Some(path) =>
+                println("Saving history to \"" + path + "\"...")
+                history.save(path)
+        }
     }
 
     override def handleException(e: Exception): CommandAction =
@@ -170,6 +192,69 @@ class SQLShell(val config: Configuration,
 
 }
 
+/**
+ * Timer mix-in.
+ */
+private[sqlshell] trait Timer
+{
+    import org.joda.time.Period
+    import org.joda.time.format.PeriodFormatterBuilder
+
+    private val formatter = new PeriodFormatterBuilder()
+                                .printZeroAlways
+                                .appendSeconds
+                                .appendSeparator(".")
+                                .appendMillis
+                                .appendSuffix(" second", " seconds")
+                                .toFormatter
+
+    /**
+     * Takes a fragment of code, executes it, and returns how long it took
+     * (in real time) to execute.
+     *
+     * @param block  block of code to run
+     *
+     * @return a (time, result) tuple, consisting of the number of
+     * milliseconds it took to run (time) and the result from the block.
+     */
+    def time[T](block: => T): (Long, T) =
+    {
+        val start = System.currentTimeMillis
+        val result = block
+        (System.currentTimeMillis - start, result)
+    }
+
+    /**
+     * Format the value of the period between two times, returning the
+     * string.
+     *
+     * @param elapsed  the (already subtracted) elapsed time, in milliseconds
+     *
+     * @return the string
+     */
+    def formatInterval(elapsed: Long): String =
+    {
+        val buf = new StringBuffer
+        formatter.printTo(buf, new Period(elapsed))
+        buf.toString
+    }
+
+    /**
+     * Format the value of the interval between two times, returning the
+     * string.
+     *
+     * @param start   start time, as milliseconds from the epoch
+     * @param end     end time, as milliseconds from the epoch
+     *
+     * @return the string
+     */
+    def formatInterval(start: Long, end: Long): String = 
+        formatInterval(end - start)
+}
+
+/**
+ * Handles the ".set" command.
+ */
 class SetHandler(val shell: SQLShell) extends CommandHandler
 {
     val CommandName = ".set"
@@ -178,6 +263,8 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
                  |    .set            -- show the current settings
                  |    .set var=value  -- change a variable""".stripMargin
 
+    val variables = shell.settings.keys.toList.sort((a, b) => a < b)
+    val completer = new ListCompleter(variables)
 
     def runCommand(commandName: String, args: String): CommandAction =
     {
@@ -200,11 +287,13 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
         KeepGoing
     }
 
+    override def complete(token: String, line: String): List[String] =
+        completer.complete(token, line)
+
     private def showSettings =
     {
         import grizzled.math.util._
 
-        val variables = shell.settings.keys.toList.sort((a, b) => a < b)
         val varWidth = max(variables.map(_.length): _*)
         val fmt = "%" + varWidth + "s: %s"
 
@@ -216,49 +305,122 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
     }
 }
 
+/**
+ * Handles SQL "SELECT" statements.
+ */
 class SelectHandler(val shell: SQLShell,
-                    val connection: Connection) extends CommandHandler
+                    val connection: Connection) 
+    extends CommandHandler with Timer
 {
-    import java.io.{FileInputStream,
+    import java.io.{EOFException,
+                    FileInputStream,
                     FileOutputStream,
                     ObjectInputStream,
                     ObjectOutputStream}
 
     val DateFormatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.S")
-
     val CommandName = "select"
     val Help = """Issue a SQL SELECT statement and display the results"""
+    val ColumnSeparator = "  "
+
+    val tempFile = File.createTempFile("sqlshell", ".dat")
+    tempFile.deleteOnExit
 
     def runCommand(commandName: String, args: String): CommandAction =
     {
-        val statement = connection.createStatement
-        println("commandName=" + commandName)
         // Remove the trailing semicolon.
         val newArgs = args.rtrim.substring(0, args.length - 1)
-        println("args=" + newArgs)
-        dumpResults(statement.executeQuery(commandName + " " + newArgs))
+        val statement = connection.createStatement
+        val (elapsed, rs) = 
+            time
+            {
+                statement.executeQuery(commandName + " " + newArgs)
+            }
+        dumpResults(elapsed, rs)
         KeepGoing
     }
 
     override def moreInputNeeded(lineSoFar: String): Boolean =
         (! lineSoFar.ltrim.endsWith(";"))
 
-    private def dumpResults(rs: ResultSet) =
+    private def dumpResults(elapsed: Long, rs: ResultSet) =
     {
         val (rows, colNamesAndSizes, dataFile) = preprocess(rs)
 
-        ()
+        if (shell.booleanSettingIsTrue("showrowcount"))
+        {
+            if (rows == 0)
+                println("No rows returned.")
+            else if (rows == 1)
+                println("1 row returned.")
+            else
+                println(rows + " rows returned.")
+        }
+
+        if (shell.booleanSettingIsTrue("showtimings"))
+            println("Execution time: " + formatInterval(elapsed))
+
+        // Note: Scala's format method doesn't left-justify.
+        def formatter = new java.util.Formatter
+
+        // Print column names...
+        val columnNames = colNamesAndSizes.keys.toList
+        val columnFormats = 
+            Map.empty[String, String] ++
+            (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
+
+        println()
+        println(
+            {for (col <- columnNames)
+                 yield formatter.format(columnFormats(col), col)}
+            .toList
+            .mkString(ColumnSeparator)
+        )
+
+        // ...and a separator.
+        println(
+            {for {col <- columnNames
+                  size = colNamesAndSizes(col)}
+                 yield formatter.format(columnFormats(col), "-" * size)}
+            .toList
+            .mkString(ColumnSeparator)
+        )
+
+        // Now, load the serialized results and dump them.
+        val rowsIn = new ObjectInputStream(new FileInputStream(dataFile))
+
+        def dumpNextRow: Unit =
+        {
+            try
+            {
+                val rowMap = rowsIn.readObject.asInstanceOf[Map[String, String]]
+                val data =
+                    {for {col <- columnNames
+                          size = colNamesAndSizes(col)
+                          fmt = columnFormats(col)}
+                         yield formatter.format(fmt, rowMap(col))}.toList
+                println(data mkString ColumnSeparator)
+
+                dumpNextRow
+            }
+
+            catch
+            {
+                case _: EOFException =>
+            }
+        }
+
+        dumpNextRow
     }
 
     private def preprocess(rs: ResultSet) =
     {
-        val tempFile = File.createTempFile("sqlshell", "dat")
+        import scala.collection.mutable.LinkedHashMap
+
         val tempOut = new ObjectOutputStream(new FileOutputStream(tempFile))
-        tempFile.deleteOnExit
         try
         {
-
-            val colNamesAndSizes = MutableMap.empty[String, Int]
+            val colNamesAndSizes = new LinkedHashMap[String, Int]
 
             // Get the column names.
 
@@ -278,7 +440,6 @@ class SelectHandler(val shell: SQLShell,
                 else
                 {
                     val mappedRow = mapRow(rs, metadata)
-                    println("mapped result row: " + mappedRow)
                     tempOut.writeObject(mappedRow)
 
                     for ((colName, value) <- mappedRow)
@@ -307,7 +468,7 @@ class SelectHandler(val shell: SQLShell,
     {
         def getDateString(date: Date): String = DateFormatter.format(date)
 
-        def colAsString(i: Int): String =
+        def nonNullColAsString(i: Int): String =
         {
             metadata.getColumnType(i) match
             {
@@ -338,6 +499,12 @@ class SelectHandler(val shell: SQLShell,
             }
         }
 
+        def colAsString(i: Int): String =
+        {
+            rs.getObject(i)
+            if (rs.wasNull) "NULL" else nonNullColAsString(i)
+        }
+
         Map.empty[String, String] ++
             {for {i <- 1 to metadata.getColumnCount
                   colName = metadata.getColumnName(i)}
@@ -347,5 +514,19 @@ class SelectHandler(val shell: SQLShell,
     private def loadResultRow(os: ObjectInputStream): Map[String,String] =
     {
         Map.empty[String,String]
+    }
+}
+
+/**
+ * Base handler for non-query SQL that's to be executed (e.g., UPDATE, INSERT,
+ * etc.).
+ */
+abstract class ExecuteSQLHandler(val shell: SQLShell,
+                                 val connection: Connection) 
+    extends CommandHandler
+{
+    def runCommand(commandName: String, args: String): CommandAction =
+    {
+        KeepGoing
     }
 }

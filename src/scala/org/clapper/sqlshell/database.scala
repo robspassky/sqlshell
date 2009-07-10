@@ -31,20 +31,40 @@ private[sqlshell] class DatabaseInfo(val dbName: Option[String],
 }
 
 /**
+ * Connection info.
+ *
+ * @param connection  the established connection
+ * @param configInfo  the configuration options associated with the
+ *                    connection
+ */
+private[sqlshell] class ConnectionInfo(val connection: SQLConnection,
+                                       val configInfo: Map[String, String])
+{
+}
+
+/**
  * Handles connecting to a database.
  */
 private[sqlshell] class DatabaseConnector(val config: Configuration)
 {
-    def connect(info: DatabaseInfo): SQLConnection =
+    def connect(info: DatabaseInfo): ConnectionInfo =
         if (info.dbName != null)
             connectByName(info.dbName.get)
-        else
-            connectJDBC(info.dbDriver,
-                        info.dbURL,
-                        info.dbUser,
-                        info.dbPassword)
 
-    private def connectByName(dbName: String): SQLConnection =
+        else
+        {
+            val conn = connectJDBC(info.dbDriver,
+                                   info.dbURL,
+                                   info.dbUser,
+                                   info.dbPassword)
+            val options = Map("driver" -> optionToString(info.dbDriver),
+                              "url" -> optionToString(info.dbURL),
+                              "user" -> optionToString(info.dbURL),
+                              "password" -> optionToString(info.dbPassword))
+            new ConnectionInfo(conn, options)
+        }
+
+    private def connectByName(dbName: String): ConnectionInfo =
     {
         def option(sectionName: String, 
                    optionName: String,
@@ -73,10 +93,11 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                                             dbName + "\"")
 
             case sectionName :: Nil =>
-                connectJDBC(option(sectionName, "driver", true),
-                            option(sectionName, "url", true),
-                            option(sectionName, "user", false),
-                            option(sectionName, "password", false))
+                val conn = connectJDBC(option(sectionName, "driver", true),
+                                       option(sectionName, "url", true),
+                                       option(sectionName, "user", false),
+                                       option(sectionName, "password", false))
+                new ConnectionInfo(conn, config.options(sectionName))
 
             case _ =>
                 val message = "The following database sections " +
@@ -112,6 +133,15 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                                           "\" not found.")
                 ex.initCause(e)
                 throw ex
+        }
+    }
+
+    private def optionToString(option: Option[String]): String =
+    {
+        option match
+        {
+            case None    => ""
+            case Some(s) => s
         }
     }
 
