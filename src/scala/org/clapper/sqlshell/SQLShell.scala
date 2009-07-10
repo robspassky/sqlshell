@@ -2,6 +2,9 @@ package org.clapper.sqlshell
 
 import grizzled.cmd._
 import grizzled.readline.ListCompleter
+import grizzled.readline.Readline
+import grizzled.readline.Readline.ReadlineType
+import grizzled.readline.Readline.ReadlineType._
 import grizzled.GrizzledString._
 import grizzled.config.Configuration
 
@@ -33,8 +36,9 @@ case object BooleanSetting extends SettingType
 
 class SQLShell(val config: Configuration,
                dbInfo: DatabaseInfo,
+               readlineLibs: List[ReadlineType],
                showStackTraces: Boolean)
-    extends CommandInterpreter("sqlshell")
+    extends CommandInterpreter("sqlshell", readlineLibs)
 {
     private[sqlshell] val settings = MutableMap[String, (SettingType, Any)](
         "autocommit"    -> (BooleanSetting, true),
@@ -56,7 +60,11 @@ class SQLShell(val config: Configuration,
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this),
                         new SelectHandler(this, connection),
+                        new InsertHandler(this, connection),
+                        new DeleteHandler(this, connection),
+                        new UpdateHandler(this, connection),
                         new SetHandler(this))
+    private val unknownHandler = new UnknownHandler(this, connection)
 
     // Allow "." characters in commands.
     override def StartCommandIdentifier = super.StartCommandIdentifier + "."
@@ -85,6 +93,19 @@ class SQLShell(val config: Configuration,
                 println("Saving history to \"" + path + "\"...")
                 history.save(path)
         }
+    }
+
+    override def handleEOF: CommandAction =
+    {
+        println()
+        Stop
+    }
+
+    override def handleUnknownCommand(commandName: String, 
+                                      unparsedArgs: String): CommandAction =
+    {
+        unknownHandler.runCommand(commandName, unparsedArgs)
+        KeepGoing
     }
 
     override def handleException(e: Exception): CommandAction =
@@ -274,13 +295,15 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
 
         else
         {
-            args.trim.split("[=]").toList match
+            val i = args.indexOf('=')
+            val chopAt = if (i >= 0) i else args.indexOf(' ')
+            if (chopAt < 0)
+                error("Badly formatted \"" + CommandName + "\" command.")
+            else
             {
-                case variable :: value :: Nil =>
-                    shell.changeSetting(variable, value)
-
-                case _ =>
-                    shell.error("Usage: .set [var=value]")
+                val variable = args.substring(0, chopAt).trim
+                val value = args.substring(chopAt + 1).trim
+                shell.changeSetting(variable, value)
             }
         }
 
@@ -305,12 +328,40 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
     }
 }
 
+private[sqlshell] abstract class SQLHandler(val shell: SQLShell,
+                                            val connection: Connection) 
+    extends CommandHandler with Timer
+{
+    override def moreInputNeeded(lineSoFar: String): Boolean =
+        (! lineSoFar.ltrim.endsWith(";"))
+
+   protected def withSQLStatement(code: (Statement) => Unit) =
+   {
+       val statement = connection.createStatement
+       try
+       {
+           code(statement)
+       }
+
+       finally
+       {
+           statement.close
+       }
+   }
+
+    protected def removeSemicolon(s: String): String =
+        if (s endsWith ";")
+            s.rtrim.substring(0, s.length - 1)
+        else
+            s
+}
+
 /**
  * Handles SQL "SELECT" statements.
  */
-class SelectHandler(val shell: SQLShell,
-                    val connection: Connection) 
-    extends CommandHandler with Timer
+private[sqlshell] class SelectHandler(shell: SQLShell,
+                                      connection: Connection) 
+    extends SQLHandler(shell, connection) with Timer
 {
     import java.io.{EOFException,
                     FileInputStream,
@@ -328,20 +379,29 @@ class SelectHandler(val shell: SQLShell,
 
     def runCommand(commandName: String, args: String): CommandAction =
     {
-        // Remove the trailing semicolon.
-        val newArgs = args.rtrim.substring(0, args.length - 1)
-        val statement = connection.createStatement
-        val (elapsed, rs) = 
-            time
+        val newArgs = removeSemicolon(args)
+        withSQLStatement
+        {
+            statement =>
+
+            val (elapsed, rs) = 
+                time
+                {
+                    statement.executeQuery(commandName + " " + newArgs)
+                }
+            try
             {
-                statement.executeQuery(commandName + " " + newArgs)
+                dumpResults(elapsed, rs)
             }
-        dumpResults(elapsed, rs)
+
+            finally
+            {
+                rs.close
+            }
+        }
+
         KeepGoing
     }
-
-    override def moreInputNeeded(lineSoFar: String): Boolean =
-        (! lineSoFar.ltrim.endsWith(";"))
 
     private def dumpResults(elapsed: Long, rs: ResultSet) =
     {
@@ -518,15 +578,70 @@ class SelectHandler(val shell: SQLShell,
 }
 
 /**
- * Base handler for non-query SQL that's to be executed (e.g., UPDATE, INSERT,
- * etc.).
+ * Handles any command that calls Statement.executeUpdate(). This class
+ * is abstract so that specific handlers can be instantiated for individual
+ * commands (allowing individual help).
  */
-abstract class ExecuteSQLHandler(val shell: SQLShell,
-                                 val connection: Connection) 
-    extends CommandHandler
+private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
+                                                  connection: Connection) 
+    extends SQLHandler(shell, connection) with Timer
 {
     def runCommand(commandName: String, args: String): CommandAction =
     {
+        val newArgs = removeSemicolon(args)
+        withSQLStatement
+        {
+            statement =>
+
+            val (elapsed, rows) =
+                time
+                {
+                    statement.executeUpdate(commandName + " " + newArgs)
+                }
+
+            if (shell.booleanSettingIsTrue("showrowcount"))
+            {
+                if (rows == 0)
+                    println("No rows affected.")
+                else if (rows == 1)
+                    println("1 row affected.")
+                else
+                    println(rows + " rows affected.")
+            }
+
+            if (shell.booleanSettingIsTrue("showtimings"))
+                println("Execution time: " + formatInterval(elapsed))
+        }
+
         KeepGoing
     }
 }
+
+private[sqlshell] class UpdateHandler(shell: SQLShell, connection: Connection)
+    extends AnyUpdateHandler(shell, connection)
+{
+    val CommandName = "update"
+    val Help = """Issue a SQL UPDATE statement."""
+}
+
+private[sqlshell] class InsertHandler(shell: SQLShell, connection: Connection)
+    extends AnyUpdateHandler(shell, connection)
+{
+    val CommandName = "insert"
+    val Help = """Issue a SQL INSERT statement."""
+}
+
+private[sqlshell] class DeleteHandler(shell: SQLShell, connection: Connection)
+    extends AnyUpdateHandler(shell, connection)
+{
+    val CommandName = "delete"
+    val Help = """Issue a SQL DELETE statement."""
+}
+
+private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
+    extends AnyUpdateHandler(shell, connection)
+{
+    val CommandName = ""
+    val Help = """Issue an unknown SQL statement."""
+}
+

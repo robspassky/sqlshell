@@ -3,12 +3,15 @@ package org.clapper.sqlshell.tool
 import org.clapper.sqlshell.SQLShell
 
 import grizzled.config.{Configuration, ConfigException}
+import grizzled.readline.Readline.ReadlineType._
+import grizzled.readline.Readline.ReadlineType
 
 private[tool] class Params(val configFile: String,
                            val dbInfo: DatabaseInfo,
+                           val readlineLibs: List[ReadlineType],
                            val showStackTraces: Boolean)
 {
-    def this() = this(null, null, false)
+    def this() = this(null, null, Nil, false)
 }
 
 object Tool
@@ -41,6 +44,7 @@ object Tool
             val config = Configuration(params.configFile)
             val shell = new SQLShell(config, 
                                      params.dbInfo, 
+                                     params.readlineLibs,
                                      params.showStackTraces)
             shell.mainLoop
         }
@@ -60,6 +64,7 @@ object Tool
     private def parseParams(args: Array[String]): Params =
     {
         import java.util.Arrays.asList
+        import java.util.{List => JList}
         import grizzled.collection.implicits._
 
         val parser = new OptionParser
@@ -69,6 +74,12 @@ object Tool
                           DefaultConfig)
               .withRequiredArg
               .describedAs("config_file")
+        parser.acceptsAll(asList("r", "readline"),
+                          "Specify readline libraries to use. Legal values: " +
+                          "editline, getline, gnu, jline, simple. May be " +
+                          "specified more than once.")
+              .withRequiredArg
+              .describedAs("lib_name")
         parser.acceptsAll(asList("s", "stack"),
                           "Show all exception stack traces.")
         parser.acceptsAll(asList("?", "h", "help"), "Show this usage message")
@@ -88,6 +99,16 @@ object Tool
 
             val positionalParams =
                 (for (s <- options.nonOptionArguments) yield s).toList
+
+            val readlineLibNames =
+                if (options.has("r"))
+                    {for (v <- options.valuesOf("r")
+                                      .asInstanceOf[JList[String]])
+                         yield(v)}.toList
+                else
+                    Nil
+
+            val readlineLibs = mapReadlineLibNames(readlineLibNames)
 
             val dbInfo = positionalParams match
             {
@@ -114,7 +135,10 @@ object Tool
                                                    " parameter(s).")
             }
 
-            val result = new Params(config, dbInfo, showStackTraces)
+            val result = new Params(config,
+                                    dbInfo,
+                                    readlineLibs,
+                                    showStackTraces)
 
             val abort = options.has("?") || options.has("v")
             if (options.has("v"))
@@ -140,6 +164,28 @@ object Tool
                 System.err.println(e.getMessage)
                 printHelp(parser)
                 throw new CommandLineException(Ident.Name + " aborted.")
+        }
+    }
+
+    private def mapReadlineLibNames(names: List[String]): List[ReadlineType] =
+    {
+        names match
+        {
+            case name :: tail =>
+                val lib = name match
+                {
+                    case "gnu"      => ReadlineType.GNUReadline
+                    case "editline" => ReadlineType.EditLine
+                    case "getline"  => ReadlineType.GetLine
+                    case "jline"    => ReadlineType.JLine
+                    case "simple"   => ReadlineType.Simple
+                    case bad        => throw new CommandLineException(
+                                           "Unknown readline type: \"" + bad +
+                                           "\"")
+                }
+                lib :: mapReadlineLibNames(tail)
+
+            case Nil => Nil
         }
     }
 
