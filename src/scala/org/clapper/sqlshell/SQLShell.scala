@@ -63,6 +63,7 @@ class SQLShell(val config: Configuration,
                         new InsertHandler(this, connection),
                         new DeleteHandler(this, connection),
                         new UpdateHandler(this, connection),
+                        new ShowHandler(this, connection),
                         new SetHandler(this))
     private val unknownHandler = new UnknownHandler(this, connection)
 
@@ -645,3 +646,77 @@ private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
     val Help = """Issue an unknown SQL statement."""
 }
 
+private[sqlshell] class ShowHandler(val shell: SQLShell, 
+                                    val connection: Connection)
+    extends CommandHandler
+{
+    val CommandName = ".show"
+    val Usage = "Usage: .show tables [regex]|database"
+    val Help = """List all tables in the database.
+                 |
+                 |""" + Usage + """
+                 |The option regex parameter is a pattern to use to restrict
+                 |the tables that are displayed.""".stripMargin
+
+    private val completer = new ListCompleter(List("tables", "database"))
+
+    def runCommand(commandName: String, args: String): CommandAction =
+    {
+        args.trim.split("""\s""").toList match
+        {
+            case "tables" :: Nil            => showTables(".*")
+            case "tables" :: pattern :: Nil => showTables(pattern)
+            case "database" :: Nil          => showDatabase
+            case anything                   => shell.error(Usage)
+        }
+
+        KeepGoing
+    }
+
+    override def complete(token: String, line: String): List[String] =
+        completer.complete(token, line)
+
+    private def showDatabase =
+    {
+        val metadata = connection.getMetaData
+        val productName = metadata.getDatabaseProductName
+        val productVersion = metadata.getDatabaseProductVersion
+        val driverName = metadata.getDriverName
+        val driverVersion = metadata.getDriverVersion
+
+        println(productName + ", " + productVersion)
+        println("Using JDBC driver " + driverName + ", " + driverVersion)
+    }
+
+    private def showTables(pattern: String) =
+    {
+        import scala.util.matching.Regex
+
+        val nameFilter = new Regex(pattern)
+        val metadata = connection.getMetaData
+        val rs = metadata.getTables(null, null, null, null)
+
+        def getNames: List[String] =
+        {
+            if (! rs.next)
+                Nil
+
+            else
+                rs.getString("TABLE_NAME") :: getNames
+        }
+
+        try
+        {
+            val names = getNames filter (nameFilter.findFirstIn(_) != None)
+            val sorted = names sort ((a, b) => a.toLowerCase < b.toLowerCase)
+            print(shell.columnarize(sorted, shell.OutputWidth))
+        }
+
+        finally
+        {
+            rs.close
+        }
+
+        KeepGoing
+    }
+}

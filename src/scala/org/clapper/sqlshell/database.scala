@@ -122,7 +122,13 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
         {
             val cls = Class.forName(driverClassName.get)
             val driver = cls.newInstance.asInstanceOf[JDBCDriver]
-            driver.connect(url.get, properties)
+            val connection = driver.connect(url.get, properties)
+
+            // SQLite3 driver returns a null connection on connection
+            // failure.
+            if (connection == null)
+                throw new SQLException("Cannot connect to \"" + url.get + "\"")
+            connection
         }
 
         catch
@@ -153,9 +159,11 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
         def aliases(section: String): List[String] =
             config.option(section, "aliases", "").split("[,\\s]").toList
 
-        {for {section <- dbSections
-              db = section.substring(3)
-              name <- (db :: aliases(section))
-              if (name.startsWith(dbName))} yield section}.toList
+        val set = Set.empty[String] ++
+                  {for {section <- dbSections
+                        db = section.substring(3)
+                        name <- (db :: aliases(section))
+                        if (name.startsWith(dbName))} yield section}
+        set.toList
     }
 }
