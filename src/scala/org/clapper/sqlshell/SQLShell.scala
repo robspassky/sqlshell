@@ -6,6 +6,7 @@ import grizzled.readline.Readline
 import grizzled.readline.Readline.ReadlineType
 import grizzled.readline.Readline.ReadlineType._
 import grizzled.GrizzledString._
+import grizzled.string.WordWrapper
 import grizzled.config.Configuration
 
 import java.sql.{Connection,
@@ -19,6 +20,7 @@ import java.util.Date
 import java.text.SimpleDateFormat
 
 import scala.collection.mutable.{Map => MutableMap}
+import scala.util.matching.Regex
 
 object Ident
 {
@@ -34,14 +36,29 @@ case object IntSetting extends SettingType
 case object StringSetting extends SettingType
 case object BooleanSetting extends SettingType
 
+trait Wrapper
+{
+    val wordWrapper = new WordWrapper
+
+    def wrapPrintln(s: String) = println(wordWrapper.wrap(s))
+
+    def wrapPrintf(fmt: String, args: Any*) = 
+        println(wordWrapper.wrap(fmt format(args: _*)))
+}
+
+private[sqlshell] class TableSpec(val name: Option[String],
+                                  val schema: Option[String],
+                                  val tableType: Option[String])
+
 class SQLShell(val config: Configuration,
                dbInfo: DatabaseInfo,
                readlineLibs: List[ReadlineType],
                showStackTraces: Boolean)
-    extends CommandInterpreter("sqlshell", readlineLibs)
+    extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper
 {
     private[sqlshell] val settings = MutableMap[String, (SettingType, Any)](
         "autocommit"    -> (BooleanSetting, true),
+        "schema"        -> (StringSetting, None),
         "showbinary"    -> (IntSetting, 0),
         "showrowcount"  -> (BooleanSetting, true),
         "showtimings"   -> (BooleanSetting, true),
@@ -57,6 +74,9 @@ class SQLShell(val config: Configuration,
     val connectionInfo = connector.connect(dbInfo)
     val connection = connectionInfo.connection
     val historyPath = connectionInfo.configInfo.get("history")
+    if (connectionInfo.configInfo.get("schema") != None)
+        changeSetting("schema", connectionInfo.configInfo.get("schema").get)
+
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this),
                         new SelectHandler(this, connection),
@@ -146,6 +166,28 @@ class SQLShell(val config: Configuration,
         value.asInstanceOf[Int]
     }
 
+    def stringSetting(variableName: String): Option[String] =
+    {
+        assert(settings contains variableName)
+
+        val (valueType, value) = settings(variableName)
+        assert(valueType == StringSetting)
+        val sValue = value.asInstanceOf[String]
+        Some(sValue)
+    }
+
+    def printSettingValue(variableName: String) =
+    {
+        settings.get(variableName) match
+        {
+            case None =>
+                warning("Unknown setting: \"" + variableName + "\"")
+
+            case Some(tuple) =>
+                println(variableName + "=" + tuple._2)
+        }
+    }
+
     def changeSetting(variable: String, value: String) =
     {
         settings.get(variable) match
@@ -158,6 +200,107 @@ class SQLShell(val config: Configuration,
         }
     }
 
+    /**
+     * Get the table names that match a regular expression filter.
+     *
+     * @param schema      schema to use, or None for the default
+     * @param nameFilter  regular expression to use to filter the names
+     *
+     * @return a list of matching tables, or Nil
+     */
+    private[sqlshell] def getTables(schema: Option[String], 
+                                    nameFilter: Regex): List[TableSpec] =
+    {
+        def toOption(s: String): Option[String] =
+            if (s == null) None else Some(s)
+
+        def getTableData(rs: ResultSet): List[TableSpec] =
+        {
+            if (! rs.next)
+                Nil
+
+            else 
+                new TableSpec(toOption(rs.getString("TABLE_NAME")),
+                              toOption(rs.getString("TABLE_SCHEM")),
+                              toOption(rs.getString("TABLE_TYPE"))) ::
+                getTableData(rs)
+        }
+
+        val actualSchema = schema match
+        {
+            case None =>
+                stringSetting("schema")
+            case Some(s) =>
+                Some(s)
+        }
+
+        actualSchema match
+        {
+            case None =>
+                wrapPrintln("No schema specified, and no default schema set. " +
+                            "To set a default schema, use: " +
+                            ".set schema schemaName\n" +
+                            "Use a schema name of * for all schemas.")
+                Nil
+
+            case Some(schema) =>
+                val metadata = connection.getMetaData
+                val rs = metadata.getTables(null, schema, null, null)
+                try
+                {
+                    def matches(ts: TableSpec): Boolean =
+                        (ts != None) && 
+                        (nameFilter.findFirstIn(ts.name.get) != None)
+
+                    getTableData(rs).filter(matches(_))
+                }
+
+                finally
+                {
+                    rs.close
+                }
+        }
+    }
+
+    /**
+     * Get all table data.
+     *
+     * @param schema      schema to use, or None for the default
+     *
+     * @return a list of matching tables, or Nil
+     */
+    private[sqlshell] def getTables(schema: Option[String]): List[TableSpec] =
+        getTables(schema, """.*""".r)
+
+    /**
+     * Get the names of all schemas in the database.
+     *
+     * @return a list of schema names
+     */
+    private[sqlshell] def getSchemas: List[String] =
+    {
+        def getResults(rs: ResultSet): List[String] =
+        {
+            if (! rs.next)
+                Nil
+
+            else 
+                rs.getString(1) :: getResults(rs)
+        }
+
+        val metadata = connection.getMetaData
+        val rs = metadata.getSchemas
+        try
+        {
+            getResults(rs)
+        }
+
+        finally
+        {
+            rs.close
+        }
+    }
+
     private def loadSettings(config: Configuration) =
     {
         if (config.hasSection("settings"))
@@ -167,6 +310,8 @@ class SQLShell(val config: Configuration,
             for ((variable, value) <- config.options("settings"))
                 changeSetting(variable, value)
         }
+
+        
     }
 
     private def convertAndStoreSetting(variable: String, 
@@ -299,7 +444,11 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
             val i = args.indexOf('=')
             val chopAt = if (i >= 0) i else args.indexOf(' ')
             if (chopAt < 0)
-                error("Badly formatted \"" + CommandName + "\" command.")
+            {
+                val variable = args.trim
+                shell.printSettingValue(variable)
+            }
+
             else
             {
                 val variable = args.substring(0, chopAt).trim
@@ -648,33 +797,82 @@ private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
 
 private[sqlshell] class ShowHandler(val shell: SQLShell, 
                                     val connection: Connection)
-    extends CommandHandler
+    extends CommandHandler with TableNameRetriever with Wrapper
 {
     val CommandName = ".show"
-    val Usage = "Usage: .show tables [regex]|database"
-    val Help = """List all tables in the database.
-                 |
-                 |""" + Usage + """
-                 |The option regex parameter is a pattern to use to restrict
-                 |the tables that are displayed.""".stripMargin
+    val Help = """Show various useful things.
+    |
+    |.show database
+    |    Show information about the database.
+    |
+    |.show tables/<schema> [pattern]
+    |.show tables [pattern]
+    |
+    |    Show table names. "pattern" is a regular expression that can be used
+    |    to filter the table names. In the first form of the command, the
+    |    schema name is supplied, and tables from that schema are listed. In
+    |    the second form of the command, the schema is taken from the default
+    |    schema (see ".set schema").
+    |
+    | .show schemas
+    |    Show the names of all schemas in the database.""".stripMargin
 
-    private val completer = new ListCompleter(List("tables", "database"))
+    private val subCommands = List("tables", "database", "schemas")
+    private val subCommandCompleter = new ListCompleter(subCommands)
+    private val ShowTables = """^\s*tables(/[^/.\s]+)?\s*$""".r
+    private val ShowDatabase = """^\s*(database)\s*$""".r
+    private val ShowSchemas = """^\s*(schemas)\s*$""".r
 
     def runCommand(commandName: String, args: String): CommandAction =
     {
         args.trim.split("""\s""").toList match
         {
-            case "tables" :: Nil            => showTables(".*")
-            case "tables" :: pattern :: Nil => showTables(pattern)
-            case "database" :: Nil          => showDatabase
-            case anything                   => shell.error(Usage)
+            case ShowTables(schema) :: Nil =>
+                showTables(schema, ".*")
+            case ShowTables(schema) :: pattern :: Nil => 
+                showTables(schema, pattern)
+            case ShowDatabase(s) :: Nil =>
+                showDatabase
+            case ShowSchemas(s) :: Nil =>
+                showSchemas
+            case Nil =>
+                shell.error("Missing the things to show.")
+            case _ =>
+                shell.error("Bad .show command: \"" + args + "\"")
         }
 
         KeepGoing
     }
 
     override def complete(token: String, line: String): List[String] =
-        completer.complete(token, line)
+    {
+        line.split("""\s""").toList match
+        {
+            case Nil => 
+                assert(false) // shouldn't happen
+                Nil
+
+            case cmd :: Nil =>
+                // Command filled in (obviously, or we wouldn't be in here),
+                // but first argument not.
+                subCommandCompleter.complete(token, line)
+
+            case cmd :: ShowDatabase(s) :: Nil =>
+                Nil
+
+            case cmd :: ShowTables(s) :: Nil =>
+                Nil
+
+            case cmd :: ShowSchemas(s) :: Nil =>
+                Nil
+
+            case cmd :: s :: Nil =>
+                subCommandCompleter.complete(token, line)
+
+            case _ =>
+                Nil
+        }
+    }
 
     private def showDatabase =
     {
@@ -685,38 +883,34 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
         val driverVersion = metadata.getDriverVersion
 
         println(productName + ", " + productVersion)
-        println("Using JDBC driver " + driverName + ", " + driverVersion)
+        wrapPrintln("Using JDBC driver " + driverName + ", " + driverVersion)
     }
 
-    private def showTables(pattern: String) =
+    private def showTables(schema: String, pattern: String) =
     {
-        import scala.util.matching.Regex
+        val nameFilter = new Regex("(?i)" + pattern) // case insensitive
 
-        val nameFilter = new Regex(pattern)
-        val metadata = connection.getMetaData
-        val rs = metadata.getTables(null, null, null, null)
-
-        def getNames: List[String] =
+        val schemaOption = schema match
         {
-            if (! rs.next)
-                Nil
-
-            else
-                rs.getString("TABLE_NAME") :: getNames
+            case null => None
+            case _    => if (schema.startsWith("/")) 
+                             Some(schema.substring(1))
+                         else
+                             Some(schema)
         }
 
-        try
-        {
-            val names = getNames filter (nameFilter.findFirstIn(_) != None)
-            val sorted = names sort ((a, b) => a.toLowerCase < b.toLowerCase)
-            print(shell.columnarize(sorted, shell.OutputWidth))
-        }
-
-        finally
-        {
-            rs.close
-        }
+        val tables: List[TableSpec] = shell.getTables(schemaOption, nameFilter)
+        val tableNames = tables.filter(_.name != None).map(_.name.get)
+        val sorted = tableNames sort ((a, b) => a.toLowerCase < b.toLowerCase)
+        print(shell.columnarize(sorted, shell.OutputWidth))
 
         KeepGoing
+    }
+
+    private def showSchemas =
+    {
+        val schemas = shell.getSchemas
+        val sorted = schemas.sort((a, b) => a.toLowerCase < b.toLowerCase)
+        print(shell.columnarize(sorted, shell.OutputWidth))
     }
 }
