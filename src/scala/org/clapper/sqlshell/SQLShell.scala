@@ -11,6 +11,7 @@ import grizzled.config.Configuration
 import grizzled.math.util._
 
 import java.sql.{Connection,
+                 DatabaseMetaData,
                  ResultSet,
                  ResultSetMetaData,
                  Statement,
@@ -45,6 +46,11 @@ trait Wrapper
 
     def wrapPrintf(fmt: String, args: Any*) = 
         println(wordWrapper.wrap(fmt format(args: _*)))
+}
+
+trait Sorter
+{
+    def ascSorter(a: String, b: String) = a < b
 }
 
 private[sqlshell] class TableSpec(val name: Option[String],
@@ -315,6 +321,20 @@ class SQLShell(val config: Configuration,
         getTables(schema, """.*""".r)
 
     /**
+     * Get all table data.
+     *
+     * @param schema      schema to use; "" or null for the default
+     *
+     * @return a list of matching tables, or Nil
+     */
+    private[sqlshell] def getTables(schema: String): List[TableSpec] =
+    {
+        val schemaOpt = if ((schema == null) || (schema.trim == "")) None
+                        else Some(schema)
+        getTables(schemaOpt, """.*""".r)
+    }
+
+    /**
      * Get the names of all schemas in the database.
      *
      * @return a list of schema names
@@ -464,7 +484,7 @@ private[sqlshell] trait Timer
 /**
  * Handles the ".set" command.
  */
-class SetHandler(val shell: SQLShell) extends CommandHandler
+class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
 {
     val CommandName = ".set"
     val Help = """Change one of the SQLShell settings. Usage:
@@ -472,7 +492,7 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
                  |    .set            -- show the current settings
                  |    .set var=value  -- change a variable""".stripMargin
 
-    val variables = shell.settings.keys.toList.sort((a, b) => a < b)
+    val variables = shell.settings.keys.toList.sort(ascSorter)
     val completer = new ListCompleter(variables)
 
     def runCommand(commandName: String, args: String): CommandAction =
@@ -850,7 +870,8 @@ private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
 
 private[sqlshell] class DescribeHandler(val shell: SQLShell, 
                                         val connection: Connection)
-    extends CommandHandler with TableNameRetriever with Wrapper with JDBCHelper
+    extends CommandHandler 
+    with TableNameRetriever with Wrapper with JDBCHelper with Sorter
 {
     val CommandName = ".desc"
     val Help = """Show various useful things.
@@ -1002,23 +1023,6 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
             }
         }
 
-        def showDescriptions(desc: List[(String, String)]) =
-        {
-            val width = max(desc.map(item => item._1.length): _*)
-            val fmt = "    %-" + width + "s  %s"
-            // Note: Scala's format method doesn't left-justify.
-            def formatter = new java.util.Formatter
-
-            val colLines =
-                {for ((colName, colTypeName) <- desc)
-                     yield(formatter.format(fmt, colName, colTypeName))}.toList
-
-            println("TABLE " + table)
-            println("(")
-            println(colLines mkString ",\n")
-            println(");")
-        }
-
         withSQLStatement(connection)
         {
             statement =>
@@ -1032,11 +1036,232 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
                 if (descriptions == Nil)
                     error("Can't get metadata for table \"" + table + "\"")
                 else
-                    showDescriptions(descriptions)
+                {
+                    val width = max(descriptions.map(_._1.length): _*)
+                    val fmt = "    %-" + width + "s  %s"
+                    // Note: Scala's format method doesn't left-justify.
+                    def formatter = new java.util.Formatter
+
+                    val colLines =
+                        {for ((colName, colTypeName) <- descriptions)
+                             yield(formatter.format(fmt, colName, colTypeName))}
+
+                    // Use the table name returned from the driver.
+                    println("CREATE TABLE " + table)
+                    println("(")
+                    println(colLines mkString ",\n")
+                    println(");")
+
+                    if (full)
+                    {
+                        val schema = metadata.getSchemaName(1)
+                        // Map the table name to what the database engine
+                        // thinks the table's name should be. (Necessary
+                        // for Oracle.)
+                        findTableName(schema, table) match
+                        {
+                            case None => 
+                            case Some(s) =>
+                                showExtraTableData(metadata.getCatalogName(1),
+                                                   schema,
+                                                   s)
+                        }
+                    }
+                }
             }
         }
 
         KeepGoing
+    }
+
+    private def showExtraTableData(catalog: String, 
+                                   schema: String, 
+                                   table: String) =
+    {
+        val dmd = connection.getMetaData
+
+        showPrimaryKeys(dmd, catalog, schema, table)
+        showIndexes(dmd, catalog, schema, table)
+        showConstraints(dmd, catalog, schema, table)
+    }
+
+    private def findTableName(schema: String,
+                              table: String): Option[String] =
+    {
+        val lcTable = table.toLowerCase
+        val tables = shell.getTables(schema)
+        val matching = tables.filter(ts =>
+                                     (ts.name != None) &&
+                                     (ts.name.get.toLowerCase == lcTable))
+
+        matching.map(_.name.get) match
+        {
+            case tableName :: Nil =>
+                Some(tableName)
+
+            case tableName :: more =>
+                error("Too many tables match \"" + table + "\": ")
+                error(matching mkString ", ")
+                None
+
+            case Nil =>
+                error("No tables match \"" + table + "\"")
+                None
+        }
+    }
+
+    private def showPrimaryKeys(dmd: DatabaseMetaData,
+                                catalog: String, 
+                                schema: String, 
+                                table: String) =
+    {
+        def getPrimaryKeyColumns(rs: ResultSet): List[String]  =
+        {
+            if (! rs.next)
+                Nil
+            else
+                rs.getString("COLUMN_NAME") :: getPrimaryKeyColumns(rs)
+        }
+
+        val rs = dmd.getPrimaryKeys(catalog, schema, table)
+        withResultSet(rs)
+        {
+            val columns = getPrimaryKeyColumns(rs)
+            if (columns != Nil)
+                println("\nPrimary key columns: " + columns.mkString(", "))
+        }
+    }
+
+    private def showIndexes(dmd: DatabaseMetaData,
+                            catalog: String, 
+                            schema: String, 
+                            table: String) =
+    {
+        class IndexColumn(val columnName: String,
+                          val unique: Boolean,
+                          val ascending: Option[Boolean],
+                          val indexType: String)
+
+        import scala.collection.mutable.ArrayBuffer
+        val uniqueIndexes = MutableMap.empty[String, ArrayBuffer[IndexColumn]]
+        val nonUniqueIndexes = MutableMap.empty[String, 
+                                                ArrayBuffer[IndexColumn]]
+
+        def gatherIndexInfo(rs: ResultSet): Unit =
+        {
+            if (rs.next)
+            {
+                val indexName = rs.getString("INDEX_NAME")
+                val indexType = rs.getShort("TYPE") match
+                {
+                    case DatabaseMetaData.tableIndexClustered =>
+                        "clustered"
+                    case DatabaseMetaData.tableIndexHashed =>
+                        "hashed"
+                    case DatabaseMetaData.tableIndexOther =>
+                        ""
+                    case _ if (indexName != null) =>
+                        ""
+                    case _ =>
+                        null
+                }
+
+                if (indexType != null)
+                {
+                    val ascending = rs.getString("ASC_OR_DESC") match
+                    {
+                        case "A" => Some(true)
+                        case "D" => Some(false)
+                        case _   => None
+                    }
+
+                    val unique = ! rs.getBoolean("NON_UNIQUE")
+                    val column = rs.getString("COLUMN_NAME")
+
+                    val indexInfo = if (unique) uniqueIndexes 
+                                    else nonUniqueIndexes
+                    if (! (indexInfo contains indexName))
+                        indexInfo += (indexName -> new ArrayBuffer[IndexColumn])
+                    indexInfo(indexName) += new IndexColumn(column, 
+                                                            unique,
+                                                            ascending, 
+                                                            indexType)
+                }
+
+                gatherIndexInfo(rs)
+            }
+        }
+
+        def printIndex(indexName: String, columns: List[IndexColumn])
+        {
+            val buf = new ArrayBuffer[String]
+            val indexType = columns(0).indexType
+            if (columns(0).unique)
+                buf += "Unique"
+            else
+                buf += "Non-unique"
+
+            if ((indexType != null) && (indexType.trim != ""))
+                buf += (indexType + " index ")
+            else
+                buf += "index"
+
+            buf += indexName
+            buf += "on:"
+            buf += (columns.map(_.columnName) mkString ", ")
+            wrapPrintln(buf mkString " ")
+        }
+
+        def nullIfEmpty(s: String) =
+            if ((s == null) || (s.trim == "")) null else s
+
+        val rs = dmd.getIndexInfo(nullIfEmpty(catalog), 
+                                  nullIfEmpty(schema), 
+                                  table, 
+                                  false, 
+                                  true)
+        withResultSet(rs)
+        {
+            gatherIndexInfo(rs)
+        }
+
+        if ((uniqueIndexes.size + nonUniqueIndexes.size) > 0)
+        {
+            println()
+            for (indexName <- uniqueIndexes.keys.toList.sort(ascSorter))
+                printIndex(indexName, uniqueIndexes(indexName).toList)
+            for (indexName <- nonUniqueIndexes.keys.toList.sort(ascSorter))
+                printIndex(indexName, nonUniqueIndexes(indexName).toList)
+        }
+    }
+
+    private def showConstraints(dmd: DatabaseMetaData,
+                                catalog: String, 
+                                schema: String, 
+                                table: String) =
+    {
+        def checkForNull(s: String): String = if (s == null) "?" else s
+
+        def printOne(rs: ResultSet): Unit =
+        {
+            if (rs.next)
+            {
+                val fk_name = checkForNull(rs.getString("FK_NAME"))
+                printf("Foreign key %s: %s references %s.%s\n",
+                       fk_name,
+                       rs.getString("FKCOLUMN_NAME"),
+                       rs.getString("PKTABLE_NAME"),
+                       rs.getString("PKCOLUMN_NAME"));
+
+                printOne(rs)
+            }
+        }
+
+        val rs = dmd.getImportedKeys(catalog, schema, table)
+        withResultSet(rs)
+        {
+            printOne(rs)
+        }
     }
 }
 
