@@ -8,6 +8,7 @@ import grizzled.readline.Readline.ReadlineType._
 import grizzled.GrizzledString._
 import grizzled.string.WordWrapper
 import grizzled.config.Configuration
+import grizzled.math.util._
 
 import java.sql.{Connection,
                  ResultSet,
@@ -58,7 +59,7 @@ class SQLShell(val config: Configuration,
 {
     private[sqlshell] val settings = MutableMap[String, (SettingType, Any)](
         "autocommit"    -> (BooleanSetting, true),
-        "schema"        -> (StringSetting, None),
+        "schema"        -> (StringSetting, ""),
         "showbinary"    -> (IntSetting, 0),
         "showrowcount"  -> (BooleanSetting, true),
         "showtimings"   -> (BooleanSetting, true),
@@ -84,6 +85,7 @@ class SQLShell(val config: Configuration,
                         new DeleteHandler(this, connection),
                         new UpdateHandler(this, connection),
                         new ShowHandler(this, connection),
+                        new DescribeHandler(this, connection),
                         new SetHandler(this))
     private val unknownHandler = new UnknownHandler(this, connection)
 
@@ -201,6 +203,57 @@ class SQLShell(val config: Configuration,
     }
 
     /**
+     * Take a string (which may be null) representing a schema name and
+     * return a schema name. If the schema is null, then the default schema
+     * is returned. If there is no default schema, then <tt>None</tt> is
+     * returned and an error is printed.
+     *
+     * @param schemaName  the schema name (or null)
+     *
+     * @return <tt>Some(name)</tt> or <tt>None</tt>
+     */
+    private[sqlshell] def getSchema(schemaString: String): Option[String] =
+    {
+        val schemaOpt = schemaString match
+        {
+            case null => None
+            case s    => Some(s)
+        }
+
+        getSchema(schemaOpt)
+    }
+
+    /**
+     * Take a string option (which may be <tt>None</tt>) representing a
+     * schema name and return a schema name. If the schema is
+     * <tt>None</tt>, then the default schema is returned. If there is no
+     * default schema, then <tt>None</tt> is returned and an error is
+     * printed.
+     *
+     * @param schemaName  the schema name (or <tt>None</tt>)
+     *
+     * @return <tt>Some(name)</tt> or <tt>None</tt>
+     */
+    private[sqlshell] def getSchema(schema: Option[String]): Option[String] =
+    {
+        val actualSchema = schema match
+        {
+            case None =>
+                stringSetting("schema")
+            case Some(s) =>
+                Some(s)
+        }
+
+        if (actualSchema == None)
+            wrapPrintln("No schema specified, and no default schema set. " +
+                        "To set a default schema, use:\n\n" +
+                        ".set schema schemaName\n\n" +
+                        "Use a schema name of * for all schemas.")
+
+        actualSchema
+    }
+
+    /**
      * Get the table names that match a regular expression filter.
      *
      * @param schema      schema to use, or None for the default
@@ -226,21 +279,10 @@ class SQLShell(val config: Configuration,
                 getTableData(rs)
         }
 
-        val actualSchema = schema match
+        getSchema(schema) match
         {
             case None =>
-                stringSetting("schema")
-            case Some(s) =>
-                Some(s)
-        }
-
-        actualSchema match
-        {
-            case None =>
-                wrapPrintln("No schema specified, and no default schema set. " +
-                            "To set a default schema, use: " +
-                            ".set schema schemaName\n" +
-                            "Use a schema name of * for all schemas.")
+                // Error already reported.
                 Nil
 
             case Some(schema) =>
@@ -465,8 +507,6 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
 
     private def showSettings =
     {
-        import grizzled.math.util._
-
         val varWidth = max(variables.map(_.length): _*)
         val fmt = "%" + varWidth + "s: %s"
 
@@ -478,26 +518,43 @@ class SetHandler(val shell: SQLShell) extends CommandHandler
     }
 }
 
+trait JDBCHelper
+{
+    protected def withSQLStatement(connection: Connection)
+                                  (code: (Statement) => Unit) =
+    {
+        val statement = connection.createStatement
+        try
+        {
+            code(statement)
+        }
+
+        finally
+        {
+            statement.close
+        }
+    }
+
+    protected def withResultSet(rs: ResultSet)(code: => Unit) =
+    {
+        try
+        {
+            code
+        }
+
+        finally
+        {
+            rs.close
+        }
+    }
+}
+
 private[sqlshell] abstract class SQLHandler(val shell: SQLShell,
                                             val connection: Connection) 
-    extends CommandHandler with Timer
+    extends CommandHandler with Timer with JDBCHelper
 {
     override def moreInputNeeded(lineSoFar: String): Boolean =
         (! lineSoFar.ltrim.endsWith(";"))
-
-   protected def withSQLStatement(code: (Statement) => Unit) =
-   {
-       val statement = connection.createStatement
-       try
-       {
-           code(statement)
-       }
-
-       finally
-       {
-           statement.close
-       }
-   }
 
     protected def removeSemicolon(s: String): String =
         if (s endsWith ";")
@@ -530,7 +587,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
     def runCommand(commandName: String, args: String): CommandAction =
     {
         val newArgs = removeSemicolon(args)
-        withSQLStatement
+        withSQLStatement(connection)
         {
             statement =>
 
@@ -539,14 +596,10 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                 {
                     statement.executeQuery(commandName + " " + newArgs)
                 }
-            try
+
+            withResultSet(rs)
             {
                 dumpResults(elapsed, rs)
-            }
-
-            finally
-            {
-                rs.close
             }
         }
 
@@ -739,7 +792,7 @@ private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
     def runCommand(commandName: String, args: String): CommandAction =
     {
         val newArgs = removeSemicolon(args)
-        withSQLStatement
+        withSQLStatement(connection)
         {
             statement =>
 
@@ -795,15 +848,204 @@ private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
     val Help = """Issue an unknown SQL statement."""
 }
 
+private[sqlshell] class DescribeHandler(val shell: SQLShell, 
+                                        val connection: Connection)
+    extends CommandHandler with TableNameRetriever with Wrapper with JDBCHelper
+{
+    val CommandName = ".desc"
+    val Help = """Show various useful things.
+    |
+    |.desc database
+    |    Show information about the database.
+    |
+    |.desc table [full]
+    |
+    |    Describe a table, showing the column names and their types. If "full"
+    |    is specified, show the indexes and constraints, as well.
+    |
+    |    In the first form of the command, the schema name identifies the
+    |    schema in which to find the table. In the second form of the
+    |    command, the schema is taken from the default schema (see 
+    |    ".set schema").""".stripMargin
+
+    private val subCommands = List("table", "database")
+    private val subCommandCompleter = new ListCompleter(subCommands)
+
+    def runCommand(commandName: String, args: String): CommandAction =
+    {
+        args.trim.split("""\s""").toList match
+        {
+            case "database" :: stuff :: Nil =>
+                describeDatabase
+            case "database" :: Nil =>
+                describeDatabase
+            case table :: "full" :: Nil =>
+                describeTable(table, true)
+            case table :: Nil =>
+                describeTable(table, false)
+            case Nil =>
+                shell.error("Missing the object to describe.")
+            case _ =>
+                shell.error("Bad .desc command: \"" + args + "\"")
+        }
+
+        KeepGoing
+    }
+
+    override def complete(token: String, line: String): List[String] =
+    {
+        line.split("""\s""").toList match
+        {
+            case Nil => 
+                assert(false) // shouldn't happen
+                Nil
+
+            case cmd :: Nil =>
+                // Command filled in (obviously, or we wouldn't be in here),
+                // but first argument not.
+                subCommandCompleter.complete(token, line)
+
+            case cmd :: s :: Nil if (s == "database") =>
+                Nil
+
+            case cmd :: s :: Nil if (s.endsWith(" ")) =>
+                List("full")
+
+            case cmd :: s :: Nil =>
+                subCommandCompleter.complete(token, line)
+
+            case _ =>
+                Nil
+        }
+    }
+
+    private def describeDatabase =
+    {
+        val metadata = connection.getMetaData
+        val productName = metadata.getDatabaseProductName
+        val productVersion = metadata.getDatabaseProductVersion
+        val driverName = metadata.getDriverName
+        val driverVersion = metadata.getDriverVersion
+
+        println(productName + ", " + productVersion)
+        wrapPrintln("Using JDBC driver " + driverName + ", " + driverVersion)
+    }
+
+    private def describeTable(table: String, full: Boolean) =
+    {
+        def getColumnDescriptions(md: ResultSetMetaData,
+                                  i: Int): List[(String, String)] =
+        {
+            def precisionAndScale =
+            {
+                import scala.collection.mutable.ArrayBuffer
+
+                val precision = md.getPrecision(i)
+                val scale = md.getScale(i)
+                val buf = new ArrayBuffer[String]
+
+                if (precision > 0)
+                    buf += precision.toString
+
+                if (scale > 0)
+                    buf += scale.toString
+
+                buf.length match
+                {
+                    case 0 => ""
+                    case _ => "(" + buf.mkString(", ") + ")"
+                }
+            }
+
+            def charSize = 
+            {
+                val size = md.getColumnDisplaySize(i)
+                if (size > 0) "(" + size.toString + ")" else ""
+            }
+
+            if (i > md.getColumnCount)
+                Nil
+
+            else
+            {
+                val name = md.getColumnLabel(i) match
+                {
+                    case null => md.getColumnName(i)
+                    case s    => s
+                }
+
+                val typeName = md.getColumnTypeName(i)
+                val typeQualifier = md.getColumnType(i) match
+                {
+                    case Types.CHAR          => charSize
+                    case Types.CLOB          => charSize
+                    case Types.DECIMAL       => precisionAndScale
+                    case Types.DOUBLE        => precisionAndScale
+                    case Types.FLOAT         => precisionAndScale
+                    case Types.LONGVARCHAR   => charSize
+                    case Types.NUMERIC       => precisionAndScale
+                    case Types.REAL          => precisionAndScale
+                    case Types.VARCHAR       => charSize
+                    case _                   => ""
+                }
+
+                val fullTypeName = typeName + typeQualifier
+                val nullable = md.isNullable(i) match
+                {
+                    case ResultSetMetaData.columnNoNulls         => "NOT NULL"
+                    case ResultSetMetaData.columnNullable        => "NULL"
+                    case ResultSetMetaData.columnNullableUnknown => "NULL?"
+                }
+
+                (name, fullTypeName + " " + nullable) :: 
+                getColumnDescriptions(md, i + 1)
+            }
+        }
+
+        def showDescriptions(desc: List[(String, String)]) =
+        {
+            val width = max(desc.map(item => item._1.length): _*)
+            val fmt = "    %-" + width + "s  %s"
+            // Note: Scala's format method doesn't left-justify.
+            def formatter = new java.util.Formatter
+
+            val colLines =
+                {for ((colName, colTypeName) <- desc)
+                     yield(formatter.format(fmt, colName, colTypeName))}.toList
+
+            println("TABLE " + table)
+            println("(")
+            println(colLines mkString ",\n")
+            println(");")
+        }
+
+        withSQLStatement(connection)
+        {
+            statement =>
+
+            val rs = statement.executeQuery("SELECT * FROM " +
+                                            table + " WHERE 1 = 0")
+            withResultSet(rs)
+            {
+                val metadata = rs.getMetaData
+                val descriptions = getColumnDescriptions(metadata, 1)
+                if (descriptions == Nil)
+                    error("Can't get metadata for table \"" + table + "\"")
+                else
+                    showDescriptions(descriptions)
+            }
+        }
+
+        KeepGoing
+    }
+}
+
 private[sqlshell] class ShowHandler(val shell: SQLShell, 
                                     val connection: Connection)
     extends CommandHandler with TableNameRetriever with Wrapper
 {
     val CommandName = ".show"
     val Help = """Show various useful things.
-    |
-    |.show database
-    |    Show information about the database.
     |
     |.show tables/<schema> [pattern]
     |.show tables [pattern]
@@ -817,10 +1059,9 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
     | .show schemas
     |    Show the names of all schemas in the database.""".stripMargin
 
-    private val subCommands = List("tables", "database", "schemas")
+    private val subCommands = List("tables", "schemas")
     private val subCommandCompleter = new ListCompleter(subCommands)
     private val ShowTables = """^\s*tables(/[^/.\s]+)?\s*$""".r
-    private val ShowDatabase = """^\s*(database)\s*$""".r
     private val ShowSchemas = """^\s*(schemas)\s*$""".r
 
     def runCommand(commandName: String, args: String): CommandAction =
@@ -831,8 +1072,6 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
                 showTables(schema, ".*")
             case ShowTables(schema) :: pattern :: Nil => 
                 showTables(schema, pattern)
-            case ShowDatabase(s) :: Nil =>
-                showDatabase
             case ShowSchemas(s) :: Nil =>
                 showSchemas
             case Nil =>
@@ -857,9 +1096,6 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
                 // but first argument not.
                 subCommandCompleter.complete(token, line)
 
-            case cmd :: ShowDatabase(s) :: Nil =>
-                Nil
-
             case cmd :: ShowTables(s) :: Nil =>
                 Nil
 
@@ -872,18 +1108,6 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
             case _ =>
                 Nil
         }
-    }
-
-    private def showDatabase =
-    {
-        val metadata = connection.getMetaData
-        val productName = metadata.getDatabaseProductName
-        val productVersion = metadata.getDatabaseProductVersion
-        val driverName = metadata.getDriverName
-        val driverVersion = metadata.getDriverVersion
-
-        println(productName + ", " + productVersion)
-        wrapPrintln("Using JDBC driver " + driverName + ", " + driverVersion)
     }
 
     private def showTables(schema: String, pattern: String) =
