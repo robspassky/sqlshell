@@ -17,6 +17,7 @@ private[tool] class Params(val configFile: String,
 object Tool
 {
     import grizzled.file.util.joinPath
+    import scala.io.Source
     import joptsimple._
 
     val DefaultConfig = joinPath(System.getProperty("user.home"),
@@ -41,7 +42,7 @@ object Tool
 
         try
         {
-            val config = Configuration(params.configFile)
+            val config = Configuration(Source.fromFile(params.configFile))
             val shell = new SQLShell(config, 
                                      params.dbInfo, 
                                      params.readlineLibs,
