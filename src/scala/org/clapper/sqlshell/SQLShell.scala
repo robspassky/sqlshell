@@ -870,8 +870,7 @@ private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
 
 private[sqlshell] class DescribeHandler(val shell: SQLShell, 
                                         val connection: Connection)
-    extends CommandHandler 
-    with TableNameRetriever with Wrapper with JDBCHelper with Sorter
+    extends CommandHandler with Wrapper with JDBCHelper with Sorter
 {
     val CommandName = ".desc"
     val Help = """Show various useful things.
@@ -1267,7 +1266,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
 
 private[sqlshell] class ShowHandler(val shell: SQLShell, 
                                     val connection: Connection)
-    extends CommandHandler with TableNameRetriever with Wrapper
+    extends CommandHandler with Wrapper
 {
     val CommandName = ".show"
     val Help = """Show various useful things.
