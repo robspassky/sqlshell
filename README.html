@@ -1,0 +1,26 @@
+<html>
+<head><title>SQLShell: A SQL Command Shell</title></head>
+<body>
+<h1>SQLShell: A SQL Command Shell</h1>
+
+<h2>Introduction</h2>
+
+<p>This is SQLShell, a SQL command shell that uses JDBC.</p>
+
+<h2>Building</h2>
+
+<p>Building SQLShell requires <a href="http://code.google.com/p/simple-build-tool">SBT</a> (the Simple Build Tool). Install
+SBT, as described at the SBT web site. Then, run</p>
+
+<pre><code>sbt update
+</code></pre>
+
+<p>to pull down the external dependencies. After that step, build SQLShell
+with:</p>
+
+<pre><code>sbt update compile test package
+</code></pre>
+
+<p>The resulting jar file will be in the top-level <code>target</code> directory.</p>
+</body>
+</html>

@@ -1,0 +1,4 @@
+You've successfully installed SQLShell.
+
+For your convenience, a command-line wrapper script has been provided in
+the "bin" directory under "$INSTALL_PATH".
