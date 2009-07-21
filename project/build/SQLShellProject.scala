@@ -7,25 +7,34 @@ import java.io.{File, FileWriter, PrintWriter}
  */
 class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 {
-    // Compiler options
+    /* ---------------------------------------------------------------------- *\
+                             Compiler Options
+    \* ---------------------------------------------------------------------- */
 
     override def compileOptions = Unchecked :: super.compileOptions.toList
 
-    // Location of IzPack.
+    /* ---------------------------------------------------------------------- *\
+                             Various settings
+    \* ---------------------------------------------------------------------- */
 
-    def izPackHome = 
+    val izPackHome = 
         if (System.getenv("IZPACK_HOME") != null)
             System.getenv("IZPACK_HOME")
         else
             pathFor(System.getProperty("user.home"), "java", "IzPack")
 
-    // Installation task. Delegates to doInstall() method.
+    /* ---------------------------------------------------------------------- *\
+                               Custom tasks
+    \* ---------------------------------------------------------------------- */
 
-    lazy val installer = task {log.info("stub."); doInstall; None}
-        .dependsOn(packageAction) 
-        .describedAs("Build installer.")
+    // Build the installer jar. Delegates to buildInstaller() 
+    lazy val installer = task {buildInstaller; None}
+                         .dependsOn(packageAction) 
+                         .describedAs("Build installer.")
 
-    // External dependencies
+    /* ---------------------------------------------------------------------- *\
+                       Managed External Dependencies
+    \* ---------------------------------------------------------------------- */
 
     val scalaToolsRepo = "Scala-Tools Maven Repository" at 
         "http://scala-tools.org/repo-releases/org/scala-tools/testing/scalatest/0.9.5/"
@@ -48,7 +57,18 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     private def pathFor(pieces: String*): String = pathFor(pieces.toList)
 
-    private def edit(in: Source, edits: Map[String, String]): List[String] =
+    /**
+     * Edits a file, substituting variable references. Variable references
+     * look like @var@. The supplied map is used to find variable values; the
+     * keys are the variable names, without the @ characters. Any variable that
+     * isn't found in the map is silently ignored.
+     *
+     * @param in    the source file to read
+     * @param vars  the variables
+     *
+     * @return the edited lines in the file
+     */
+    private def editFile(in: Source, vars: Map[String, String]): List[String] =
     {
         def doEdits(line: String, keys: List[String]): String =
         {
@@ -58,7 +78,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                     line
 
                 case key :: tail =>
-                    val value = edits(key)
+                    val value = vars(key)
                     doEdits(line.replaceAll("@" + key + "@", value), tail)
             }
         }
@@ -71,19 +91,25 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                     Nil
 
                 case line :: tail =>
-                    doEdits(line, edits.keys.toList) :: editLines(tail)
+                    doEdits(line, vars.keys.toList) :: editLines(tail)
             }
         }
 
         editLines(in.getLines.toList)
     }
 
+    /**
+     * Simplified front-end to FileUtilities.clean()
+     */
     private def cleanDir(dir: Path) = FileUtilities.clean(dir, log)
 
-    private def doInstall =
+    /**
+     * Build the actual installer jar.
+     */
+    private def buildInstaller =
     {
         if (! new File(izPackHome).exists)
-            throw new Exception("Can't run IzPack intaller. No valid " +
+            throw new Exception("Can't run IzPack compiler. No valid " +
                                 "IZPACK_HOME.")
 
         // Determine what's to be installed.
@@ -94,54 +120,61 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         // Copy the third party jars (minus the ones we don't want) to a
         // temporary directory.
 
-        val thirdPartyJarDir = ("target"/"jars")
-        cleanDir(thirdPartyJarDir)
-        log.info("Creating " + thirdPartyJarDir.relativePath)
-        new File(thirdPartyJarDir.relativePath).mkdir
+        FileUtilities.withTemporaryDirectory(log)
+        {
+            jarDir =>
 
-        val jars1 = "lib_managed" ** 
-                    ("*.jar" - "izpack*.jar" - "scalatest*.jar")
-        val jars2 = "lib" ** "*.jar"
-        val jarsToInclude = jars1.get.toList ++ jars2.get.toList
-        log.info("Copying jars to \"" + thirdPartyJarDir.relativePath + "\"")
-        FileUtilities.copyFlat(jarsToInclude, thirdPartyJarDir, log)
+            // Get the list of jar files to include, besides the project's
+            // jar. Note to self: "**" means "recursive drill down". "*"
+            // means "immediate descendent".
 
-        // Create the IzPack configuration file from the template.
+            val jars = ("lib" +++ "lib_managed") **
+                       ("*.jar" - "izpack*.jar" - "scalatest*.jar")
+            val jarDirPath = Path.fromFile(jarDir)
+            log.info("Copying jars to \"" + jarDir + "\"")
+            FileUtilities.copyFlat(jars.get, jarDirPath, log)
 
-        log.info("Creating IzPack configuration file.")
-        val temp = File.createTempFile("inst", ".xml")
-        temp.deleteOnExit
-        val out = new PrintWriter(new FileWriter(temp))
+            // Create the IzPack configuration file from the template.
 
-        val edits = Map("SQLSHELL_VERSION" -> projectVersion.value.toString,
-                        "LICENSE" -> path("LICENSE.html").absolutePath,
-                        "README" -> path("README.html").absolutePath,
-                        "TOP_DIR" -> path(".").absolutePath,
-                        "JAR_FILE" -> jarPath.absolutePath,
-                        "THIRD_PARTY_JAR_DIR" -> thirdPartyJarDir.absolutePath,
-                        "SRC_INSTALL" -> installDir.absolutePath)
+            log.info("Creating IzPack configuration file.")
+            val temp = File.createTempFile("inst", ".xml")
+            temp.deleteOnExit
 
-        for (line <- edit(Source.fromFile(installFile.absolutePath), edits))
-            out.print(line)
-        out.close
-        println(temp.getPath)
+            val vars = Map("SQLSHELL_VERSION" -> projectVersion.value.toString,
+                           "LICENSE" -> path("LICENSE.html").absolutePath,
+                           "README" -> path("README.html").absolutePath,
+                           "TOP_DIR" -> path(".").absolutePath,
+                           "JAR_FILE" -> jarPath.absolutePath,
+                           "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
+                           "SRC_INSTALL" -> installDir.absolutePath)
 
-        // Run IzPack. Have to load the class, since it's not going to be
-        // available when this file is compiled.
+            val out = new PrintWriter(new FileWriter(temp))
+            try
+            {
+                for (line <- editFile(Source.fromFile(installFile.absolutePath),
+                                      vars))
+                    out.print(line)
+            }
+            finally
+            {
+                out.close
+            }
 
-        log.info("Creating installer jar.")
-        import sbt.Run.{run => runClass}
-        val izPath = "lib_managed" / "compile" * "*.jar"
-        val args = List(temp.getPath,
-                        "-h", izPackHome,
-                        "-b", ".",
-                        "-o", ("target"/"install.jar").absolutePath,
-                        "-k", "standard")
-        runClass("com.izforge.izpack.compiler.Compiler", 
-                 izPath.get,
-                 args,
-                 log)
+            // Run IzPack. Have to load the class, since it's not going to be
+            // available when this file is compiled.
 
-        cleanDir(thirdPartyJarDir)
+            log.info("Creating installer jar.")
+            import sbt.Run.{run => runClass}
+            val izPath = "lib_managed" / "compile" * "*.jar"
+            val args = List(temp.getPath,
+                            "-h", izPackHome,
+                            "-b", ".",
+                            "-o", ("target"/"install.jar").absolutePath,
+                            "-k", "standard")
+            runClass("com.izforge.izpack.compiler.Compiler", 
+                     izPath.get,
+                     args,
+                     log)
+        }
     }
 }

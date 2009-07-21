@@ -198,18 +198,16 @@
           clean up the incorrectly copied build directory in the final panel.
       -->
       <fileset dir="@TOP_DIR@" targetdir="$INSTALL_PATH/sources">
-        <exclude name="@BUILD_DIR_RELATIVE@/**"/>
         <exclude name="**/.svn"/>
         <exclude name="**/.git"/>
         <exclude name="docs/**"/>
 
+        <include name="src/main/izpack/**/*"/>
         <include name="**/*.java"/>
-        <include name="**/package.html"/>
-        <include name="overview.html"/>
+        <include name="**/*.scala"/>
         <include name="build.xml"/>
         <include name="**/*.xml"/>
         <include name="**/*.properties"/>
-        <include name="**/*.ftl"/>
       </fileset>
     </pack>
   </packs>
