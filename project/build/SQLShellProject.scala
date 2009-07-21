@@ -88,9 +88,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
         // Determine what's to be installed.
 
-        val installDirPieces = List(mainSourcePath.absolutePath, "izpack")
-        val installDir = pathFor(installDirPieces)
-        val installFile = pathFor(installDirPieces ++ List("install.xml"))
+        val installDir = mainSourcePath / "izpack"
+        val installFile = installDir / "install.xml"
 
         // Copy the third party jars (minus the ones we don't want) to a
         // temporary directory.
@@ -120,9 +119,9 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                         "TOP_DIR" -> path(".").absolutePath,
                         "JAR_FILE" -> jarPath.absolutePath,
                         "THIRD_PARTY_JAR_DIR" -> thirdPartyJarDir.absolutePath,
-                        "SRC_INSTALL" -> installDir)
+                        "SRC_INSTALL" -> installDir.absolutePath)
 
-        for (line <- edit(Source.fromFile(installFile), edits))
+        for (line <- edit(Source.fromFile(installFile.absolutePath), edits))
             out.print(line)
         out.close
         println(temp.getPath)
