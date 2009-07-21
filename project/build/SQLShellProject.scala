@@ -140,13 +140,17 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             val temp = File.createTempFile("inst", ".xml")
             temp.deleteOnExit
 
-            val vars = Map("SQLSHELL_VERSION" -> projectVersion.value.toString,
-                           "LICENSE" -> path("LICENSE.html").absolutePath,
-                           "README" -> path("README.html").absolutePath,
-                           "TOP_DIR" -> path(".").absolutePath,
-                           "JAR_FILE" -> jarPath.absolutePath,
-                           "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
-                           "SRC_INSTALL" -> installDir.absolutePath)
+            val vars = Map(
+                "API_DOCS_DIR" -> ("target"/"doc"/"main"/"api").absolutePath,
+                "DOCS_DIR" -> Path.fromFile("docs").absolutePath,
+                "JAR_FILE" -> jarPath.absolutePath,
+                "LICENSE" -> path("LICENSE.html").absolutePath,
+                "README" -> path("README.html").absolutePath,
+                "SQLSHELL_VERSION" -> projectVersion.value.toString,
+                "SRC_INSTALL" -> installDir.absolutePath,
+                "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
+                "TOP_DIR" -> path(".").absolutePath
+            )
 
             val out = new PrintWriter(new FileWriter(temp))
             try
