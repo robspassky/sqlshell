@@ -47,7 +47,7 @@ rem (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 rem THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 rem ---------------------------------------------------------------------------
 
-set SQLSHELL_SCALA_OPTS=""
+set SQLSHELL_SCALA_OPTS=
 
 rem Make sure Java user.home property accurately reflects home directory
 if NOT "%HOME%"=="" set SQLSHELL_SCALA_OPTS=%SQLSHELL_SCALA_OPTS% -Duser.home="%HOME%"
@@ -67,7 +67,7 @@ if "%SCALA_HOME%" == "" (
     goto end
 )
 
-"%SCALA_HOME%\bin\scala -cp "%_TOOL_CLASSPATH%" %SQLSHELL_SCALA_OPTS% org.clapper.sqlshell.tool.Tool %1 %2 %3 %4 %5 %6 %7 %8 %9
+"%SCALA_HOME%\bin\scala" -cp "%_TOOL_CLASSPATH%" %SQLSHELL_SCALA_OPTS% org.clapper.sqlshell.tool.Tool %1 %2 %3 %4 %5 %6 %7 %8 %9
 goto end
 
 rem ##########################################################################

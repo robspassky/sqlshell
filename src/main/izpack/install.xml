@@ -130,6 +130,9 @@
                includes="*.jar"
                targetdir="$INSTALL_PATH/lib"/>
 
+      <singlefile src="@SRC_INSTALL@/sample.cfg"
+                 target="$INSTALL_PATH/sample.cfg"/>
+
       <!-- shell file (Unix only) -->
 
       <singlefile src="@SRC_INSTALL@/sqlshell.sh"
