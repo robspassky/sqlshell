@@ -8,10 +8,12 @@ import java.io.{File, FileWriter, PrintWriter}
 class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 {
     /* ---------------------------------------------------------------------- *\
-                             Compiler Options
+                         Compiler and SBT Options
     \* ---------------------------------------------------------------------- */
 
     override def compileOptions = Unchecked :: super.compileOptions.toList
+
+    override def parallelExecution = true // why not?
 
     /* ---------------------------------------------------------------------- *\
                              Various settings
@@ -37,16 +39,16 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     \* ---------------------------------------------------------------------- */
 
     val scalaToolsRepo = "Scala-Tools Maven Repository" at 
-        "http://scala-tools.org/repo-releases/org/scala-tools/testing/scalatest/0.9.5/"
+        "http://scala-tools.org/repo-releases/"
 
     val scalatest = "org.scala-tools.testing" % "scalatest" % "0.9.5"
     val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val izPack = "org.codehaus.izpack" % "izpack-standalone-compiler" % "4.3.1"
 
-    // Grizzled comes from local machine for now
-    val grizzled = "grizzled-scala" % "grizzled-scala" % "0.1" from 
-        "http://darkroom.inside.clapper.org/~bmc/code/grizzled-scala-0.1.jar"
+    // Grizzled comes from local machine for now. This works, though, as long
+    // as someone has done a publish-local.
+    val grizzled = "grizzled-scala" % "grizzled-scala" % "0.1"
 
     /* ---------------------------------------------------------------------- *\
                           Private Helper Methods

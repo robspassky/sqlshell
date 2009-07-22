@@ -24,6 +24,9 @@ import java.text.SimpleDateFormat
 import scala.collection.mutable.{Map => MutableMap}
 import scala.util.matching.Regex
 
+/**
+ * Constants that identify the name, version, copyright, etc., of this tool.
+ */
 object Ident
 {
     val Version = "0.1"
@@ -33,11 +36,6 @@ object Ident
     val IdentString = "%s, version %s\n%s" format (Name, Version, Copyright)
 }
 
-abstract sealed class SettingType
-case object IntSetting extends SettingType
-case object StringSetting extends SettingType
-case object BooleanSetting extends SettingType
-
 trait Wrapper
 {
     val wordWrapper = new WordWrapper
@@ -46,11 +44,6 @@ trait Wrapper
 
     def wrapPrintf(fmt: String, args: Any*) = 
         println(wordWrapper.wrap(fmt format(args: _*)))
-}
-
-trait Sorter
-{
-    def ascSorter(a: String, b: String) = a < b
 }
 
 private[sqlshell] class TableSpec(val name: Option[String],
@@ -63,13 +56,14 @@ class SQLShell(val config: Configuration,
                showStackTraces: Boolean)
     extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper
 {
-    private[sqlshell] val settings = MutableMap[String, (SettingType, Any)](
-        "autocommit"    -> (BooleanSetting, true),
-        "schema"        -> (StringSetting, ""),
-        "showbinary"    -> (IntSetting, 0),
-        "showrowcount"  -> (BooleanSetting, true),
-        "showtimings"   -> (BooleanSetting, true),
-        "stacktrace"    -> (BooleanSetting, showStackTraces)
+    private[sqlshell] val settings = new Settings(
+        ("autocommit",   BooleanSetting, true),
+        ("ansi",         BooleanSetting, true),
+        ("schema",       StringSetting, ""),
+        ("showbinary",   IntSetting, 0),
+        ("showrowcount", BooleanSetting, true),
+        ("showtimings",  BooleanSetting, true),
+        ("stacktrace",   BooleanSetting, showStackTraces)
     )
 
     println(Ident.IdentString)
@@ -82,7 +76,8 @@ class SQLShell(val config: Configuration,
     val connection = connectionInfo.connection
     val historyPath = connectionInfo.configInfo.get("history")
     if (connectionInfo.configInfo.get("schema") != None)
-        changeSetting("schema", connectionInfo.configInfo.get("schema").get)
+        settings.changeSetting("schema", 
+                               connectionInfo.configInfo.get("schema").get)
 
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this),
@@ -97,6 +92,18 @@ class SQLShell(val config: Configuration,
 
     // Allow "." characters in commands.
     override def StartCommandIdentifier = super.StartCommandIdentifier + "."
+
+    override def error(message: String) =
+        if (settings.booleanSettingIsTrue("ansi"))
+            super.error(message)
+        else
+            println("Error: " + message)
+
+    override def warning(message: String) =
+        if (settings.booleanSettingIsTrue("ansi"))
+            super.error(message)
+        else
+            println("Warning: " + message)
 
     override def preLoop: Unit =
     {
@@ -144,7 +151,7 @@ class SQLShell(val config: Configuration,
                       else
                           e.getMessage
         error(message)
-        if (booleanSettingIsTrue("stacktrace"))
+        if (settings.booleanSettingIsTrue("stacktrace"))
             e.printStackTrace(System.out)
 
         KeepGoing
@@ -155,58 +162,6 @@ class SQLShell(val config: Configuration,
             ""
         else
             line
-
-    def booleanSettingIsTrue(variableName: String): Boolean =
-    {
-        assert(settings contains variableName)
-
-        val (valueType, value) = settings(variableName)
-        assert(valueType == BooleanSetting)
-        value.asInstanceOf[Boolean]
-    }
-
-    def intSetting(variableName: String): Int =
-    {
-        assert(settings contains variableName)
-
-        val (valueType, value) = settings(variableName)
-        assert(valueType == IntSetting)
-        value.asInstanceOf[Int]
-    }
-
-    def stringSetting(variableName: String): Option[String] =
-    {
-        assert(settings contains variableName)
-
-        val (valueType, value) = settings(variableName)
-        assert(valueType == StringSetting)
-        val sValue = value.asInstanceOf[String]
-        Some(sValue)
-    }
-
-    def printSettingValue(variableName: String) =
-    {
-        settings.get(variableName) match
-        {
-            case None =>
-                warning("Unknown setting: \"" + variableName + "\"")
-
-            case Some(tuple) =>
-                println(variableName + "=" + tuple._2)
-        }
-    }
-
-    def changeSetting(variable: String, value: String) =
-    {
-        settings.get(variable) match
-        {
-            case None =>
-                warning("Unknown setting: \"" + variable + "\"")
-
-            case Some(tuple) =>
-                convertAndStoreSetting(variable, value, tuple._1)
-        }
-    }
 
     /**
      * Take a string (which may be null) representing a schema name and
@@ -245,7 +200,7 @@ class SQLShell(val config: Configuration,
         val actualSchema = schema match
         {
             case None =>
-                stringSetting("schema")
+                settings.stringSetting("schema")
             case Some(s) =>
                 Some(s)
         }
@@ -370,55 +325,16 @@ class SQLShell(val config: Configuration,
             println("Loading \"settings\" section from the configuration.")
 
             for ((variable, value) <- config.options("settings"))
-                changeSetting(variable, value)
-        }
-
-        
-    }
-
-    private def convertAndStoreSetting(variable: String, 
-                                       value: String, 
-                                       valueType: SettingType) =
-    {
-        import grizzled.string.implicits._
-
-        valueType match
-        {
-            case IntSetting =>
                 try
                 {
-                    settings(variable) = (valueType, value.toInt)
+                    settings.changeSetting(variable, value)
                 }
-
                 catch
                 {
-                    case e: NumberFormatException =>
-                        error("Attempt to set \"" + variable + "\" to \"" +
-                              value + "\" failed: Bad numeric value.")
+                    case e: UnknownVariableException => warning(e.message)
                 }
-
-            case BooleanSetting =>
-                try
-                {
-                    val boolValue: Boolean = value
-                    settings(variable) = (valueType, boolValue)
-                }
-
-                catch
-                {
-                    case e: IllegalArgumentException =>
-                        error("Attempt to set \"" + variable + "\" to \"" +
-                              value + "\" failed: " + e.getMessage)
-                }
-
-            case StringSetting =>
-                settings(variable) = (valueType, value)
-
-            case _ =>
-                assert(false)
         }
     }
-
 }
 
 /**
@@ -492,7 +408,7 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
                  |    .set            -- show the current settings
                  |    .set var=value  -- change a variable""".stripMargin
 
-    val variables = shell.settings.keys.toList.sort(ascSorter)
+    val variables = shell.settings.variableNames
     val completer = new ListCompleter(variables)
 
     def runCommand(commandName: String, args: String): CommandAction =
@@ -505,17 +421,25 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
         {
             val i = args.indexOf('=')
             val chopAt = if (i >= 0) i else args.indexOf(' ')
-            if (chopAt < 0)
+            try
             {
-                val variable = args.trim
-                shell.printSettingValue(variable)
+                if (chopAt < 0)
+                {
+                    val variable = args.trim
+                    println(shell.settings.settingValueToString(variable))
+                }
+
+                else
+                {
+                    val variable = args.substring(0, chopAt).trim
+                    val value = args.substring(chopAt + 1).trim
+                    shell.settings.changeSetting(variable, value)
+                }
             }
 
-            else
+            catch
             {
-                val variable = args.substring(0, chopAt).trim
-                val value = args.substring(chopAt + 1).trim
-                shell.changeSetting(variable, value)
+                case e: UnknownVariableException => shell.warning(e.message)
             }
         }
 
@@ -630,7 +554,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
     {
         val (rows, colNamesAndSizes, dataFile) = preprocess(rs)
 
-        if (shell.booleanSettingIsTrue("showrowcount"))
+        if (shell.settings.booleanSettingIsTrue("showrowcount"))
         {
             if (rows == 0)
                 println("No rows returned.")
@@ -640,7 +564,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                 println(rows + " rows returned.")
         }
 
-        if (shell.booleanSettingIsTrue("showtimings"))
+        if (shell.settings.booleanSettingIsTrue("showtimings"))
             println("Execution time: " + formatInterval(elapsed))
 
         // Note: Scala's format method doesn't left-justify.
@@ -822,7 +746,7 @@ private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
                     statement.executeUpdate(commandName + " " + newArgs)
                 }
 
-            if (shell.booleanSettingIsTrue("showrowcount"))
+            if (shell.settings.booleanSettingIsTrue("showrowcount"))
             {
                 if (rows == 0)
                     println("No rows affected.")
@@ -832,7 +756,7 @@ private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
                     println(rows + " rows affected.")
             }
 
-            if (shell.booleanSettingIsTrue("showtimings"))
+            if (shell.settings.booleanSettingIsTrue("showtimings"))
                 println("Execution time: " + formatInterval(elapsed))
         }
 
