@@ -53,12 +53,13 @@ private[sqlshell] class TableSpec(val name: Option[String],
 class SQLShell(val config: Configuration,
                dbInfo: DatabaseInfo,
                readlineLibs: List[ReadlineType],
+               useAnsiColors: Boolean,
                showStackTraces: Boolean)
     extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper
 {
     private[sqlshell] val settings = new Settings(
         ("autocommit",   BooleanSetting, true),
-        ("ansi",         BooleanSetting, true),
+        ("ansi",         BooleanSetting, useAnsiColors),
         ("schema",       StringSetting, ""),
         ("showbinary",   IntSetting, 0),
         ("showrowcount", BooleanSetting, true),

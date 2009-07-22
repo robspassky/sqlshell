@@ -9,9 +9,10 @@ import grizzled.readline.Readline.ReadlineType
 private[tool] class Params(val configFile: String,
                            val dbInfo: DatabaseInfo,
                            val readlineLibs: List[ReadlineType],
+                           val useAnsiColors: Boolean,
                            val showStackTraces: Boolean)
 {
-    def this() = this(null, null, Nil, false)
+    def this() = this(null, null, Nil, true, false)
 }
 
 object Tool
@@ -46,6 +47,7 @@ object Tool
             val shell = new SQLShell(config, 
                                      params.dbInfo, 
                                      params.readlineLibs,
+                                     params.useAnsiColors,
                                      params.showStackTraces)
             shell.mainLoop
         }
@@ -75,6 +77,11 @@ object Tool
                           DefaultConfig)
               .withRequiredArg
               .describedAs("config_file")
+        parser.acceptsAll(asList("n", "no-ansi", "noansi"),
+                          "Disable the use of ANSI terminal sequences. This " +
+                          "option just sets the initial value for this " +
+                          "setting. The value can be changed later from " +
+                          "withing SQLShell itself.")
         parser.acceptsAll(asList("r", "readline"),
                           "Specify readline libraries to use. Legal values: " +
                           "editline, getline, gnu, jline, simple. May be " +
@@ -97,6 +104,7 @@ object Tool
                     DefaultConfig
 
             val showStackTraces = options.has("s")
+            val showAnsi = ! options.has("n")
 
             val positionalParams =
                 (for (s <- options.nonOptionArguments) yield s).toList
@@ -139,6 +147,7 @@ object Tool
             val result = new Params(config,
                                     dbInfo,
                                     readlineLibs,
+                                    showAnsi,
                                     showStackTraces)
 
             val abort = options.has("?") || options.has("v")
