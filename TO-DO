@@ -1,2 +1,2 @@
-1. Table completion on .desc command
-2. Templates for DB connection strings
+1. Templates for DB connection strings
+2. Implement "showbinary" setting.

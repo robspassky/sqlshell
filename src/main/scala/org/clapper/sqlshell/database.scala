@@ -48,13 +48,23 @@ private[sqlshell] class ConnectionInfo(val connection: SQLConnection,
 private[sqlshell] class DatabaseConnector(val config: Configuration)
 {
     def connect(info: DatabaseInfo): ConnectionInfo =
+    {
         if (info.dbName != null)
             connectByName(info.dbName.get)
 
         else
         {
-            val conn = connectJDBC(info.dbDriver,
-                                   info.dbURL,
+            // The driver name might be an alias. If it is, get the real
+            // class name.
+
+            if (info.dbDriver == None)
+                throw new SQLShellException("JDBC driver name cannot be null.")
+
+            if (info.dbURL == None)
+                throw new SQLShellException("JDBC URL cannot be null.")
+
+            val conn = connectJDBC(getDriver(info.dbDriver.get),
+                                   info.dbURL.get,
                                    info.dbUser,
                                    info.dbPassword)
             val options = Map("driver" -> optionToString(info.dbDriver),
@@ -63,6 +73,7 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                               "password" -> optionToString(info.dbPassword))
             new ConnectionInfo(conn, options)
         }
+    }
 
     private def connectByName(dbName: String): ConnectionInfo =
     {
@@ -93,8 +104,12 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                                             dbName + "\"")
 
             case sectionName :: Nil =>
-                val conn = connectJDBC(option(sectionName, "driver", true),
-                                       option(sectionName, "url", true),
+                // The driver name might be an alias. If it is, get the real
+                // class name.
+                val driverOption = option(sectionName, "driver", true)
+                val driverClassName = getDriver(driverOption.get)
+                val conn = connectJDBC(driverClassName,
+                                       option(sectionName, "url", true).get,
                                        option(sectionName, "user", false),
                                        option(sectionName, "password", false))
                 new ConnectionInfo(conn, config.options(sectionName))
@@ -107,8 +122,8 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
         }
     }
 
-    def connectJDBC(driverClassName: Option[String],
-                    url: Option[String],
+    def connectJDBC(driverClassName: String,
+                    url: String,
                     user: Option[String],
                     password: Option[String]): SQLConnection =
     {
@@ -120,14 +135,14 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
 
         try
         {
-            val cls = Class.forName(driverClassName.get)
+            val cls = Class.forName(driverClassName)
             val driver = cls.newInstance.asInstanceOf[JDBCDriver]
-            val connection = driver.connect(url.get, properties)
+            val connection = driver.connect(url, properties)
 
             // SQLite3 driver returns a null connection on connection
             // failure.
             if (connection == null)
-                throw new SQLException("Cannot connect to \"" + url.get + "\"")
+                throw new SQLException("Cannot connect to \"" + url + "\"")
             connection
         }
 
@@ -135,11 +150,17 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
         {
             case e: ClassNotFoundException =>
                 val ex = new SQLException("JDBC driver class " +
-                                          "\"" + driverClassName.get +
+                                          "\"" + driverClassName +
                                           "\" not found.")
                 ex.initCause(e)
                 throw ex
         }
+    }
+
+    private def getDriver(driverName: String): String =
+    {
+        val configDriverClass = config.option("drivers", driverName, null)
+        if (configDriverClass != null) configDriverClass else driverName
     }
 
     private def optionToString(option: Option[String]): String =

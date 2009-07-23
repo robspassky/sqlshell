@@ -22,7 +22,7 @@ private[sqlshell] class Settings(values: (String, SettingType, Any)*)
     for ((name, settingType, value) <- values)
         settingsMap += (name -> (settingType, value))
 
-    def variableNames = settingsMap.keys.toList.sort(ascSorter)
+    def variableNames = settingsMap.keys.toList.sort(nameSorter)
 
     def apply(variableName: String): (SettingType, Any) =
     {

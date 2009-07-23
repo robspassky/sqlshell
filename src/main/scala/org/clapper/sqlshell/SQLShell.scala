@@ -50,12 +50,24 @@ private[sqlshell] class TableSpec(val name: Option[String],
                                   val schema: Option[String],
                                   val tableType: Option[String])
 
+/**
+ * The actual class that implements the command line interpreter.
+ *
+ * @param config          the loaded configuration file
+ * @param dbInfo          the information about the database to which to connect
+ * @param readlineLibs    the list of readline libraries to try, in order; or
+ *                        <tt>Nil</tt> to use the default set.
+ * @param useAnsiColors   <tt>true</tt> to use ANSI terminal colors in various
+ *                        output, <tt>false</tt> to avoid them
+ * @param showStackTraces whether or not to show stack traces on error
+ */
 class SQLShell(val config: Configuration,
                dbInfo: DatabaseInfo,
                readlineLibs: List[ReadlineType],
                useAnsiColors: Boolean,
                showStackTraces: Boolean)
-    extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper
+    extends CommandInterpreter("sqlshell", readlineLibs) 
+    with Wrapper with Sorter
 {
     private[sqlshell] val settings = new Settings(
         ("autocommit",   BooleanSetting, true),
@@ -80,6 +92,8 @@ class SQLShell(val config: Configuration,
         settings.changeSetting("schema", 
                                connectionInfo.configInfo.get("schema").get)
 
+    // List of command handlers.
+
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this),
                         new SelectHandler(this, connection),
@@ -96,13 +110,13 @@ class SQLShell(val config: Configuration,
 
     override def error(message: String) =
         if (settings.booleanSettingIsTrue("ansi"))
-            super.error(message)
+            println(Console.RED + "Error: " + message + Console.RESET)
         else
             println("Error: " + message)
 
     override def warning(message: String) =
         if (settings.booleanSettingIsTrue("ansi"))
-            super.error(message)
+            println(Console.YELLOW + "Warning: " + message + Console.RESET)
         else
             println("Warning: " + message)
 
@@ -249,7 +263,8 @@ class SQLShell(val config: Configuration,
 
             case Some(schema) =>
                 val metadata = connection.getMetaData
-                val rs = metadata.getTables(null, schema, null, null)
+                val rs = metadata.getTables(null, schema, null,
+                                            Array("TABLE", "VIEW"))
                 try
                 {
                     def matches(ts: TableSpec): Boolean =
@@ -291,6 +306,20 @@ class SQLShell(val config: Configuration,
     }
 
     /**
+     * Get the names of all tables in a given schema.
+     *
+     * @param schema the schema to use, or None for the default
+     *
+     * @return a sorted list of table names
+     */
+    private[sqlshell] def getTableNames(schema: Option[String]): List[String] =
+    {
+        val tableData = getTables(schema)
+        val tableNames = tableData.filter(_.name != None).map(_.name.get)
+        tableNames.sort(nameSorter)
+    }
+
+    /**
      * Get the names of all schemas in the database.
      *
      * @return a list of schema names
@@ -323,8 +352,6 @@ class SQLShell(val config: Configuration,
     {
         if (config.hasSection("settings"))
         {
-            println("Loading \"settings\" section from the configuration.")
-
             for ((variable, value) <- config.options("settings"))
                 try
                 {
@@ -814,8 +841,12 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
     |    command, the schema is taken from the default schema (see 
     |    ".set schema").""".stripMargin
 
-    private val subCommands = List("table", "database")
-    private val subCommandCompleter = new ListCompleter(subCommands)
+    private val subCommands = List("database")
+    private def subCommandCompleter =
+    {
+        val tables = shell.getTableNames(None)
+        new ListCompleter(subCommands ++ tables)
+    }
 
     def runCommand(commandName: String, args: String): CommandAction =
     {
@@ -1153,9 +1184,9 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
         if ((uniqueIndexes.size + nonUniqueIndexes.size) > 0)
         {
             println()
-            for (indexName <- uniqueIndexes.keys.toList.sort(ascSorter))
+            for (indexName <- uniqueIndexes.keys.toList.sort(nameSorter))
                 printIndex(indexName, uniqueIndexes(indexName).toList)
-            for (indexName <- nonUniqueIndexes.keys.toList.sort(ascSorter))
+            for (indexName <- nonUniqueIndexes.keys.toList.sort(nameSorter))
                 printIndex(indexName, nonUniqueIndexes(indexName).toList)
         }
     }
@@ -1192,7 +1223,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
 
 private[sqlshell] class ShowHandler(val shell: SQLShell, 
                                     val connection: Connection)
-    extends CommandHandler with Wrapper
+    extends CommandHandler with Wrapper with Sorter
 {
     val CommandName = ".show"
     val Help = """Show various useful things.
@@ -1275,7 +1306,7 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
 
         val tables: List[TableSpec] = shell.getTables(schemaOption, nameFilter)
         val tableNames = tables.filter(_.name != None).map(_.name.get)
-        val sorted = tableNames sort ((a, b) => a.toLowerCase < b.toLowerCase)
+        val sorted = tableNames sort (nameSorter)
         print(shell.columnarize(sorted, shell.OutputWidth))
 
         KeepGoing
