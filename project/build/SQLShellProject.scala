@@ -31,7 +31,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     // Build the installer jar. Delegates to buildInstaller() 
     lazy val installer = task {buildInstaller; None}
-                         .dependsOn(packageAction) 
+                         .dependsOn(packageAction, docAction)
                          .describedAs("Build installer.")
 
     /* ---------------------------------------------------------------------- *\
@@ -45,7 +45,6 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val izPack = "org.codehaus.izpack" % "izpack-standalone-compiler" % "4.3.1"
-    //val textile = "net.liftweb" % "lift-textile" % "1.0"
 
     // Grizzled comes from local machine for now. This works, though, as long
     // as someone has done a publish-local.
