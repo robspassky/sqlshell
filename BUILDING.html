@@ -1,0 +1,36 @@
+<html>
+<head>
+<title>SQLShell: A SQL Command Shell</title>
+</head>
+<body>
+<h1>SQLShell: A SQL Command Shell</h2>
+
+<h2>Introduction</h2>
+
+<p>SQLShell is a SQL command line tool, similar in concept to tools like
+Oracle's
+<a href="http://www.oracle.com/technology/docs/tech/sql_plus/index.html">SQL*Plus</a>,
+the PostgreSQL <tt>psql</tt> command, and MySQL's <tt>mysql</tt> tool.</p>
+
+<h2>Building SQLShell</h2>
+
+<p>Building SQLShell requires 
+<a href="http://code.google.com/p/simple-build-tool">SBT</a> (the
+Simple Build Tool). Install SBT, as described at the SBT web site. Then,
+run:
+
+<blockquote><pre>sbt update</pre></blockquote>
+
+<p>to pull down the external dependencies. After that step, build SQLShell
+with:</p>
+
+<blockquote><pre>sbt compile test package</pre></blockquote>
+
+<p>The resulting jar file will be in the top-level <tt>target</tt>
+directory.</p>
+
+<hr/>
+Copyright &copy; 2009 Brian M. Clapper, <i>bmc@clapper.org</i>
+</body>
+</html>
+
