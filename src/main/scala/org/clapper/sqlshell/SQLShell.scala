@@ -546,8 +546,10 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
     import java.io.{EOFException,
                     FileInputStream,
                     FileOutputStream,
+                    InputStream,
                     ObjectInputStream,
-                    ObjectOutputStream}
+                    ObjectOutputStream,
+                    Reader}
 
     val DateFormatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.S")
     val CommandName = "select"
@@ -704,24 +706,108 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
     {
         def getDateString(date: Date): String = DateFormatter.format(date)
 
+        def readSome(r: {def read(): Int}, cur: Int, max: Int): List[Byte] =
+        {
+            if (r == null)
+                Nil
+
+            else if (cur >= max)
+                Nil
+
+            else
+            {
+                val b = r.read()
+                if (b == -1)
+                    Nil
+                else
+                    b.asInstanceOf[Byte] :: readSome(r, cur + 1, max)
+            }
+        }
+
+        def clobString(r: Reader): String =
+        {
+            try
+            {
+                val binaryLength = shell.settings.intSetting("showbinary")
+
+                if (binaryLength == 0)
+                    "<clob>"
+
+                else
+                {
+                    // Read one more than the binary length. If we get that
+                    // many, then display an ellipsis.
+
+                    val buf = readSome(r, 0, binaryLength + 1)
+                                  .map(_.asInstanceOf[Char])
+                    buf.length match
+                    {
+                        case 0 =>                       ""
+                        case n if (n > binaryLength) => buf.mkString("") + "..."
+                        case n =>                       buf.mkString("")
+                    }
+                }
+            }
+
+            finally
+            {
+                r.close
+            }
+        }
+
+        def binaryString(is: InputStream): String =
+        {
+            try
+            {
+                val binaryLength = shell.settings.intSetting("showbinary")
+                if (binaryLength == 0)
+                    "<binary>"
+
+                else
+                {
+                    // Read one more than the binary length. If we get that
+                    // many, then display an ellipsis.
+
+                    val buf = readSome(is, 0, binaryLength + 1)
+                    val ellipsis = buf.length > binaryLength
+                    val hexList = 
+                    {
+                        for (b <- buf)
+                            yield b.asInstanceOf[Int].toHexString.toList match
+                            {
+                                case digit :: Nil => "0" + digit
+                                case digits       => digits mkString ""
+                            }
+                    }
+                    val hexString = hexList.mkString("")
+                    if (ellipsis) hexString + "..." else hexString
+                }
+            }
+
+            finally
+            {
+                is.close
+            }
+        }
+
         def nonNullColAsString(i: Int): String =
         {
             metadata.getColumnType(i) match
             {
                 case Types.ARRAY         => rs.getArray(i).toString
                 case Types.BIGINT        => rs.getLong(i).toString
-                case Types.BINARY        => "<binary>"
-                case Types.BLOB          => "<binary>"
+                case Types.BINARY        => binaryString(rs.getBinaryStream(i))
+                case Types.BLOB          => binaryString(rs.getBinaryStream(i))
                 case Types.BOOLEAN       => rs.getBoolean(i).toString
                 case Types.CHAR          => rs.getString(9)
-                case Types.CLOB          => "<clob>"
+                case Types.CLOB          => clobString(rs.getCharacterStream(i))
                 case Types.DATE          => getDateString(rs.getDate(i))
                 case Types.DECIMAL       => rs.getBigDecimal(i).toString
                 case Types.DOUBLE        => rs.getDouble(i).toString
                 case Types.FLOAT         => rs.getFloat(i).toString
                 case Types.INTEGER       => rs.getInt(i).toString
-                case Types.LONGVARBINARY => "<longvarbinary>"
-                case Types.LONGVARCHAR   => "<longvarchar>"
+                case Types.LONGVARBINARY => binaryString(rs.getBinaryStream(i))
+                case Types.LONGVARCHAR   => clobString(rs.getCharacterStream(i))
                 case Types.NULL          => "<null>"
                 case Types.NUMERIC       => rs.getDouble(i).toString
                 case Types.REAL          => rs.getDouble(i).toString
@@ -729,7 +815,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                 case Types.TIME          => getDateString(rs.getTime(i))
                 case Types.TIMESTAMP     => getDateString(rs.getTimestamp(i))
                 case Types.TINYINT       => rs.getInt(i).toString
-                case Types.VARBINARY     => "<varbinary>"
+                case Types.VARBINARY     => binaryString(rs.getBinaryStream(i))
                 case Types.VARCHAR       => rs.getString(i).toString
                 case _                   => rs.getObject(i).toString
             }
