@@ -1,26 +1,40 @@
 <html>
-<head><title>SQLShell: A SQL Command Shell</title></head>
+<head>
+<title>SQLShell: A SQL Command Shell</title>
+</head>
 <body>
-<h1>SQLShell: A SQL Command Shell</h1>
+<h1>SQLShell: A SQL Command Shell</h2>
 
 <h2>Introduction</h2>
 
-<p>This is SQLShell, a SQL command shell that uses JDBC.</p>
+<p>SQLShell is a SQL command line tool, similar in concept to tools like
+Oracle's
+<a href="http://www.oracle.com/technology/docs/tech/sql_plus/index.html">SQL*Plus</a>,
+the PostgreSQL <tt>psql</tt> command, and MySQL's <tt>mysql</tt> tool.</p>
 
-<h2>Building</h2>
+<h2>Some Features at a Glance</h2>
 
-<p>Building SQLShell requires <a href="http://code.google.com/p/simple-build-tool">SBT</a> (the Simple Build Tool). Install
-SBT, as described at the SBT web site. Then, run</p>
+<ul>
+  <li>Connection parameters for individual databases can be kept in a
+      configuration file in your home directory, allowing you to specify a
+      short logical name for the database when you connect to it. (Multiple
+      logical names are permitted for each database.)</li>
+  <li>SQLShell has command history management, with GNU Readline-like
+      support. Each database has its own history file.</li>
+  <li>SQLShell supports retrieving and displaying database metadata (e.g.,
+      getting a list of tables, querying the table's columns and their
+      data types, listing the indexes and foreign keys for a table, etc.).</li>
+  <li>SQLShell provides a standard interface that looks and behaves the same
+      no matter what database you're using.</li>
+  <li>SQLShell supports any database engine or which a JDBC driver exists.</li>
+  <li>SQLShell is written in <a href="http://www.scala-lang.org/">Scala</a>,
+      and uses some third-party, open-source Scala and Java libraries.</li>
+  <li>SQLShell is open source, and is licensed under a liberal BSD-style
+      license.</li>
+</ul>
 
-<pre><code>sbt update
-</code></pre>
-
-<p>to pull down the external dependencies. After that step, build SQLShell
-with:</p>
-
-<pre><code>sbt update compile test package
-</code></pre>
-
-<p>The resulting jar file will be in the top-level <code>target</code> directory.</p>
+<hr/>
+Copyright &copy; 2009 Brian M. Clapper, <i>bmc@clapper.org</i>
 </body>
 </html>
+
