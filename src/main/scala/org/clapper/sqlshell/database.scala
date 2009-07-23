@@ -142,16 +142,16 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
             // SQLite3 driver returns a null connection on connection
             // failure.
             if (connection == null)
-                throw new SQLException("Cannot connect to \"" + url + "\"")
+                throw new SQLShellException("Cannot connect to \"" + url + "\"")
             connection
         }
 
         catch
         {
             case e: ClassNotFoundException =>
-                val ex = new SQLException("JDBC driver class " +
-                                          "\"" + driverClassName +
-                                          "\" not found.")
+                val ex = new SQLShellException("JDBC driver class " +
+                                               "\"" + driverClassName +
+                                               "\" not found.")
                 ex.initCause(e)
                 throw ex
         }

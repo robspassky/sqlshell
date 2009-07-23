@@ -80,6 +80,7 @@ class SQLShell(val config: Configuration,
     )
 
     println(Ident.IdentString)
+    println()
     println("Using " + readline + " readline implementation.")
 
     loadSettings(config)
