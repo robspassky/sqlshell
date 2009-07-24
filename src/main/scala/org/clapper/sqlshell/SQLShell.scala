@@ -103,7 +103,8 @@ class SQLShell(val config: Configuration,
                         new UpdateHandler(this, connection),
                         new ShowHandler(this, connection),
                         new DescribeHandler(this, connection),
-                        new SetHandler(this))
+                        new SetHandler(this),
+                        new ExitHandler)
     private val unknownHandler = new UnknownHandler(this, connection)
 
     // Allow "." characters in commands.
@@ -427,6 +428,17 @@ private[sqlshell] trait Timer
 }
 
 /**
+ * Handles the "exit" command
+ */
+class ExitHandler extends CommandHandler
+{
+    val CommandName = "exit"
+    val Help = "Exit SQLShell."
+
+    def runCommand(commandName: String, args: String): CommandAction = Stop
+}
+
+/**
  * Handles the ".set" command.
  */
 class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
@@ -435,6 +447,7 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
     val Help = """Change one of the SQLShell settings. Usage:
                  |
                  |    .set            -- show the current settings
+                 |    .set var value  -- change a variable
                  |    .set var=value  -- change a variable""".stripMargin
 
     val variables = shell.settings.variableNames
@@ -704,25 +717,9 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
     private def mapRow(rs: ResultSet,
                        metadata: ResultSetMetaData): Map[String, String] =
     {
+        import grizzled.io.implicits._
+
         def getDateString(date: Date): String = DateFormatter.format(date)
-
-        def readSome(r: {def read(): Int}, cur: Int, max: Int): List[Byte] =
-        {
-            if (r == null)
-                Nil
-
-            else if (cur >= max)
-                Nil
-
-            else
-            {
-                val b = r.read()
-                if (b == -1)
-                    Nil
-                else
-                    b.asInstanceOf[Byte] :: readSome(r, cur + 1, max)
-            }
-        }
 
         def clobString(r: Reader): String =
         {
@@ -738,8 +735,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                     // Read one more than the binary length. If we get that
                     // many, then display an ellipsis.
 
-                    val buf = readSome(r, 0, binaryLength + 1)
-                                  .map(_.asInstanceOf[Char])
+                    val buf = r.readSome(binaryLength + 1)
                     buf.length match
                     {
                         case 0 =>                       ""
@@ -768,7 +764,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                     // Read one more than the binary length. If we get that
                     // many, then display an ellipsis.
 
-                    val buf = readSome(is, 0, binaryLength + 1)
+                    val buf = is.readSome(binaryLength + 1)
                     val ellipsis = buf.length > binaryLength
                     val hexList = 
                     {
@@ -932,7 +928,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
     private def subCommandCompleter =
     {
         val tables = shell.getTableNames(None)
-        new ListCompleter(subCommands ++ tables)
+        new ListCompleter(subCommands ++ tables, _.toLowerCase)
     }
 
     def runCommand(commandName: String, args: String): CommandAction =

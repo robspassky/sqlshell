@@ -29,8 +29,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                                Custom tasks
     \* ---------------------------------------------------------------------- */
 
-    // Build the installer jar. Delegates to buildInstaller() 
-    lazy val installer = task {buildInstaller; None}
+    // Build the installer jar. Delegates to installerAction() 
+    lazy val installer = task {installerAction; None}
                          .dependsOn(packageAction, docAction)
                          .describedAs("Build installer.")
 
@@ -48,7 +48,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     // Grizzled comes from local machine for now. This works, though, as long
     // as someone has done a publish-local.
-    val grizzled = "grizzled-scala" % "grizzled-scala" % "0.1"
+    val grizzled = "org.clapper" % "grizzled-scala" % "0.1"
 
     /* ---------------------------------------------------------------------- *\
                           Private Helper Methods
@@ -108,7 +108,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     /**
      * Build the actual installer jar.
      */
-    private def buildInstaller =
+    private def installerAction =
     {
         if (! new File(izPackHome).exists)
             throw new Exception("Can't run IzPack compiler. No valid " +
