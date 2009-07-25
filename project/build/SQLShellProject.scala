@@ -25,17 +25,32 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         else
             pathFor(System.getProperty("user.home"), "java", "IzPack")
 
+    val readmeHTML = "target" / "README.html"
+    val licenseHTML = pathFor("LICENSE.html")
+
     /* ---------------------------------------------------------------------- *\
                                Custom tasks
     \* ---------------------------------------------------------------------- */
 
     // Build the installer jar. Delegates to installerAction() 
     lazy val installer = task {installerAction; None}
-                         .dependsOn(packageAction, docAction)
+                         .dependsOn(packageAction, docAction, readme)
                          .describedAs("Build installer.")
+
+    lazy val readme = task 
+    {
+        runMarkdownOn("README.md", readmeHTML.absolutePath, "SQLShell README")
+        None
+    }
+
+    lazy val cons = task {Run.projectConsole(this)}
 
     /* ---------------------------------------------------------------------- *\
                        Managed External Dependencies
+
+               NOTE: Additional dependencies are declared in
+         project/plugins/Plugins.scala. (Declaring them there allows them
+                       to be imported in this file.)
     \* ---------------------------------------------------------------------- */
 
     val scalaToolsRepo = "Scala-Tools Maven Repository" at 
@@ -45,6 +60,10 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val izPack = "org.codehaus.izpack" % "izpack-standalone-compiler" % "4.3.1"
+
+    val ocutil = "org.clapper" % "ocutil" % "2.4.2" from
+    "http://www.clapper.org/software/java/util/download/2.4.2/ocutil-2.4.2.jar"
+
 
     // Grizzled comes from local machine for now. This works, though, as long
     // as someone has done a publish-local.
@@ -105,6 +124,36 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
      */
     private def cleanDir(dir: Path) = FileUtilities.clean(dir, log)
 
+    private def runMarkdownOn(source: String, 
+                              target: String,
+                              title: String): Unit =
+    {
+        import java.io.{FileOutputStream, OutputStreamWriter, PrintWriter}
+        import scala.xml.parsing.XhtmlParser
+
+        val classpath = "lib_managed" / "compile" * "*.jar"
+
+        import com.petebevin.markdown.MarkdownProcessor
+        val md = new MarkdownProcessor
+        log.info("Generating \"" + target + "\" from \"" + source + "\"")
+        val inputLines = Source.fromFile(source).getLines mkString ""
+        val sHTML = "<body>" + md.markdown(inputLines) + "</body>"
+        val body = XhtmlParser(Source.fromString(sHTML))
+        val out = new PrintWriter(
+                      new OutputStreamWriter(
+                          new FileOutputStream(target), "ISO-8859-1"))
+        val html = 
+<html>
+  <head>
+    <title>{title}</title>
+    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1"/>
+  </head>
+  {body}
+</html>
+        out.println(html.toString)
+        out.close
+    }
+
     /**
      * Build the actual installer jar.
      */
@@ -146,8 +195,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                 "API_DOCS_DIR" -> ("target"/"doc"/"main"/"api").absolutePath,
                 "DOCS_DIR" -> Path.fromFile("docs").absolutePath,
                 "JAR_FILE" -> jarPath.absolutePath,
-                "LICENSE" -> path("LICENSE.html").absolutePath,
-                "README" -> path("README.html").absolutePath,
+                "LICENSE" -> licenseHTML.absolutePath,
+                "README" -> readmeHTML.absolutePath,
                 "SQLSHELL_VERSION" -> projectVersion.value.toString,
                 "SRC_INSTALL" -> installDir.absolutePath,
                 "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
@@ -166,8 +215,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                 out.close
             }
 
-            // Run IzPack. Have to load the class, since it's not going to be
-            // available when this file is compiled.
+            // Run IzPack. This is the simplest, least-coupled way to do it,
+            // apparently.
 
             log.info("Creating installer jar.")
             import sbt.Run.{run => runClass}
