@@ -1,6 +1,10 @@
 import sbt._
+
 import scala.io.Source
+
 import java.io.{File, FileWriter, PrintWriter}
+
+import grizzled.file.implicits._
 
 /**
  * To build SQLShell via SBT.
@@ -25,8 +29,14 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         else
             pathFor(System.getProperty("user.home"), "java", "IzPack")
 
-    val readmeHTML = "target" / "README.html"
-    val licenseHTML = pathFor("LICENSE.html")
+    val targetDocsDir = "target" / "docs"
+    val readmeHTML = targetDocsDir / "README.html"
+    val buildHTML = targetDocsDir / "BUILDING.html"
+    val licenseHTML = path("LICENSE.html")
+    val markdownFiles = path(".") * "*.md"
+    val markdownHtmlFiles = transformPaths(targetDocsDir,
+                                           markdownFiles,
+                                           {_.replaceAll("\\.md$", ".html")})
 
     /* ---------------------------------------------------------------------- *\
                                Custom tasks
@@ -34,16 +44,35 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     // Build the installer jar. Delegates to installerAction() 
     lazy val installer = task {installerAction; None}
-                         .dependsOn(packageAction, docAction, readme)
+                         .dependsOn(packageAction, docAction)
                          .describedAs("Build installer.")
 
-    lazy val readme = task 
+    // Create the target/docs directory
+    lazy val makeTargetDocsDir = task 
     {
-        runMarkdownOn("README.md", readmeHTML.absolutePath, "SQLShell README")
-        None
+        FileUtilities.createDirectory(targetDocsDir, log)
     }
 
-    lazy val cons = task {Run.projectConsole(this)}
+    // Generate HTML docs from Markdown sources
+    lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownFiles)
+    { 
+        markdown("README.md", readmeHTML.absolutePath, "SQLShell README")
+        markdown("BUILDING.md", buildHTML.absolutePath, "Building SQLShell")
+        None
+    } 
+    .dependsOn(makeTargetDocsDir)
+
+    // Copy Markdown sources into target/docs
+    lazy val markdownDocs = copyTask(markdownFiles, targetDocsDir)
+
+    // Local doc production
+    lazy val targetDocs = task {None} dependsOn(htmlDocs, markdownDocs)
+
+    // Override the "doc" action to depend on additional doc targets
+    override def docAction = super.docAction dependsOn(targetDocs)
+
+    // Console with project defs
+    lazy val projectConsole = task {Run.projectConsole(this)}
 
     /* ---------------------------------------------------------------------- *\
                        Managed External Dependencies
@@ -60,10 +89,6 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val izPack = "org.codehaus.izpack" % "izpack-standalone-compiler" % "4.3.1"
-
-    val ocutil = "org.clapper" % "ocutil" % "2.4.2" from
-    "http://www.clapper.org/software/java/util/download/2.4.2/ocutil-2.4.2.jar"
-
 
     // Grizzled comes from local machine for now. This works, though, as long
     // as someone has done a publish-local.
@@ -124,16 +149,23 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
      */
     private def cleanDir(dir: Path) = FileUtilities.clean(dir, log)
 
-    private def runMarkdownOn(source: String, 
-                              target: String,
-                              title: String): Unit =
+    /**
+     * Run Markdown to convert a source (Markdown) file to HTML.
+     *
+     * @param source  the path to the source file
+     * @param target  the path to the output file
+     * @param title   the title for the HTML document
+     */
+    private def markdown(source: String, target: String, title: String): Unit =
     {
         import java.io.{FileOutputStream, OutputStreamWriter, PrintWriter}
         import scala.xml.parsing.XhtmlParser
 
         val classpath = "lib_managed" / "compile" * "*.jar"
+        val Encoding = "ISO-8859-1"
 
         import com.petebevin.markdown.MarkdownProcessor
+
         val md = new MarkdownProcessor
         log.info("Generating \"" + target + "\" from \"" + source + "\"")
         val inputLines = Source.fromFile(source).getLines mkString ""
@@ -141,12 +173,13 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         val body = XhtmlParser(Source.fromString(sHTML))
         val out = new PrintWriter(
                       new OutputStreamWriter(
-                          new FileOutputStream(target), "ISO-8859-1"))
+                          new FileOutputStream(target), Encoding))
+        val contentType = "text/html; charset=" + Encoding
         val html = 
 <html>
   <head>
     <title>{title}</title>
-    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1"/>
+    <meta http-equiv="content-type" content={contentType}/>
   </head>
   {body}
 </html>
@@ -180,7 +213,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             // means "immediate descendent".
 
             val jars = ("lib" +++ "lib_managed") **
-                       ("*.jar" - "izpack*.jar" - "scalatest*.jar")
+                       ("*.jar" - "izpack*.jar" - "scalatest*.jar" -
+                        "ocutil*.jar")
             val jarDirPath = Path.fromFile(jarDir)
             log.info("Copying jars to \"" + jarDir + "\"")
             FileUtilities.copyFlat(jars.get, jarDirPath, log)
@@ -197,6 +231,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                 "JAR_FILE" -> jarPath.absolutePath,
                 "LICENSE" -> licenseHTML.absolutePath,
                 "README" -> readmeHTML.absolutePath,
+                "BUILDING" -> buildHTML.absolutePath,
                 "SQLSHELL_VERSION" -> projectVersion.value.toString,
                 "SRC_INSTALL" -> installDir.absolutePath,
                 "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
@@ -231,5 +266,14 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                      args,
                      log)
         }
+    }
+
+    private def transformPaths(targetDir: Path, 
+                               paths: PathFinder,
+                               transform: (String) => String): Iterable[Path] =
+    {
+        val justFileNames = paths.get.map(p => p.asFile.basename.getPath)
+        val transformedNames = justFileNames.map(s => transform(s))
+        transformedNames.map(s => targetDir / s)
     }
 }

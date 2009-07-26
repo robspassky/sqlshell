@@ -120,6 +120,8 @@
                   target="$INSTALL_PATH/LICENSE.html"/>
       <singlefile src="@README@"
                   target="$INSTALL_PATH/README.html"/>
+      <singlefile src="@BUILDING@"
+                  target="$INSTALL_PATH/BUILDING.html"/>
 <!--
       <singlefile src="@TOP_DIR@/README" target="$INSTALL_PATH/README.txt"/>
 -->

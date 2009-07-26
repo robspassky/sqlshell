@@ -21,7 +21,6 @@ Some Features at a Glance
 * SQLShell has command history management, with GNU Readline-like
   support. Each database has its own history file.
 
-
 * SQLShell supports retrieving and displaying database metadata (e.g.,
   getting a list of tables, querying the table's columns and their
   data types, listing the indexes and foreign keys for a table, etc.).
@@ -31,13 +30,11 @@ Some Features at a Glance
 
 * SQLShell supports any database engine or which a JDBC driver exists.
 
-* SQLShell is written in [Scala] [scala] and uses some third-party,
-  open-source Scala and Java libraries.
+* SQLShell is written in [Scala](http://www.scala-lang.org/) and uses
+  some third-party, open-source Scala and Java libraries.
 
 * SQLShell is open source, and is licensed under a liberal BSD-style
   license.
-
-  [scala]: http://www.scala-lang.org/
 
 ---
 Copyright &copy; 2009 Brian M. Clapper, *bmc@clapper.org*
