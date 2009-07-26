@@ -16,7 +16,7 @@ import java.sql.{Connection,
                  ResultSetMetaData,
                  Statement,
                  SQLException,
-                 Types}
+                 Types => SQLTypes}
 import java.io.File
 import java.util.Date
 import java.text.SimpleDateFormat
@@ -98,6 +98,9 @@ class SQLShell(val config: Configuration,
                         new InsertHandler(this, connection),
                         new DeleteHandler(this, connection),
                         new UpdateHandler(this, connection),
+                        new CreateHandler(this, connection),
+                        new AlterHandler(this, connection),
+                        new DropHandler(this, connection),
                         new ShowHandler(this, connection),
                         new DescribeHandler(this, connection),
                         new SetHandler(this),
@@ -526,6 +529,9 @@ class AboutHandler(val shell: SQLShell) extends CommandHandler with Sorter
     }
 }
 
+/**
+ * Helpful JDBC routines.
+ */
 trait JDBCHelper
 {
     protected def withSQLStatement(connection: Connection)
@@ -569,6 +575,15 @@ private[sqlshell] abstract class SQLHandler(val shell: SQLShell,
             s.rtrim.substring(0, s.length - 1)
         else
             s
+
+    override def complete(token: String, line: String): List[String] =
+    {
+        // Allocate a new completer each time, because the table names can
+        // change between invocations of this method.
+
+        new ListCompleter(shell.getTableNames(None), _.toLowerCase).
+            complete(token, line)
+    }
 }
 
 /**
@@ -812,30 +827,30 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
         {
             metadata.getColumnType(i) match
             {
-                case Types.ARRAY         => rs.getArray(i).toString
-                case Types.BIGINT        => rs.getLong(i).toString
-                case Types.BINARY        => binaryString(rs.getBinaryStream(i))
-                case Types.BLOB          => binaryString(rs.getBinaryStream(i))
-                case Types.BOOLEAN       => rs.getBoolean(i).toString
-                case Types.CHAR          => rs.getString(i)
-                case Types.CLOB          => clobString(rs.getCharacterStream(i))
-                case Types.DATE          => getDateString(rs.getDate(i))
-                case Types.DECIMAL       => rs.getBigDecimal(i).toString
-                case Types.DOUBLE        => rs.getDouble(i).toString
-                case Types.FLOAT         => rs.getFloat(i).toString
-                case Types.INTEGER       => rs.getInt(i).toString
-                case Types.LONGVARBINARY => binaryString(rs.getBinaryStream(i))
-                case Types.LONGVARCHAR   => clobString(rs.getCharacterStream(i))
-                case Types.NULL          => "<null>"
-                case Types.NUMERIC       => rs.getDouble(i).toString
-                case Types.REAL          => rs.getDouble(i).toString
-                case Types.SMALLINT      => rs.getInt(i).toString
-                case Types.TIME          => getDateString(rs.getTime(i))
-                case Types.TIMESTAMP     => getDateString(rs.getTimestamp(i))
-                case Types.TINYINT       => rs.getInt(i).toString
-                case Types.VARBINARY     => binaryString(rs.getBinaryStream(i))
-                case Types.VARCHAR       => rs.getString(i).toString
-                case _                   => rs.getObject(i).toString
+                case SQLTypes.ARRAY         => rs.getArray(i).toString
+                case SQLTypes.BIGINT        => rs.getLong(i).toString
+                case SQLTypes.BINARY        => binaryString(rs.getBinaryStream(i))
+                case SQLTypes.BLOB          => binaryString(rs.getBinaryStream(i))
+                case SQLTypes.BOOLEAN       => rs.getBoolean(i).toString
+                case SQLTypes.CHAR          => rs.getString(i)
+                case SQLTypes.CLOB          => clobString(rs.getCharacterStream(i))
+                case SQLTypes.DATE          => getDateString(rs.getDate(i))
+                case SQLTypes.DECIMAL       => rs.getBigDecimal(i).toString
+                case SQLTypes.DOUBLE        => rs.getDouble(i).toString
+                case SQLTypes.FLOAT         => rs.getFloat(i).toString
+                case SQLTypes.INTEGER       => rs.getInt(i).toString
+                case SQLTypes.LONGVARBINARY => binaryString(rs.getBinaryStream(i))
+                case SQLTypes.LONGVARCHAR   => clobString(rs.getCharacterStream(i))
+                case SQLTypes.NULL          => "<null>"
+                case SQLTypes.NUMERIC       => rs.getDouble(i).toString
+                case SQLTypes.REAL          => rs.getDouble(i).toString
+                case SQLTypes.SMALLINT      => rs.getInt(i).toString
+                case SQLTypes.TIME          => getDateString(rs.getTime(i))
+                case SQLTypes.TIMESTAMP     => getDateString(rs.getTimestamp(i))
+                case SQLTypes.TINYINT       => rs.getInt(i).toString
+                case SQLTypes.VARBINARY     => binaryString(rs.getBinaryStream(i))
+                case SQLTypes.VARCHAR       => rs.getString(i).toString
+                case _                      => rs.getObject(i).toString
             }
         }
 
@@ -916,6 +931,27 @@ private[sqlshell] class DeleteHandler(shell: SQLShell, connection: Connection)
 {
     val CommandName = "delete"
     val Help = """Issue a SQL DELETE statement."""
+}
+
+private[sqlshell] class AlterHandler(shell: SQLShell, connection: Connection)
+    extends AnyUpdateHandler(shell, connection)
+{
+    val CommandName = "alter"
+    val Help = """Issue a SQL ALTER statement."""
+}
+
+private[sqlshell] class CreateHandler(shell: SQLShell, connection: Connection)
+    extends AnyUpdateHandler(shell, connection)
+{
+    val CommandName = "create"
+    val Help = """Issue a SQL CREATE statement."""
+}
+
+private[sqlshell] class DropHandler(shell: SQLShell, connection: Connection)
+    extends AnyUpdateHandler(shell, connection)
+{
+    val CommandName = "drop"
+    val Help = """Issue a SQL DROP statement."""
 }
 
 private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
@@ -1086,21 +1122,21 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
                         _typeName
                     else
                     {
-                        if (jdbcType == Types.NULL) "?unknown?"
+                        if (jdbcType == SQLTypes.NULL) "?unknown?"
                         else jdbcTypeNames.getOrElse(jdbcType, "?unknown?")
                     }
 
                 val typeQualifier = jdbcType match
                 {
-                    case Types.CHAR          => charSize
-                    case Types.CLOB          => charSize
-                    case Types.DECIMAL       => precisionAndScale
-                    case Types.DOUBLE        => precisionAndScale
-                    case Types.FLOAT         => precisionAndScale
-                    case Types.LONGVARCHAR   => charSize
-                    case Types.NUMERIC       => precisionAndScale
-                    case Types.REAL          => precisionAndScale
-                    case Types.VARCHAR       => charSize
+                    case SQLTypes.CHAR          => charSize
+                    case SQLTypes.CLOB          => charSize
+                    case SQLTypes.DECIMAL       => precisionAndScale
+                    case SQLTypes.DOUBLE        => precisionAndScale
+                    case SQLTypes.FLOAT         => precisionAndScale
+                    case SQLTypes.LONGVARCHAR   => charSize
+                    case SQLTypes.NUMERIC       => precisionAndScale
+                    case SQLTypes.REAL          => precisionAndScale
+                    case SQLTypes.VARCHAR       => charSize
                     case _                   => ""
                 }
 
@@ -1364,7 +1400,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
 
         // Get the list of static int fields
 
-        val staticIntFields = classOf[Types].getFields.filter(
+        val staticIntFields = classOf[SQLTypes].getFields.filter(
             f => ((f.getModifiers & Modifier.STATIC) != 0) &&
                   (f.getType == classOf[Int]))
 
