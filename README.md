@@ -10,6 +10,10 @@ MySQL's `mysql` tool.
 
   [sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html
 
+SQLShell is a [Scala][1] rewrite of my Python *sqlcmd* tool (rewritten because,
+as it turns out, I think JDBC is more consistent and portable than Python's
+DB API).
+
 Some Features at a Glance
 -------------------------
 
@@ -30,11 +34,13 @@ Some Features at a Glance
 
 * SQLShell supports any database engine or which a JDBC driver exists.
 
-* SQLShell is written in [Scala](http://www.scala-lang.org/) and uses
-  some third-party, open-source Scala and Java libraries.
+* SQLShell is written in [Scala][1] and uses some third-party, open-source
+  Scala and Java libraries.
 
 * SQLShell is open source, and is licensed under a liberal BSD-style
   license.
+
+[1]: http://www.scala-lang.org/
 
 ---
 Copyright &copy; 2009 Brian M. Clapper, *bmc@clapper.org*

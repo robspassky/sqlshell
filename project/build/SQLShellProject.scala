@@ -29,12 +29,14 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         else
             pathFor(System.getProperty("user.home"), "java", "IzPack")
 
+    val sourceDocsDir = "src" / "docs"
     val targetDocsDir = "target" / "docs"
-    val usersGuide = "src" / "docs" / "users-guide.md"
+    val usersGuide = sourceDocsDir / "users-guide.md"
     val markdownFiles = (path(".") * "*.md") +++ usersGuide
     val markdownHtmlFiles = transformPaths(targetDocsDir,
                                            markdownFiles,
                                            {_.replaceAll("\\.md$", ".html")})
+    val markdownSources = markdownFiles +++ (sourceDocsDir / "markdown.css")
 
     /* ---------------------------------------------------------------------- *\
                                Custom tasks
@@ -52,7 +54,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     }
 
     // Generate HTML docs from Markdown sources
-    lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownFiles)
+    lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownSources)
     { 
         markdown(path("README.md"),
                  targetDocsDir / "README.html",
@@ -176,8 +178,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
         val md = new MarkdownProcessor
         log.info("Generating \"" + target + "\" from \"" + source + "\"")
-        val sourceFile = Source.fromFile(source.absolutePath)
-        val inputLines = sourceFile.getLines mkString ""
+        val cssLines = fileLines(sourceDocsDir / "markdown.css")
+        val inputLines = fileLines(source) mkString ""
         val sHTML = "<body>" + md.markdown(inputLines) + "</body>"
         val body = XhtmlParser(Source.fromString(sHTML))
         val out = new PrintWriter(
@@ -188,6 +190,9 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 <html>
 <head>
 <title>{title}</title>
+<style type="text/css">
+{cssLines mkString ""}
+</style>
 <meta http-equiv="content-type" content={contentType}/>
 </head>
 {body}
@@ -282,4 +287,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         val transformedNames = justFileNames.map(s => transform(s))
         transformedNames.map(s => targetDir / s)
     }
+
+    private def fileLines(path: Path): Iterator[String] =
+        Source.fromFile(path.absolutePath).getLines
 }
