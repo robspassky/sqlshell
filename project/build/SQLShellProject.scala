@@ -160,6 +160,10 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
      */
     private def markdown(source: Path, target: Path): Unit =
     {
+        if (System.getProperty("java.version") startsWith "1.6")
+            throw new Exception("Java Markdown parser currently fails with " +
+                                "1.6 Java")
+
         import java.io.{FileOutputStream, OutputStreamWriter, PrintWriter}
         import scala.xml.parsing.XhtmlParser
 

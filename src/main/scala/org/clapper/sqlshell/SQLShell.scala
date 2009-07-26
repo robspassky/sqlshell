@@ -79,10 +79,6 @@ class SQLShell(val config: Configuration,
         ("stacktrace",   BooleanSetting, showStackTraces)
     )
 
-    println(Ident.IdentString)
-    println()
-    println("Using " + readline + " readline implementation.")
-
     loadSettings(config)
 
     val connector = new DatabaseConnector(config)
@@ -95,6 +91,7 @@ class SQLShell(val config: Configuration,
 
     // List of command handlers.
 
+    val aboutHandler = new AboutHandler(this)
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this),
                         new SelectHandler(this, connection),
@@ -104,7 +101,10 @@ class SQLShell(val config: Configuration,
                         new ShowHandler(this, connection),
                         new DescribeHandler(this, connection),
                         new SetHandler(this),
-                        new ExitHandler)
+                        new ExitHandler,
+                        aboutHandler)
+
+    aboutHandler.show
     private val unknownHandler = new UnknownHandler(this, connection)
 
     // Allow "." characters in commands.
@@ -501,6 +501,28 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
             var (valueType, value) = shell.settings(variable)
             println(fmt format(variable, value))
         }
+    }
+}
+
+/**
+ * Handles the ".about" command.
+ */
+class AboutHandler(val shell: SQLShell) extends CommandHandler with Sorter
+{
+    val CommandName = ".about"
+    val Help = "Display information about SQLShell"
+
+    def runCommand(commandName: String, args: String): CommandAction =
+    {
+        show
+        KeepGoing
+    }
+
+    private[sqlshell] def show =
+    {
+        println(Ident.IdentString)
+        println()
+        println("Using " + shell.readline + " readline implementation.")
     }
 }
 

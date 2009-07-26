@@ -483,7 +483,7 @@ Thus, given this configuration file:
 You can connect to the `employees` database using any of the following
 names:
 
-- `employees``: the section name, minus `db_`.
+- `employees`: the section name, minus the "db_" prefix.
 - `payroll`: one of the aliases
 - `people`: the other alias
 - `emp`: a unique abbreviation of `employees`, the database name
@@ -750,14 +750,14 @@ from commands that are processed by the connected database engine.
 > any parameters, `.set` displays all internal settings and their values:
 
     ? .set
-    ansi: true
-    autocommit: true
-    echo: false
-    schema: 
-    showbinary: 20
+            ansi: true
+      autocommit: true
+            echo: false
+          schema: 
+      showbinary: 20
     showrowcount: true
-    showtimings: true
-    stacktrace: false
+     showtimings: true
+      stacktrace: false
 
 > The initial value for any setting may be placed in the `[settings]` section
 > of the configuration file.
