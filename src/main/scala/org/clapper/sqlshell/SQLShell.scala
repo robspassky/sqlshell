@@ -594,7 +594,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
         KeepGoing
     }
 
-    private def dumpResults(elapsed: Long, rs: ResultSet) =
+    protected def dumpResults(elapsed: Long, rs: ResultSet) =
     {
         val (rows, colNamesAndSizes, dataFile) = preprocess(rs)
 
@@ -795,7 +795,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                 case Types.BINARY        => binaryString(rs.getBinaryStream(i))
                 case Types.BLOB          => binaryString(rs.getBinaryStream(i))
                 case Types.BOOLEAN       => rs.getBoolean(i).toString
-                case Types.CHAR          => rs.getString(9)
+                case Types.CHAR          => rs.getString(i)
                 case Types.CLOB          => clobString(rs.getCharacterStream(i))
                 case Types.DATE          => getDateString(rs.getDate(i))
                 case Types.DECIMAL       => rs.getBigDecimal(i).toString
@@ -897,10 +897,30 @@ private[sqlshell] class DeleteHandler(shell: SQLShell, connection: Connection)
 }
 
 private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
-    extends AnyUpdateHandler(shell, connection)
+    extends CommandHandler
 {
     val CommandName = ""
     val Help = """Issue an unknown SQL statement."""
+
+    val updateHandler = new UpdateHandler(shell, connection)
+    val queryHandler = new SelectHandler(shell, connection)
+
+    override def runCommand(commandName: String, args: String): CommandAction =
+    {
+        // Try it as both a query and an update.
+
+        try
+        {
+            queryHandler.runCommand(commandName, args)
+        }
+
+        catch
+        {
+            case _ => updateHandler.runCommand(commandName, args)
+        }
+
+        KeepGoing
+    }
 }
 
 private[sqlshell] class DescribeHandler(val shell: SQLShell, 
@@ -1077,7 +1097,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
                 else
                 {
                     val width = max(descriptions.map(_._1.length): _*)
-                    val fmt = "    %-" + width + "s  %s"
+                    val fmt = "%-" + width + "s  %s"
                     // Note: Scala's format method doesn't left-justify.
                     def formatter = new java.util.Formatter
 
@@ -1086,10 +1106,10 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
                              yield(formatter.format(fmt, colName, colTypeName))}
 
                     // Use the table name returned from the driver.
-                    println("CREATE TABLE " + table)
-                    println("(")
+                    val header = "Table " + table
+                    val hr = "-" * header.length
+                    println(List(hr, header, hr) mkString "\n")
                     println(colLines mkString ",\n")
-                    println(");")
 
                     if (full)
                     {

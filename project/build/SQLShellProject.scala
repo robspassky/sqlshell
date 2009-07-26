@@ -30,7 +30,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             pathFor(System.getProperty("user.home"), "java", "IzPack")
 
     val sourceDocsDir = "src" / "docs"
-    val targetDocsDir = "target" / "docs"
+    val targetDocsDir = "target" / "doc"
     val usersGuide = sourceDocsDir / "users-guide.md"
     val markdownFiles = (path(".") * "*.md") +++ usersGuide
     val markdownHtmlFiles = transformPaths(targetDocsDir,

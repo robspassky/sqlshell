@@ -1,3 +1,12 @@
-1. Templates for DB connection strings
-2. SQLite3 not returning column types.
-
+ 1. Templates for DB connection strings
+ 2. SQLite3 not returning column types.
+ 3. Add "maxhistory" setting.
+ 4. Add ALTER, CREATE and DROP, to support table name completion.
+ 5. Add table name completion to SQL commands.
+ 6. Add .run command, with file name tab completion
+ 7. Add echo variable
+ 8. Add support for comments
+ 9. Add .about command
+10. Add begin/commit/rollback, with autocommit variable
+11. Add .echo command (echos output)
+ 

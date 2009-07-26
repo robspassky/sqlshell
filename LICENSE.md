@@ -17,9 +17,9 @@ modification, are permitted provided that the following conditions are met:
   documentation or it may appear in the software itself, wherever such
   third-party acknowledgments normally appear:
 
-> "This product includes software developed by Brian M. Clapper
-> (*bmc@clapper.org*, <http://www.clapper.org/bmc/>). That software is
-> copyright &copy; 2009 Brian M. Clapper."
+    > "This product includes software developed by Brian M. Clapper
+    > (*bmc@clapper.org*, <http://www.clapper.org/bmc/>). That software is
+    > copyright &copy; 2009 Brian M. Clapper."
 
 * Neither the name "SQLShell" nor any of the names of the project
   contributors may be used to endorse or promote products derived from this

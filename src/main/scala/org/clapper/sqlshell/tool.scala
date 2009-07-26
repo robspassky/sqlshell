@@ -81,7 +81,7 @@ object Tool
                           "Disable the use of ANSI terminal sequences. This " +
                           "option just sets the initial value for this " +
                           "setting. The value can be changed later from " +
-                          "withing SQLShell itself.")
+                          "within SQLShell itself.")
         parser.acceptsAll(asList("r", "readline"),
                           "Specify readline libraries to use. Legal values: " +
                           "editline, getline, gnu, jline, simple. May be " +
@@ -90,8 +90,8 @@ object Tool
               .describedAs("lib_name")
         parser.acceptsAll(asList("s", "stack"),
                           "Show all exception stack traces.")
-        parser.acceptsAll(asList("?", "h", "help"), "Show this usage message")
-        parser.acceptsAll(asList("v", "version"), "Show version and exit")
+        parser.acceptsAll(asList("?", "h", "help"), "Show this usage message.")
+        parser.acceptsAll(asList("v", "version"), "Show version and exit.")
 
         try
         {

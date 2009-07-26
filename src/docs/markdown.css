@@ -1,0 +1,12 @@
+// Style sheet for Markdown-generated HTML.
+
+body
+{
+    background-color: white;
+    font-family: arial, helvetica, verdana, sans-serif;
+}
+
+pre
+{ 
+    margin-left: 0.5in;
+}
