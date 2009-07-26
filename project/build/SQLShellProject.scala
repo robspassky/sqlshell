@@ -33,7 +33,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val readmeHTML = targetDocsDir / "README.html"
     val buildHTML = targetDocsDir / "BUILDING.html"
     val licenseHTML = path("LICENSE.html")
-    val markdownFiles = path(".") * "*.md"
+    val usersGuide = "src" / "docs" / "users-guide.md"
+    val markdownFiles = (path(".") * "*.md") +++ usersGuide
     val markdownHtmlFiles = transformPaths(targetDocsDir,
                                            markdownFiles,
                                            {_.replaceAll("\\.md$", ".html")})
@@ -56,8 +57,12 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // Generate HTML docs from Markdown sources
     lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownFiles)
     { 
-        markdown("README.md", readmeHTML.absolutePath, "SQLShell README")
-        markdown("BUILDING.md", buildHTML.absolutePath, "Building SQLShell")
+        markdown(path("README.md"), readmeHTML, "SQLShell README")
+        markdown(path("BUILDING.md"), buildHTML, 
+                 "Building SQLShell")
+        markdown(usersGuide,
+                 targetDocsDir / "users-guide.html",
+                 "SQLShell User's Guide")
         None
     } 
     .dependsOn(makeTargetDocsDir)
@@ -156,7 +161,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
      * @param target  the path to the output file
      * @param title   the title for the HTML document
      */
-    private def markdown(source: String, target: String, title: String): Unit =
+    private def markdown(source: Path, target: Path, title: String): Unit =
     {
         import java.io.{FileOutputStream, OutputStreamWriter, PrintWriter}
         import scala.xml.parsing.XhtmlParser
@@ -168,20 +173,21 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
         val md = new MarkdownProcessor
         log.info("Generating \"" + target + "\" from \"" + source + "\"")
-        val inputLines = Source.fromFile(source).getLines mkString ""
+        val sourceFile = Source.fromFile(source.absolutePath)
+        val inputLines = sourceFile.getLines mkString ""
         val sHTML = "<body>" + md.markdown(inputLines) + "</body>"
         val body = XhtmlParser(Source.fromString(sHTML))
         val out = new PrintWriter(
                       new OutputStreamWriter(
-                          new FileOutputStream(target), Encoding))
+                          new FileOutputStream(target.absolutePath), Encoding))
         val contentType = "text/html; charset=" + Encoding
         val html = 
 <html>
-  <head>
-    <title>{title}</title>
-    <meta http-equiv="content-type" content={contentType}/>
-  </head>
-  {body}
+<head>
+<title>{title}</title>
+<meta http-equiv="content-type" content={contentType}/>
+</head>
+{body}
 </html>
         out.println(html.toString)
         out.close
