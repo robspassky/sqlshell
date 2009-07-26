@@ -49,7 +49,7 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
 {
     def connect(info: DatabaseInfo): ConnectionInfo =
     {
-        if (info.dbName != null)
+        if (info.dbName != None)
             connectByName(info.dbName.get)
 
         else

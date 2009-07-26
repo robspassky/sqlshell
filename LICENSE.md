@@ -1,3 +1,6 @@
+SQLShell License
+================
+
 This software is released under a BSD-style license:
 
 ---
@@ -15,13 +18,13 @@ modification, are permitted provided that the following conditions are met:
   third-party acknowledgments normally appear:
 
 > "This product includes software developed by Brian M. Clapper
-> (bmc@clapper.org, http://www.clapper.org/bmc/). That software is
-> copyright (c) 2004-2007 Brian M. Clapper."
+> (*bmc@clapper.org*, <http://www.clapper.org/bmc/>). That software is
+> copyright &copy; 2009 Brian M. Clapper."
 
-* Neither the name "curn" nor any of the names of the project contributors
-  may be used to endorse or promote products derived from this software
-  without prior written permission. For written permission, please contact
-  *bmc@clapper.org*.
+* Neither the name "SQLShell" nor any of the names of the project
+  contributors may be used to endorse or promote products derived from this
+  software without prior written permission. For written permission, please
+  contact *bmc@clapper.org*.
 
 * Products derived from this software may not be called "SQLShell", nor may
   "SQLShell" appear in their names without prior written permission of

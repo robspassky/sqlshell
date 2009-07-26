@@ -1,5 +1,5 @@
-SQLShell: A SQL Command Shell
-=============================
+How to Build SQLShell
+=====================
 
 Introduction
 ------------

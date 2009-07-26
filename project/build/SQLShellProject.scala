@@ -56,18 +56,10 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // Generate HTML docs from Markdown sources
     lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownSources)
     { 
-        markdown(path("README.md"),
-                 targetDocsDir / "README.html",
-                 "SQLShell README")
-        markdown(path("BUILDING.md"),
-                 targetDocsDir / "BUILDING.html",
-                 "Building SQLShell")
-        markdown(path("LICENSE.md"),
-                 targetDocsDir / "LICENSE.html",
-                 "SQLShell LICENSE")
-        markdown(usersGuide,
-                 targetDocsDir / "users-guide.html",
-                 "SQLShell User's Guide")
+        markdown("README.md", targetDocsDir / "README.html")
+        markdown("BUILDING.md", targetDocsDir / "BUILDING.html")
+        markdown("LICENSE.md", targetDocsDir / "LICENSE.html")
+        markdown(usersGuide, targetDocsDir / "users-guide.html")
         None
     } 
     .dependsOn(makeTargetDocsDir)
@@ -166,7 +158,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
      * @param target  the path to the output file
      * @param title   the title for the HTML document
      */
-    private def markdown(source: Path, target: Path, title: String): Unit =
+    private def markdown(source: Path, target: Path): Unit =
     {
         import java.io.{FileOutputStream, OutputStreamWriter, PrintWriter}
         import scala.xml.parsing.XhtmlParser
@@ -179,8 +171,10 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         val md = new MarkdownProcessor
         log.info("Generating \"" + target + "\" from \"" + source + "\"")
         val cssLines = fileLines(sourceDocsDir / "markdown.css")
-        val inputLines = fileLines(source) mkString ""
-        val sHTML = "<body>" + md.markdown(inputLines) + "</body>"
+        val sourceLines = fileLines(source).toList
+        // Title is first line.
+        val title = sourceLines.head
+        val sHTML = "<body>" + md.markdown(sourceLines mkString "") + "</body>"
         val body = XhtmlParser(Source.fromString(sHTML))
         val out = new PrintWriter(
                       new OutputStreamWriter(
