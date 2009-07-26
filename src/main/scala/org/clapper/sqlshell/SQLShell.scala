@@ -72,6 +72,7 @@ class SQLShell(val config: Configuration,
     private[sqlshell] val settings = new Settings(
         ("autocommit",   BooleanSetting, true),
         ("ansi",         BooleanSetting, useAnsiColors),
+        ("echo",         BooleanSetting, false),
         ("schema",       StringSetting, ""),
         ("showbinary",   IntSetting, 0),
         ("showrowcount", BooleanSetting, true),
@@ -178,10 +179,12 @@ class SQLShell(val config: Configuration,
     }
 
     override def preCommand(line: String) =
+    {
         if (line.ltrim.startsWith("--"))
-            ""
+            Some("")
         else
-            line
+            Some(line)
+    }
 
     /**
      * Take a string (which may be null) representing a schema name and

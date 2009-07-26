@@ -2,7 +2,6 @@
 - Add "maxhistory" setting.
 - Add .run command, with file name tab completion
 - Add echo variable
-- Add support for comments
 - Add begin/commit/rollback, with autocommit variable
 - Add .echo command (echos output)
  
