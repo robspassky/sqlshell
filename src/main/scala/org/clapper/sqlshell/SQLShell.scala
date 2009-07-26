@@ -105,6 +105,7 @@ class SQLShell(val config: Configuration,
                         new ShowHandler(this, connection),
                         new DescribeHandler(this, connection),
                         new SetHandler(this),
+                        new EchoHandler,
                         new ExitHandler,
                         aboutHandler)
 
@@ -182,8 +183,13 @@ class SQLShell(val config: Configuration,
     {
         if (line.ltrim.startsWith("--"))
             Some("")
+
         else
+        {
+            if (settings.booleanSettingIsTrue("echo"))
+                println(line)
             Some(line)
+        }
     }
 
     /**
@@ -442,6 +448,23 @@ class ExitHandler extends CommandHandler
     val Help = "Exit SQLShell."
 
     def runCommand(commandName: String, args: String): CommandAction = Stop
+}
+
+/**
+ * Handles the ".echo" command
+ */
+class EchoHandler extends CommandHandler
+{
+    val CommandName = ".echo"
+    val Help = """|Echo the remaining arguments to the terminal. For example:
+                  |
+                  |     .echo This will be displayed.""".stripMargin
+
+    def runCommand(commandName: String, args: String): CommandAction =
+    {
+        println(args)
+        KeepGoing
+    }
 }
 
 /**
