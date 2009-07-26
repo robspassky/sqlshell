@@ -1,7 +1,7 @@
 package org.clapper.sqlshell
 
 import grizzled.cmd._
-import grizzled.readline.ListCompleter
+import grizzled.readline.{ListCompleter, PathnameCompleter}
 import grizzled.readline.Readline
 import grizzled.readline.Readline.ReadlineType
 import grizzled.readline.Readline.ReadlineType._
@@ -22,6 +22,7 @@ import java.util.Date
 import java.text.SimpleDateFormat
 
 import scala.collection.mutable.{Map => MutableMap}
+import scala.io.Source
 import scala.util.matching.Regex
 
 /**
@@ -44,6 +45,30 @@ trait Wrapper
 
     def wrapPrintf(fmt: String, args: Any*) = 
         println(wordWrapper.wrap(fmt format(args: _*)))
+}
+
+/**
+ * Wraps a source in something that can be pushed onto the command
+ * interpreter's reader stack.
+ */
+private class SourceReader(source: Source)
+{
+    // lines iterator
+    private val itLines = source.getLines
+
+    /**
+     * Read the next line of input.
+     *
+     * @param prompt  the prompt (ignored)
+     *
+     * @return <tt>Some(line)</tt> with the next input line, or <tt>None</tt>
+     *         on EOF.
+     */
+    def readline(prompt: String): Option[String] =
+        if (itLines.hasNext)
+            Some(itLines.next.chomp)
+        else
+            None
 }
 
 private[sqlshell] class TableSpec(val name: Option[String],
@@ -103,6 +128,7 @@ class SQLShell(val config: Configuration,
                         new AlterHandler(this, connection),
                         new DropHandler(this, connection),
                         new ShowHandler(this, connection),
+                        new RunFileHandler(this),
                         new DescribeHandler(this, connection),
                         new SetHandler(this),
                         new EchoHandler,
@@ -465,6 +491,38 @@ class EchoHandler extends CommandHandler
         println(args)
         KeepGoing
     }
+}
+
+/**
+ * Handles the ".run" command
+ */
+class RunFileHandler(val shell: SQLShell) extends CommandHandler
+{
+    val CommandName = ".run"
+    val Help = """|Load and run the contents of the specified file.
+                  |
+                  |     .run path""".stripMargin
+
+    private val completer = new PathnameCompleter
+
+    def runCommand(commandName: String, args: String): CommandAction =
+    {
+        args.tokenize match
+        {
+            case Nil =>
+                error("You must specify a file to be run.")
+            case file :: Nil =>
+                val reader = new SourceReader(Source.fromFile(file))
+                shell.pushReader(reader.readline)
+            case _ =>
+                error("Too many parameters to " + CommandName + " command.")
+        }
+
+        KeepGoing
+    }
+
+    override def complete(token: String, line: String): List[String] =
+        completer.complete(token, line)
 }
 
 /**
@@ -859,7 +917,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                 case SQLTypes.BLOB          => binaryString(rs.getBinaryStream(i))
                 case SQLTypes.BOOLEAN       => rs.getBoolean(i).toString
                 case SQLTypes.CHAR          => rs.getString(i)
-                case SQLTypes.CLOB          => clobString(rs.getCharacterStream(i))
+                case SQLTypes.CLOB          => clobString(rs.getCharacterStream( i))
                 case SQLTypes.DATE          => getDateString(rs.getDate(i))
                 case SQLTypes.DECIMAL       => rs.getBigDecimal(i).toString
                 case SQLTypes.DOUBLE        => rs.getDouble(i).toString
@@ -1039,7 +1097,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
 
     def runCommand(commandName: String, args: String): CommandAction =
     {
-        args.trim.split("""\s""").toList match
+        args.tokenize match
         {
             case "database" :: stuff :: Nil =>
                 describeDatabase
@@ -1060,7 +1118,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
 
     override def complete(token: String, line: String): List[String] =
     {
-        line.split("""\s""").toList match
+        line.tokenize match
         {
             case Nil => 
                 assert(false) // shouldn't happen
@@ -1462,7 +1520,7 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
 
     def runCommand(commandName: String, args: String): CommandAction =
     {
-        args.trim.split("""\s""").toList match
+        args.tokenize match
         {
             case ShowTables(schema) :: Nil =>
                 showTables(schema, ".*")
@@ -1481,7 +1539,7 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
 
     override def complete(token: String, line: String): List[String] =
     {
-        line.split("""\s""").toList match
+        line.tokenize match
         {
             case Nil => 
                 assert(false) // shouldn't happen

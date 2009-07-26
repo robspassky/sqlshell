@@ -1,5 +1,4 @@
 - Templates for DB connection strings
 - Add "maxhistory" setting.
-- Add .run command, with file name tab completion
 - Add begin/commit/rollback, with autocommit variable
  
