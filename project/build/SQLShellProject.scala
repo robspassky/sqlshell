@@ -30,9 +30,6 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             pathFor(System.getProperty("user.home"), "java", "IzPack")
 
     val targetDocsDir = "target" / "docs"
-    val readmeHTML = targetDocsDir / "README.html"
-    val buildHTML = targetDocsDir / "BUILDING.html"
-    val licenseHTML = path("LICENSE.html")
     val usersGuide = "src" / "docs" / "users-guide.md"
     val markdownFiles = (path(".") * "*.md") +++ usersGuide
     val markdownHtmlFiles = transformPaths(targetDocsDir,
@@ -57,9 +54,15 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // Generate HTML docs from Markdown sources
     lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownFiles)
     { 
-        markdown(path("README.md"), readmeHTML, "SQLShell README")
-        markdown(path("BUILDING.md"), buildHTML, 
+        markdown(path("README.md"),
+                 targetDocsDir / "README.html",
+                 "SQLShell README")
+        markdown(path("BUILDING.md"),
+                 targetDocsDir / "BUILDING.html",
                  "Building SQLShell")
+        markdown(path("LICENSE.md"),
+                 targetDocsDir / "LICENSE.html",
+                 "SQLShell LICENSE")
         markdown(usersGuide,
                  targetDocsDir / "users-guide.html",
                  "SQLShell User's Guide")
@@ -233,11 +236,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
             val vars = Map(
                 "API_DOCS_DIR" -> ("target"/"doc"/"main"/"api").absolutePath,
-                "DOCS_DIR" -> Path.fromFile("docs").absolutePath,
+                "DOCS_DIR" -> targetDocsDir.absolutePath,
                 "JAR_FILE" -> jarPath.absolutePath,
-                "LICENSE" -> licenseHTML.absolutePath,
-                "README" -> readmeHTML.absolutePath,
-                "BUILDING" -> buildHTML.absolutePath,
                 "SQLSHELL_VERSION" -> projectVersion.value.toString,
                 "SRC_INSTALL" -> installDir.absolutePath,
                 "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
