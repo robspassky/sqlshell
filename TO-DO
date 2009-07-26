@@ -1,5 +1,4 @@
 - Templates for DB connection strings
-- SQLite3 not returning column types.
 - Add "maxhistory" setting.
 - Add ALTER, CREATE and DROP, to support table name completion.
 - Add table name completion to SQL commands.

@@ -966,6 +966,8 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
     |    command, the schema is taken from the default schema (see 
     |    ".set schema").""".stripMargin
 
+    private val jdbcTypeNames = getJdbcTypeNames
+
     private val subCommands = List("database")
     private def subCommandCompleter =
     {
@@ -1076,8 +1078,19 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
                     case s    => s
                 }
 
-                val typeName = md.getColumnTypeName(i)
-                val typeQualifier = md.getColumnType(i) match
+                val _typeName = md.getColumnTypeName(i)
+                val jdbcType = md.getColumnType(i)
+                // This weirdness handles SQLite, among other things.
+                val typeName = 
+                    if ((_typeName != null) && (_typeName != "null"))
+                        _typeName
+                    else
+                    {
+                        if (jdbcType == Types.NULL) "?unknown?"
+                        else jdbcTypeNames.getOrElse(jdbcType, "?unknown?")
+                    }
+
+                val typeQualifier = jdbcType match
                 {
                     case Types.CHAR          => charSize
                     case Types.CLOB          => charSize
@@ -1343,6 +1356,21 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
         {
             printOne(rs)
         }
+    }
+
+    private def getJdbcTypeNames: Map[Int, String] =
+    {
+        import java.lang.reflect.Modifier
+
+        // Get the list of static int fields
+
+        val staticIntFields = classOf[Types].getFields.filter(
+            f => ((f.getModifiers & Modifier.STATIC) != 0) &&
+                  (f.getType == classOf[Int]))
+
+        // Create a map of int to name for those fields
+        Map.empty[Int, String] ++ 
+        staticIntFields.map(f => (f.getInt(null), f.getName))
     }
 }
 
