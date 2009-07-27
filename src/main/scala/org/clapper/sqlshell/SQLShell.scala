@@ -1568,22 +1568,29 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
 
         def printIndex(indexName: String, columns: List[IndexColumn])
         {
-            val buf = new ArrayBuffer[String]
-            val indexType = columns(0).indexType
+            val buf = new StringBuilder
+            val indexType = 
+                if (columns(0).indexType == null)
+                    null
+                else
+                    columns(0).indexType.trim
+
+            buf.append(indexName.trim)
+            buf.append(": ")
             if (columns(0).unique)
-                buf += "Unique"
+                buf.append("Unique ")
             else
-                buf += "Non-unique"
+                buf.append("Non-unique ")
 
-            if ((indexType != null) && (indexType.trim != ""))
-                buf += (indexType + " index ")
+            if ((indexType != null) && (indexType != ""))
+                buf.append(indexType + " index ")
             else
-                buf += "index"
+                buf.append("index ")
 
-            buf += indexName
-            buf += "on:"
-            buf += (columns.map(_.columnName) mkString ", ")
-            wrapPrintln(buf mkString " ")
+            buf.append("on (")
+            buf.append(columns.map(_.columnName) mkString ", ")
+            buf.append(")")
+            wrapPrintln(buf.toString)
         }
 
         def nullIfEmpty(s: String) =
