@@ -1,4 +1,5 @@
 - Templates for DB connection strings
 - Add "maxhistory" setting.
-- Add begin/commit/rollback, with autocommit variable
+- Check for open transaction at EOF, and roll it back
+- Add @file capability on command line
  

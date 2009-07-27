@@ -71,9 +71,24 @@ private class SourceReader(source: Source)
             None
 }
 
+/**
+ * Holds information about a table
+ */
 private[sqlshell] class TableSpec(val name: Option[String],
                                   val schema: Option[String],
                                   val tableType: Option[String])
+
+/**
+ * "Holds" the autocommit value
+ */
+private[sqlshell] class AutocommitSetting(connection: Connection)
+    extends Setting with BooleanValueConverter
+{
+    override def get = connection.getAutoCommit
+
+    override def set(newValue: Any) =
+        connection.setAutoCommit(newValue.asInstanceOf[Boolean])
+}
 
 /**
  * The actual class that implements the command line interpreter.
@@ -94,32 +109,31 @@ class SQLShell(val config: Configuration,
     extends CommandInterpreter("sqlshell", readlineLibs) 
     with Wrapper with Sorter
 {
-    private[sqlshell] val settings = new Settings(
-        ("autocommit",   BooleanSetting, true),
-        ("ansi",         BooleanSetting, useAnsiColors),
-        ("echo",         BooleanSetting, false),
-        ("schema",       StringSetting, ""),
-        ("showbinary",   IntSetting, 0),
-        ("showrowcount", BooleanSetting, true),
-        ("showtimings",  BooleanSetting, true),
-        ("stacktrace",   BooleanSetting, showStackTraces)
-    )
-
-    loadSettings(config)
-
     val connector = new DatabaseConnector(config)
     val connectionInfo = connector.connect(dbInfo)
     val connection = connectionInfo.connection
     val historyPath = connectionInfo.configInfo.get("history")
-    if (connectionInfo.configInfo.get("schema") != None)
-        settings.changeSetting("schema", 
-                               connectionInfo.configInfo.get("schema").get)
+
+    val settings = new Settings(
+        ("autocommit",   new AutocommitSetting(connection)),
+        ("ansi",         new BooleanSetting(useAnsiColors)),
+        ("echo",         new BooleanSetting(false)),
+        ("schema",       new StringSetting("")),
+        ("showbinary",   new IntSetting(0)),
+        ("showrowcount", new BooleanSetting(true)),
+        ("showtimings",  new BooleanSetting(true)),
+        ("stacktrace",   new BooleanSetting(showStackTraces))
+    )
+
+    loadSettings(config, connectionInfo)
 
     // List of command handlers.
 
     val aboutHandler = new AboutHandler(this)
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this),
+                        new RunFileHandler(this),
+
                         new SelectHandler(this, connection),
                         new InsertHandler(this, connection),
                         new DeleteHandler(this, connection),
@@ -127,8 +141,11 @@ class SQLShell(val config: Configuration,
                         new CreateHandler(this, connection),
                         new AlterHandler(this, connection),
                         new DropHandler(this, connection),
+                        new BeginHandler(this, connection),
+                        new CommitHandler(this, connection),
+                        new RollbackHandler(this, connection),
+
                         new ShowHandler(this, connection),
-                        new RunFileHandler(this),
                         new DescribeHandler(this, connection),
                         new SetHandler(this),
                         new EchoHandler,
@@ -388,7 +405,8 @@ class SQLShell(val config: Configuration,
         }
     }
 
-    private def loadSettings(config: Configuration) =
+    private def loadSettings(config: Configuration, 
+                             connectionInfo: ConnectionInfo) =
     {
         if (config.hasSection("settings"))
         {
@@ -402,6 +420,10 @@ class SQLShell(val config: Configuration,
                     case e: UnknownVariableException => warning(e.message)
                 }
         }
+
+        if (connectionInfo.configInfo.get("schema") != None)
+            settings.changeSetting("schema", 
+                                   connectionInfo.configInfo.get("schema").get)
     }
 }
 
@@ -585,7 +607,7 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
 
         for (variable <- variables)
         {
-            var (valueType, value) = shell.settings(variable)
+            val value = shell.settings.untypedSetting(variable)
             println(fmt format(variable, value))
         }
     }
@@ -996,6 +1018,9 @@ private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
     }
 }
 
+/**
+ * Handles a SQL "UPDATE" command.
+ */
 private[sqlshell] class UpdateHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
@@ -1003,6 +1028,9 @@ private[sqlshell] class UpdateHandler(shell: SQLShell, connection: Connection)
     val Help = """Issue a SQL UPDATE statement."""
 }
 
+/**
+ * Handles a SQL "INSERT" command.
+ */
 private[sqlshell] class InsertHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
@@ -1010,6 +1038,9 @@ private[sqlshell] class InsertHandler(shell: SQLShell, connection: Connection)
     val Help = """Issue a SQL INSERT statement."""
 }
 
+/**
+ * Handles a SQL "DELETE" command.
+ */
 private[sqlshell] class DeleteHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
@@ -1017,6 +1048,9 @@ private[sqlshell] class DeleteHandler(shell: SQLShell, connection: Connection)
     val Help = """Issue a SQL DELETE statement."""
 }
 
+/**
+ * Handles a SQL "ALTER" command.
+ */
 private[sqlshell] class AlterHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
@@ -1024,6 +1058,9 @@ private[sqlshell] class AlterHandler(shell: SQLShell, connection: Connection)
     val Help = """Issue a SQL ALTER statement."""
 }
 
+/**
+ * Handles a SQL "CREATE" command.
+ */
 private[sqlshell] class CreateHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
@@ -1031,6 +1068,9 @@ private[sqlshell] class CreateHandler(shell: SQLShell, connection: Connection)
     val Help = """Issue a SQL CREATE statement."""
 }
 
+/**
+ * Handles a SQL "DROP" command.
+ */
 private[sqlshell] class DropHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
@@ -1038,6 +1078,79 @@ private[sqlshell] class DropHandler(shell: SQLShell, connection: Connection)
     val Help = """Issue a SQL DROP statement."""
 }
 
+/**
+ * Handles a SQL "BEGIN" pseudo-command.
+ */
+private[sqlshell] class BeginHandler(shell: SQLShell, connection: Connection)
+    extends CommandHandler
+{
+    val CommandName = "begin"
+    val Help = 
+"""|Start a new transaction. BEGIN is a pseudocommand. If autocommit is enabled,
+   |BEGIN doesn't really do anything. If autocommit is disabled, BEGIN just
+   |complains before not doing anything. BEGIN exists primarily to accomodate
+   |SQL scripts.""".stripMargin
+
+    override def runCommand(commandName: String, args: String): CommandAction =
+    {
+        if (shell.settings.booleanSettingIsTrue("autocommit"))
+            shell.warning("Autocommit is on. BEGIN ignored.")
+
+        KeepGoing
+    }
+}
+
+/**
+ * Handles a SQL "COMMIT" command.
+ */
+private[sqlshell] class CommitHandler(shell: SQLShell, connection: Connection)
+    extends CommandHandler
+{
+    val CommandName = "commit"
+    val Help = 
+"""|Commits a transaction. This command is only meaningful if the autocommit
+   |is enabled. Otherwise, it just complains and does nothing.
+   |
+   |See the "rollback" command and ".set autocommit".""".stripMargin
+
+    override def runCommand(commandName: String, args: String): CommandAction =
+    {
+        if (shell.settings.booleanSettingIsTrue("autocommit"))
+            shell.warning("Autocommit is on. COMMIT ignored.")
+        else
+            connection.commit
+
+        KeepGoing
+    }
+}
+
+/**
+ * Handles a SQL "ROLLBACK" command.
+ */
+private[sqlshell] class RollbackHandler(shell: SQLShell, connection: Connection)
+    extends CommandHandler
+{
+    val CommandName = "rollback"
+    val Help = 
+"""|Rolls a transaction back. This command is only meaningful if the autocommit
+   |is enabled. Otherwise, it just complains and does nothing.
+   |
+   |See the "commit" command and ".set autocommit".""".stripMargin
+
+    override def runCommand(commandName: String, args: String): CommandAction =
+    {
+        if (shell.settings.booleanSettingIsTrue("autocommit"))
+            shell.warning("Autocommit is on. ROLLBACK ignored.")
+        else
+            connection.rollback
+
+        KeepGoing
+    }
+}
+
+/**
+ * Handles any unknown command.
+ */
 private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
     extends CommandHandler
 {
@@ -1047,7 +1160,7 @@ private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
     val updateHandler = new UpdateHandler(shell, connection)
     val queryHandler = new SelectHandler(shell, connection)
 
-    override def runCommand(commandName: String, args: String): CommandAction =
+    def runCommand(commandName: String, args: String): CommandAction =
     {
         // Try it as both a query and an update.
 
@@ -1071,20 +1184,22 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
     with Wrapper with JDBCHelper with Sorter
 {
     val CommandName = ".desc"
-    val Help = """Show various useful things.
-    |
-    |.desc database
-    |    Show information about the database.
-    |
-    |.desc table [full]
-    |
-    |    Describe a table, showing the column names and their types. If "full"
-    |    is specified, show the indexes and constraints, as well.
-    |
-    |    In the first form of the command, the schema name identifies the
-    |    schema in which to find the table. In the second form of the
-    |    command, the schema is taken from the default schema (see 
-    |    ".set schema").""".stripMargin
+    val Help = 
+"""|Describe database objects.
+   |
+   |.desc database
+   |    Show information about the database.
+   |
+   |.desc table [full]
+   |
+   |    Describe a table, showing the column names and their types. If "full"
+   |    is specified, show the indexes and constraints, as well.
+   |
+   |    In the first form of the command, the schema name identifies the schema
+   |    in which to find the table. In the second form of the command, the
+   |    schema is taken from the default schema.
+   |
+   |    See ".set schema" for more information.""".stripMargin
 
     private val jdbcTypeNames = getJdbcTypeNames
 
@@ -1151,8 +1266,38 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
         val driverName = metadata.getDriverName
         val driverVersion = metadata.getDriverVersion
 
-        println(productName + ", " + productVersion)
-        wrapPrintln("Using JDBC driver " + driverName + ", " + driverVersion)
+        val isolation =
+            connection.getTransactionIsolation match
+            {
+                case Connection.TRANSACTION_READ_UNCOMMITTED =>
+                    "read uncommitted"
+                case Connection.TRANSACTION_READ_COMMITTED =>
+                    "read committed"
+                case Connection.TRANSACTION_REPEATABLE_READ =>
+                    "repeatable read"
+                case Connection.TRANSACTION_SERIALIZABLE =>
+                    "serializable"
+                case Connection.TRANSACTION_NONE =>
+                    "none"
+                case n =>
+                    "unknown transaction isolation value of " + n.toString
+            }
+
+        val user = metadata.getUserName
+        val displayUser = 
+            if ((user == null) || (user.trim == ""))
+                null
+            else
+                user
+
+        wrapPrintln("Connected to database: " + metadata.getURL)
+        if (user != null)
+            wrapPrintln("Connected as user:     " + displayUser)
+        wrapPrintln("Database vendor:       " + productName)
+        wrapPrintln("Database version:      " + productVersion)
+        wrapPrintln("JDBC driver:           " + driverName)
+        wrapPrintln("JDBC driver version:   " + driverVersion)
+        wrapPrintln("Transaction isolation: " + isolation)
     }
 
     private def describeTable(table: String, full: Boolean) =
@@ -1499,19 +1644,21 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
     extends CommandHandler with Wrapper with Sorter
 {
     val CommandName = ".show"
-    val Help = """Show various useful things.
-    |
-    |.show tables/<schema> [pattern]
-    |.show tables [pattern]
-    |
-    |    Show table names. "pattern" is a regular expression that can be used
-    |    to filter the table names. In the first form of the command, the
-    |    schema name is supplied, and tables from that schema are listed. In
-    |    the second form of the command, the schema is taken from the default
-    |    schema (see ".set schema").
-    |
-    | .show schemas
-    |    Show the names of all schemas in the database.""".stripMargin
+    val Help =
+"""|Show various useful things.
+   |
+   |.show tables/<schema> [pattern]
+   |.show tables [pattern]
+   |
+   |    Show table names. "pattern" is a regular expression that can be used
+   |    to filter the table names. In the first form of the command, the schema
+   |    name is supplied, and tables from that schema are listed. In the second
+   |    form of the command, the schema is taken from the default schema.
+   |
+   |    See ".set schema" for more information.
+   |
+   | .show schemas
+   |    Show the names of all schemas in the database.""".stripMargin
 
     private val subCommands = List("tables", "schemas")
     private val subCommandCompleter = new ListCompleter(subCommands)
