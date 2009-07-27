@@ -6,15 +6,24 @@ import grizzled.config.{Configuration, ConfigException}
 import grizzled.readline.Readline.ReadlineType._
 import grizzled.readline.Readline.ReadlineType
 
+import java.io.File
+
+/**
+ * Holds the parsed parameters.
+ */
 private[tool] class Params(val configFile: String,
                            val dbInfo: DatabaseInfo,
                            val readlineLibs: List[ReadlineType],
                            val useAnsiColors: Boolean,
-                           val showStackTraces: Boolean)
+                           val showStackTraces: Boolean,
+                           val fileToRun: Option[File])
 {
-    def this() = this(null, null, Nil, true, false)
+    def this() = this(null, null, Nil, true, false, None)
 }
 
+/**
+ * The main program.
+ */
 object Tool
 {
     import grizzled.file.util.joinPath
@@ -48,7 +57,8 @@ object Tool
                                      params.dbInfo, 
                                      params.readlineLibs,
                                      params.useAnsiColors,
-                                     params.showStackTraces)
+                                     params.showStackTraces,
+                                     params.fileToRun)
             shell.mainLoop
         }
 
@@ -109,6 +119,32 @@ object Tool
             val positionalParams =
                 (for (s <- options.nonOptionArguments) yield s).toList
 
+            if (positionalParams.length == 0)
+                throw new CommandLineException("Missing parameter(s).")
+
+            val (dbParams, path) =
+                if (positionalParams.last.startsWith("@"))
+                    // Extract @file argument.
+                    (positionalParams.slice(0, positionalParams.length - 1),
+                     Some(positionalParams.last.substring(1)))
+                else
+                    (positionalParams, None)
+
+            val fileToRun =
+                if (path == None)
+                    None
+                else
+                {
+                    if (path.get.length == 0)
+                        throw new CommandLineException("Missing path after " +
+                                                       "\"@\".")
+                    val f = new File(path.get)
+                    if (! f.exists)
+                        throw new CommandLineException("File \"" + f.getPath +
+                                                       "\" does not exist.")
+                    Some(f)
+                }
+
             val readlineLibNames =
                 if (options.has("r"))
                     {for (v <- options.valuesOf("r")
@@ -119,7 +155,7 @@ object Tool
 
             val readlineLibs = mapReadlineLibNames(readlineLibNames)
 
-            val dbInfo = positionalParams match
+            val dbInfo = dbParams match
             {
                 case Nil =>
                     throw new CommandLineException("Missing parameter(s).")
@@ -148,7 +184,8 @@ object Tool
                                     dbInfo,
                                     readlineLibs,
                                     showAnsi,
-                                    showStackTraces)
+                                    showStackTraces,
+                                    fileToRun)
 
             val abort = options.has("?") || options.has("v")
             if (options.has("v"))
@@ -202,8 +239,8 @@ object Tool
     private def printHelp(parser: OptionParser) =
     {
         println()
-        println("Usage: sqlshell [OPTIONS] db")
-        println("       sqlshell [OPTIONS] driver url [user [pw]]")
+        println("Usage: sqlshell [OPTIONS] db [@file]")
+        println("       sqlshell [OPTIONS] driver url [user [pw]] [@file]")
         parser.printHelpOn(System.err)
     }
 }

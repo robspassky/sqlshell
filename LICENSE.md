@@ -23,12 +23,12 @@ modification, are permitted provided that the following conditions are met:
 
 * Neither the name "SQLShell" nor any of the names of the project
   contributors may be used to endorse or promote products derived from this
-  software without prior written permission. For written permission, please
-  contact *bmc@clapper.org*.
+  software without specific prior written permission. For written
+  permission, please contact *bmc@clapper.org*.
 
 * Products derived from this software may not be called "SQLShell", nor may
-  "SQLShell" appear in their names without prior written permission of
-  Brian M. Clapper.
+  "SQLShell" appear in their names without specific prior written
+  permission of Brian M. Clapper.
 
 THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES,
 INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY

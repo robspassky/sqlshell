@@ -1,5 +1,4 @@
 - Templates for DB connection strings
 - Add "maxhistory" setting.
 - Check for open transaction at EOF, and roll it back
-- Add @file capability on command line
  

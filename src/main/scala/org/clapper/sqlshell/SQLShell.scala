@@ -100,12 +100,15 @@ private[sqlshell] class AutocommitSetting(connection: Connection)
  * @param useAnsiColors   <tt>true</tt> to use ANSI terminal colors in various
  *                        output, <tt>false</tt> to avoid them
  * @param showStackTraces whether or not to show stack traces on error
+ * @param fileToRun       a file to run (then exit), or none for interactive
+ *                        mode
  */
 class SQLShell(val config: Configuration,
                dbInfo: DatabaseInfo,
                readlineLibs: List[ReadlineType],
                useAnsiColors: Boolean,
-               showStackTraces: Boolean)
+               showStackTraces: Boolean,
+               fileToRun: Option[File])
     extends CommandInterpreter("sqlshell", readlineLibs) 
     with Wrapper with Sorter
 {
@@ -153,6 +156,17 @@ class SQLShell(val config: Configuration,
                         aboutHandler)
 
     aboutHandler.show
+
+    if (fileToRun != None)
+    {
+        // Push a reader for the file on the stack. To ensure that we don't
+        // fall through to interactive mode, make sure there's an "exit" at
+        // the end.
+
+        pushReader(new SourceReader(Source.fromString("exit\n")).readline)
+        pushReader(new SourceReader(Source.fromFile(fileToRun.get)).readline)
+    }
+
     private val unknownHandler = new UnknownHandler(this, connection)
 
     // Allow "." characters in commands.
@@ -230,7 +244,7 @@ class SQLShell(val config: Configuration,
         else
         {
             if (settings.booleanSettingIsTrue("echo"))
-                println(line)
+                printf("\n>>> %s\n\n", line)
             Some(line)
         }
     }
