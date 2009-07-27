@@ -738,7 +738,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
             statement =>
 
             val (elapsed, rs) = 
-                time
+                time[ResultSet]
                 {
                     statement.executeQuery(commandName + " " + newArgs)
                 }
@@ -763,7 +763,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
             else if (rows == 1)
                 println("1 row returned.")
             else
-                println(rows + " rows returned.")
+                printf("%d rows returned.\n", rows)
         }
 
         if (shell.settings.booleanSettingIsTrue("showtimings"))
@@ -948,29 +948,19 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
         {
             metadata.getColumnType(i) match
             {
-                case SQLTypes.ARRAY         => rs.getArray(i).toString
-                case SQLTypes.BIGINT        => rs.getLong(i).toString
+                // Handle just the oddballs. getObject(i).toString should be
+                // sufficient to handle the other column types.
+
                 case SQLTypes.BINARY        => binaryString(rs.getBinaryStream(i))
                 case SQLTypes.BLOB          => binaryString(rs.getBinaryStream(i))
-                case SQLTypes.BOOLEAN       => rs.getBoolean(i).toString
-                case SQLTypes.CHAR          => rs.getString(i)
                 case SQLTypes.CLOB          => clobString(rs.getCharacterStream( i))
                 case SQLTypes.DATE          => getDateString(rs.getDate(i))
-                case SQLTypes.DECIMAL       => rs.getBigDecimal(i).toString
-                case SQLTypes.DOUBLE        => rs.getDouble(i).toString
-                case SQLTypes.FLOAT         => rs.getFloat(i).toString
-                case SQLTypes.INTEGER       => rs.getInt(i).toString
                 case SQLTypes.LONGVARBINARY => binaryString(rs.getBinaryStream(i))
                 case SQLTypes.LONGVARCHAR   => clobString(rs.getCharacterStream(i))
                 case SQLTypes.NULL          => "<null>"
-                case SQLTypes.NUMERIC       => rs.getDouble(i).toString
-                case SQLTypes.REAL          => rs.getDouble(i).toString
-                case SQLTypes.SMALLINT      => rs.getInt(i).toString
                 case SQLTypes.TIME          => getDateString(rs.getTime(i))
                 case SQLTypes.TIMESTAMP     => getDateString(rs.getTimestamp(i))
-                case SQLTypes.TINYINT       => rs.getInt(i).toString
                 case SQLTypes.VARBINARY     => binaryString(rs.getBinaryStream(i))
-                case SQLTypes.VARCHAR       => rs.getString(i).toString
                 case _                      => rs.getObject(i).toString
             }
         }
@@ -1010,7 +1000,7 @@ private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
             statement =>
 
             val (elapsed, rows) =
-                time
+                time[Int]
                 {
                     statement.executeUpdate(commandName + " " + newArgs)
                 }
@@ -1022,7 +1012,7 @@ private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
                 else if (rows == 1)
                     println("1 row affected.")
                 else
-                    println(rows + " rows affected.")
+                    printf("%d rows affected.\n", rows)
             }
 
             if (shell.settings.booleanSettingIsTrue("showtimings"))
