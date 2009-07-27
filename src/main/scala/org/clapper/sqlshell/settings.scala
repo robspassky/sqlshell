@@ -3,19 +3,60 @@ package org.clapper.sqlshell
 import scala.collection.mutable.{Map => MutableMap}
 import grizzled.string.implicits._
 
-private[sqlshell] trait ValueConverter
+/**
+ * Trait for a class that converts a string value to something else, then
+ * returns the result as an <tt>Any</tt>. This trait is broken out from
+ * <tt>Setting</tt>, to permit creating subtraits that can be shared.
+ */
+trait ValueConverter
 {
+    /**
+     * Convert a string value into some other type, returning it as an
+     * <tt>Any</tt>.
+     *
+     * @param newValue the string value
+     *
+     * @return the converted value, as an <tt>Any</tt>
+     *
+     * @throws SQLShellException on conversion error
+     */
     def convertString(newValue: String): Any
 }
 
+/**
+ * Defines what a setting looks like.
+ */
 private[sqlshell] trait Setting extends ValueConverter
 {
+    /**
+     * Get the value of a setting.
+     *
+     * @return the value
+     */
     def get: Any
+
+    /**
+     * Set the value of a setting.
+     *
+     * @param newValue  the new value, already converted to whatever
+     *                  real type it should be converted to
+     */
     def set(newValue: Any)
 }
 
+/**
+ * ValueConverter that converts from a string to a boolean.
+ */
 private[sqlshell] trait BooleanValueConverter extends ValueConverter
 {
+    /**
+     * Convert a string value into a boolean, returning it as an
+     * <tt>Any</tt>.
+     *
+     * @param newValue the string value
+     *
+     * @return the converted boolean value, as an <tt>Any</tt>
+     */
     override def convertString(newValue: String): Any =
     {
         try
@@ -27,14 +68,27 @@ private[sqlshell] trait BooleanValueConverter extends ValueConverter
         catch
         {
             case e: IllegalArgumentException =>
-                error("Cannot convert value \"" + newValue +
-                      "\" to a boolean: " + e.getMessage)
+                throw new SQLShellException("Cannot convert value \"" + 
+                                            newValue + "\" to a boolean: " +
+                                            e.getMessage)
+                
         }
     }
 }
 
+/**
+ * ValueConverter that converts from a string to a integer.
+ */
 private[sqlshell] trait IntValueConverter extends ValueConverter
 {
+    /**
+     * Convert a string value into an integer, returning it as an
+     * <tt>Any</tt>.
+     *
+     * @param newValue the string value
+     *
+     * @return the converted integer value, as an <tt>Any</tt>
+     */
     override def convertString(newValue: String): Any =
     {
         try
@@ -45,8 +99,9 @@ private[sqlshell] trait IntValueConverter extends ValueConverter
         catch
         {
             case e: NumberFormatException =>
-                error("Cannot convert value \"" + newValue +
-                      "\" to an integer: " + e.getMessage)
+                throw new SQLShellException("Cannot convert value \"" + 
+                                            newValue + "\" to a number: " +
+                                            e.getMessage)
         }
     }
 }
@@ -65,25 +120,30 @@ private[sqlshell] class VarSetting(initialValue: Any)
     def convertString(newValue: String): Any = newValue
 }
 
+/**
+ * A setting that stores its value internally as a boolean.
+ */
 private[sqlshell] class BooleanSetting(initialValue: Boolean)
     extends VarSetting(initialValue) with BooleanValueConverter
 
+/**
+ * A setting that stores its value internally as an integer.
+ */
 private[sqlshell] class IntSetting(initialValue: Int)
     extends VarSetting(initialValue) with IntValueConverter
 
 /**
- * Handles string settings.
+ * A setting that stores its value internally as a string.
  */
 private[sqlshell] class StringSetting(initialValue: String)
     extends VarSetting(initialValue)
 
 /**
- * Stores the settings. The argument is a list of
- * <tt>(variableName, SettingType, valueHandler)</tt> tuples.
- * A value handler object is used, to permit both storage of local values
- * and pass-through variables whose values are obtained via other means.
- * ("autocommit" is an example of the second variable; its value is stored
- * in the JDBC driver.)
+ * Stores the settings. The arguments are <tt>(variableName, Setting)</tt>
+ * tuples. A value handler object is used, to permit both storage of local
+ * values and pass-through variables whose values are obtained via other
+ * means. ("autocommit" is an example of the second variable; its value is
+ * stored in the JDBC driver.)
  */
 private[sqlshell] class Settings(values: (String, Setting)*)
     extends Sorter
@@ -93,14 +153,34 @@ private[sqlshell] class Settings(values: (String, Setting)*)
     for ((name, handler) <- values)
         settingsMap += (name -> handler)
 
+    /**
+     * Get a list of all the variable names, in sorted order.
+     *
+     * @return the variable names, sorted alphabetically
+     */
     def variableNames = settingsMap.keys.toList.sort(nameSorter)
 
+    /**
+     * Retrieve the value for a variable.
+     *
+     * @param variableName the name of the variable
+     *
+     * @return its value, as an <tt>Any</tt>.
+     */
     def apply(variableName: String): Any =
     {
         assert(settingsMap contains variableName)
         settingsMap(variableName).get
     }
 
+    /**
+     * Test the value of a boolean setting. Throws an assertion failure if
+     * the variable isn't a boolean.
+     *
+     * @param variableName the name of the variable
+     *
+     * @return the value of the setting
+     */
     def booleanSettingIsTrue(variableName: String): Boolean =
     {
         assert(settingsMap contains variableName)
@@ -109,6 +189,14 @@ private[sqlshell] class Settings(values: (String, Setting)*)
         handler.get.asInstanceOf[Boolean]
     }
 
+    /**
+     * Test the value of an integer setting. Throws an assertion failure if
+     * the variable isn't an integer.
+     *
+     * @param variableName the name of the variable
+     *
+     * @return the value of the setting
+     */
     def intSetting(variableName: String): Int =
     {
         assert(settingsMap contains variableName)
@@ -117,6 +205,14 @@ private[sqlshell] class Settings(values: (String, Setting)*)
         handler.get.asInstanceOf[Int]
     }
 
+    /**
+     * Test the value of a boolean setting. Throws an assertion failure if
+     * the variable isn't a boolean.
+     *
+     * @param variableName the name of the variable
+     *
+     * @return the value of the setting
+     */
     def stringSetting(variableName: String): Option[String] =
     {
         assert(settingsMap contains variableName)
@@ -126,27 +222,12 @@ private[sqlshell] class Settings(values: (String, Setting)*)
         Some(sValue)
     }
 
-    def untypedSetting(variableName: String): Any =
-    {
-        assert(settingsMap contains variableName)
-
-        val handler = settingsMap(variableName)
-        handler.get.toString
-    }
-
-    def settingValueToString(variableName: String) =
-    {
-        settingsMap.get(variableName) match
-        {
-            case None =>
-                throw new UnknownVariableException("Unknown setting: \"" +
-                                                   variableName + "\"")
-
-            case Some(handler) =>
-                variableName + "=" + handler.get.toString
-        }
-    }
-
+    /**
+     * Change a setting.
+     *
+     * @param variable  the variable name
+     * @param value     the new value, as a string; it will be converted.
+     */
     def changeSetting(variable: String, value: String) =
     {
         settingsMap.get(variable) match

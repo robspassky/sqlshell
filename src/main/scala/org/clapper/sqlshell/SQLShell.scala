@@ -577,7 +577,8 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
                 if (chopAt < 0)
                 {
                     val variable = args.trim
-                    println(shell.settings.settingValueToString(variable))
+                    val value = shell.settings(variable)
+                    printf("%s: %s\n", variable, value.toString)
                 }
 
                 else
@@ -607,7 +608,7 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
 
         for (variable <- variables)
         {
-            val value = shell.settings.untypedSetting(variable)
+            val value = shell.settings(variable).toString
             println(fmt format(variable, value))
         }
     }
