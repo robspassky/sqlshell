@@ -43,7 +43,7 @@ trait Wrapper
 
     def wrapPrintln(s: String) = println(wordWrapper.wrap(s))
 
-    def wrapPrintf(fmt: String, args: Any*) = 
+    def wrapPrintf(fmt: String, args: Any*) =
         println(wordWrapper.wrap(fmt format(args: _*)))
 }
 
@@ -111,7 +111,7 @@ class SQLShell(val config: Configuration,
                showStackTraces: Boolean,
                beVerbose: Boolean,
                fileToRun: Option[File])
-    extends CommandInterpreter("sqlshell", readlineLibs) 
+    extends CommandInterpreter("sqlshell", readlineLibs)
     with Wrapper with Sorter
 {
     val connector = new DatabaseConnector(config)
@@ -150,7 +150,7 @@ class SQLShell(val config: Configuration,
                         new DropHandler(this, connection),
 
                         new ShowHandler(this, connection),
-                        new DescribeHandler(this, connection, 
+                        new DescribeHandler(this, connection,
                                             transactionManager),
                         setHandler,
                         new EchoHandler,
@@ -158,7 +158,7 @@ class SQLShell(val config: Configuration,
                         aboutHandler)
 
     loadSettings(config, connectionInfo)
-    aboutHandler.show
+    aboutHandler.showAbbreviatedInfo
 
     if (fileToRun != None)
     {
@@ -235,7 +235,7 @@ class SQLShell(val config: Configuration,
         Stop
     }
 
-    override def handleUnknownCommand(commandName: String, 
+    override def handleUnknownCommand(commandName: String,
                                       unparsedArgs: String): CommandAction =
     {
         unknownHandler.runCommand(commandName, unparsedArgs)
@@ -329,7 +329,7 @@ class SQLShell(val config: Configuration,
      *
      * @return a list of matching tables, or Nil
      */
-    private[sqlshell] def getTables(schema: Option[String], 
+    private[sqlshell] def getTables(schema: Option[String],
                                     nameFilter: Regex): List[TableSpec] =
     {
         def toOption(s: String): Option[String] =
@@ -340,7 +340,7 @@ class SQLShell(val config: Configuration,
             if (! rs.next)
                 Nil
 
-            else 
+            else
                 new TableSpec(toOption(rs.getString("TABLE_NAME")),
                               toOption(rs.getString("TABLE_SCHEM")),
                               toOption(rs.getString("TABLE_TYPE"))) ::
@@ -360,7 +360,7 @@ class SQLShell(val config: Configuration,
                 try
                 {
                     def matches(ts: TableSpec): Boolean =
-                        (ts != None) && 
+                        (ts != None) &&
                         (nameFilter.findFirstIn(ts.name.get) != None)
 
                     getTableData(rs).filter(matches(_))
@@ -423,7 +423,7 @@ class SQLShell(val config: Configuration,
             if (! rs.next)
                 Nil
 
-            else 
+            else
                 rs.getString(1) :: getResults(rs)
         }
 
@@ -440,7 +440,7 @@ class SQLShell(val config: Configuration,
         }
     }
 
-    private def loadSettings(config: Configuration, 
+    private def loadSettings(config: Configuration,
                              connectionInfo: ConnectionInfo) =
     {
         if (config.hasSection("settings"))
@@ -526,7 +526,7 @@ trait Timer
      *
      * @return the string
      */
-    def formatInterval(start: Long, end: Long): String = 
+    def formatInterval(start: Long, end: Long): String =
         formatInterval(end - start)
 }
 
@@ -696,21 +696,73 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
  */
 class AboutHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
 {
+    import java.util.Properties
+
     val CommandName = ".about"
     val Help = "Display information about SQLShell"
 
+    private val buildInfo: Properties = loadBuildInfo
+
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
-        show
+        showFullInfo
         KeepGoing
     }
 
-    private[sqlshell] def show =
+    def showAbbreviatedInfo =
     {
         println(Ident.IdentString)
-        println()
         println("Using " + shell.readline + " readline implementation.")
     }
+
+    def showFullInfo =
+    {
+        showAbbreviatedInfo
+        val buildDate = buildInfo.getProperty("build.date")
+        val compiler = buildInfo.getProperty("build.compiler")
+        val buildOS = buildInfo.getProperty("build.os")
+        if (buildDate != null)
+            println("Build date: " + buildDate);
+        if (compiler != null)
+            println("Built with: " + compiler);
+        if (buildOS != null)
+            println("Build OS:   " + buildOS);
+    }
+
+    private def loadBuildInfo =
+    {
+        val classLoader = getClass.getClassLoader
+        val BuildInfoURL = classLoader.getResource(
+            "org/clapper/sqlshell/BuildInfo.properties")
+
+        val buildInfo = new Properties
+        if (BuildInfoURL != null)
+        {
+            try
+            {
+                val is = BuildInfoURL.openStream
+                try
+                {
+                    buildInfo.load(is)
+                }
+
+                finally
+                {
+                    is.close
+                }
+            }
+
+            catch
+            {
+                case e: Throwable =>
+                    shell.warning("Can't load " + BuildInfoURL + ": " +
+                                  e.getMessage)
+            }
+        }
+
+        buildInfo
+    }
+
 }
 
 /**
@@ -747,7 +799,7 @@ trait JDBCHelper
     }
 }
 
-abstract class SQLHandler(val shell: SQLShell, val connection: Connection) 
+abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
     extends SQLShellCommandHandler with Timer with JDBCHelper
 {
     override def moreInputNeeded(lineSoFar: String): Boolean =
@@ -766,7 +818,7 @@ abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
 /**
  * Handles SQL "SELECT" statements.
  */
-class SelectHandler(shell: SQLShell, connection: Connection) 
+class SelectHandler(shell: SQLShell, connection: Connection)
     extends SQLHandler(shell, connection) with Timer
 {
     import java.io.{EOFException,
@@ -776,6 +828,10 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                     ObjectInputStream,
                     ObjectOutputStream,
                     Reader}
+
+    class PreprocessedResults(val rowCount: Int,
+                              val columnNamesAndSizes: Map[String, Int],
+                              val dataFile: File)
 
     val DateFormatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.S")
     val CommandName = "select"
@@ -792,7 +848,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         {
             statement =>
 
-            val (elapsed, rs) = 
+            val (elapsed, rs) =
                 time[ResultSet]
                 {
                     statement.executeQuery(commandName + " " + newArgs)
@@ -807,29 +863,39 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         KeepGoing
     }
 
-    protected def dumpResults(elapsed: Long, rs: ResultSet) =
+    protected def dumpResults(queryTime: Long, rs: ResultSet) =
     {
-        val (rows, colNamesAndSizes, dataFile) = preprocess(rs)
+        shell.verbose("Processing results...")
+
+        val (preprocessingTime, preprocessedResults) =
+            time[PreprocessedResults]
+            {
+                preprocess(rs)
+            }
 
         if (shell.settings.booleanSettingIsTrue("showrowcount"))
         {
-            if (rows == 0)
+            if (preprocessedResults.rowCount == 0)
                 println("No rows returned.")
-            else if (rows == 1)
+            else if (preprocessedResults.rowCount == 1)
                 println("1 row returned.")
             else
-                printf("%d rows returned.\n", rows)
+                printf("%d rows returned.\n", preprocessedResults.rowCount)
         }
 
         if (shell.settings.booleanSettingIsTrue("showtimings"))
-            println("Execution time: " + formatInterval(elapsed))
+        {
+            println("Execution time: " + formatInterval(queryTime))
+            println("Retrieval time: " + formatInterval(preprocessingTime))
+        }
 
         // Note: Scala's format method doesn't left-justify.
         def formatter = new java.util.Formatter
 
         // Print column names...
+        val colNamesAndSizes = preprocessedResults.columnNamesAndSizes
         val columnNames = colNamesAndSizes.keys.toList
-        val columnFormats = 
+        val columnFormats =
             Map.empty[String, String] ++
             (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
 
@@ -851,7 +917,9 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         )
 
         // Now, load the serialized results and dump them.
-        val rowsIn = new ObjectInputStream(new FileInputStream(dataFile))
+        val rowsIn = new ObjectInputStream(
+            new FileInputStream(preprocessedResults.dataFile)
+        )
 
         def dumpNextRow: Unit =
         {
@@ -919,7 +987,9 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 
             shell.verbose("Preprocessing result set...")
             val rows = preprocessResultRow(rs, 0)
-            (rows, colNamesAndSizes, tempFile)
+            new PreprocessedResults(rows, 
+                                    Map.empty[String, Int] ++ colNamesAndSizes,
+                                    tempFile)
         }
 
         finally
@@ -983,7 +1053,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 
                     val buf = is.readSome(binaryLength + 1)
                     val ellipsis = buf.length > binaryLength
-                    val hexList = 
+                    val hexList =
                     {
                         for (b <- buf)
                             yield b.asInstanceOf[Int].toHexString.toList match
@@ -1042,7 +1112,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
  * is abstract so that specific handlers can be instantiated for individual
  * commands (allowing individual help).
  */
-abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection) 
+abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection)
     extends SQLHandler(shell, connection) with Timer
 {
     def doRunCommand(commandName: String, args: String): CommandAction =
@@ -1226,7 +1296,7 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     object BeginHandler extends SQLShellCommandHandler with NoArgChecker
     {
         val CommandName = "begin"
-        val Help = 
+        val Help =
 """|Start a new transaction. BEGIN switches disables autocommit for the
    |database connection. Any SQL updates to the database occur within a
    |transaction that must either be committed or rolled back. (See the "commit"
@@ -1250,7 +1320,7 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     object CommitHandler extends SQLShellCommandHandler with NoArgChecker
     {
         val CommandName = "commit"
-        val Help = 
+        val Help =
 """|Commits a transaction. This command is only within a transaction (that is,
    |if "begin" has been issued, but neither "commit" nor "rollback" has yet
    |issued. (See the "begin" and "rollback" commands.)""".stripMargin
@@ -1269,8 +1339,8 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     object RollbackHandler extends SQLShellCommandHandler with NoArgChecker
     {
         val CommandName = "rollback"
-        val Help = 
-"""|Rolls a transaction back. This command is only within a transaction (that 
+        val Help =
+"""|Rolls a transaction back. This command is only within a transaction (that
    |is, if "begin" has been issued, but neither "commit" nor "rollback" has yet
    |issued. (See the "begin" and "commit" commands.)""".stripMargin
 
@@ -1318,14 +1388,14 @@ class UnknownHandler(shell: SQLShell, connection: Connection)
     }
 }
 
-class DescribeHandler(val shell: SQLShell, 
+class DescribeHandler(val shell: SQLShell,
                       val connection: Connection,
                       val transactionManager: TransactionManager)
-    extends SQLShellCommandHandler 
+    extends SQLShellCommandHandler
     with Wrapper with JDBCHelper with Sorter
 {
     val CommandName = ".desc"
-    val Help = 
+    val Help =
 """|Describe database objects.
    |
    |.desc database
@@ -1377,7 +1447,7 @@ class DescribeHandler(val shell: SQLShell,
     {
         line.tokenize match
         {
-            case Nil => 
+            case Nil =>
                 assert(false) // shouldn't happen
                 Nil
 
@@ -1469,7 +1539,7 @@ class DescribeHandler(val shell: SQLShell,
                 }
             }
 
-            def charSize = 
+            def charSize =
             {
                 val size = md.getColumnDisplaySize(i)
                 if (size > 0) "(" + size.toString + ")" else ""
@@ -1489,7 +1559,7 @@ class DescribeHandler(val shell: SQLShell,
                 val _typeName = md.getColumnTypeName(i)
                 val jdbcType = md.getColumnType(i)
                 // This weirdness handles SQLite, among other things.
-                val typeName = 
+                val typeName =
                     if ((_typeName != null) && (_typeName != "null"))
                         _typeName
                     else
@@ -1520,7 +1590,7 @@ class DescribeHandler(val shell: SQLShell,
                     case ResultSetMetaData.columnNullableUnknown => "NULL?"
                 }
 
-                (name, fullTypeName + " " + nullable) :: 
+                (name, fullTypeName + " " + nullable) ::
                 getColumnDescriptions(md, i + 1)
             }
         }
@@ -1562,7 +1632,7 @@ class DescribeHandler(val shell: SQLShell,
                         // for Oracle.)
                         findTableName(schema, table) match
                         {
-                            case None => 
+                            case None =>
                             case Some(s) =>
                                 showExtraTableData(metadata.getCatalogName(1),
                                                    schema,
@@ -1576,8 +1646,8 @@ class DescribeHandler(val shell: SQLShell,
         KeepGoing
     }
 
-    private def showExtraTableData(catalog: String, 
-                                   schema: String, 
+    private def showExtraTableData(catalog: String,
+                                   schema: String,
                                    table: String) =
     {
         val dmd = connection.getMetaData
@@ -1613,8 +1683,8 @@ class DescribeHandler(val shell: SQLShell,
     }
 
     private def showPrimaryKeys(dmd: DatabaseMetaData,
-                                catalog: String, 
-                                schema: String, 
+                                catalog: String,
+                                schema: String,
                                 table: String) =
     {
         def getPrimaryKeyColumns(rs: ResultSet): List[String]  =
@@ -1635,8 +1705,8 @@ class DescribeHandler(val shell: SQLShell,
     }
 
     private def showIndexes(dmd: DatabaseMetaData,
-                            catalog: String, 
-                            schema: String, 
+                            catalog: String,
+                            schema: String,
                             table: String) =
     {
         class IndexColumn(val columnName: String,
@@ -1646,7 +1716,7 @@ class DescribeHandler(val shell: SQLShell,
 
         import scala.collection.mutable.ArrayBuffer
         val uniqueIndexes = MutableMap.empty[String, ArrayBuffer[IndexColumn]]
-        val nonUniqueIndexes = MutableMap.empty[String, 
+        val nonUniqueIndexes = MutableMap.empty[String,
                                                 ArrayBuffer[IndexColumn]]
 
         def gatherIndexInfo(rs: ResultSet): Unit =
@@ -1680,13 +1750,13 @@ class DescribeHandler(val shell: SQLShell,
                     val unique = ! rs.getBoolean("NON_UNIQUE")
                     val column = rs.getString("COLUMN_NAME")
 
-                    val indexInfo = if (unique) uniqueIndexes 
+                    val indexInfo = if (unique) uniqueIndexes
                                     else nonUniqueIndexes
                     if (! (indexInfo contains indexName))
                         indexInfo += (indexName -> new ArrayBuffer[IndexColumn])
-                    indexInfo(indexName) += new IndexColumn(column, 
+                    indexInfo(indexName) += new IndexColumn(column,
                                                             unique,
-                                                            ascending, 
+                                                            ascending,
                                                             indexType)
                 }
 
@@ -1697,7 +1767,7 @@ class DescribeHandler(val shell: SQLShell,
         def printIndex(indexName: String, columns: List[IndexColumn])
         {
             val buf = new StringBuilder
-            val indexType = 
+            val indexType =
                 if (columns(0).indexType == null)
                     null
                 else
@@ -1724,10 +1794,10 @@ class DescribeHandler(val shell: SQLShell,
         def nullIfEmpty(s: String) =
             if ((s == null) || (s.trim == "")) null else s
 
-        val rs = dmd.getIndexInfo(nullIfEmpty(catalog), 
-                                  nullIfEmpty(schema), 
-                                  table, 
-                                  false, 
+        val rs = dmd.getIndexInfo(nullIfEmpty(catalog),
+                                  nullIfEmpty(schema),
+                                  table,
+                                  false,
                                   true)
         withResultSet(rs)
         {
@@ -1745,8 +1815,8 @@ class DescribeHandler(val shell: SQLShell,
     }
 
     private def showConstraints(dmd: DatabaseMetaData,
-                                catalog: String, 
-                                schema: String, 
+                                catalog: String,
+                                schema: String,
                                 table: String) =
     {
         def checkForNull(s: String): String = if (s == null) "?" else s
@@ -1784,7 +1854,7 @@ class DescribeHandler(val shell: SQLShell,
                   (f.getType == classOf[Int]))
 
         // Create a map of int to name for those fields
-        Map.empty[Int, String] ++ 
+        Map.empty[Int, String] ++
         staticIntFields.map(f => (f.getInt(null), f.getName))
     }
 }
@@ -1820,7 +1890,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
         {
             case ShowTables(schema) :: Nil =>
                 showTables(schema, ".*")
-            case ShowTables(schema) :: pattern :: Nil => 
+            case ShowTables(schema) :: pattern :: Nil =>
                 showTables(schema, pattern)
             case ShowSchemas(s) :: Nil =>
                 showSchemas
@@ -1837,7 +1907,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
     {
         line.tokenize match
         {
-            case Nil => 
+            case Nil =>
                 assert(false) // shouldn't happen
                 Nil
 
@@ -1867,7 +1937,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
         val schemaOption = schema match
         {
             case null => None
-            case _    => if (schema.startsWith("/")) 
+            case _    => if (schema.startsWith("/"))
                              Some(schema.substring(1))
                          else
                              Some(schema)

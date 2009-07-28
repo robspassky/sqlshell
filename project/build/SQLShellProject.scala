@@ -23,11 +23,15 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                              Various settings
     \* ---------------------------------------------------------------------- */
 
+    // Use the "##" base path construct to indicate that "target/classes"
+    // must be stripped off before this file is packaged.
+    val buildInfoPath = ("target" / "classes" ##) / "org" / "clapper" /
+                        "sqlshell" / "BuildInfo.properties"
     val izPackHome = 
         if (System.getenv("IZPACK_HOME") != null)
             System.getenv("IZPACK_HOME")
         else
-            pathFor(System.getProperty("user.home"), "java", "IzPack")
+            pathFor(System.getProperty("user.home"), "java", "izPack")
 
     val sourceDocsDir = "src" / "docs"
     val targetDocsDir = "target" / "doc"
@@ -37,6 +41,9 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                                            markdownFiles,
                                            {_.replaceAll("\\.md$", ".html")})
     val markdownSources = markdownFiles +++ (sourceDocsDir / "markdown.css")
+
+    // Add the build info file to the resources to be included in the jar
+    override def mainResources = super.mainResources +++ buildInfoPath
 
     /* ---------------------------------------------------------------------- *\
                                Custom tasks
@@ -72,6 +79,20 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     // Override the "doc" action to depend on additional doc targets
     override def docAction = super.docAction dependsOn(targetDocs)
+
+    // Dependency should point the other way, but overriding compileAction
+    // somehow causes createBuildInfo to run BEFORE the clean action (when
+    // clean is invoked).
+
+    lazy val buildInfo = task {createBuildInfo; None}
+    override def compileAction = super.compileAction dependsOn(buildInfo)
+/*
+    {
+        val res = super.compileAction
+        createBuildInfo
+        res
+    }
+*/
 
     // Console with project defs
     lazy val projectConsole = task {Run.projectConsole(this)}
@@ -160,7 +181,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
      */
     private def markdown(source: Path, target: Path): Unit =
     {
-        if (System.getProperty("java.version") startsWith "1.6")
+        val javaVersion = system[String]("java.version").get.get
+        if (javaVersion startsWith "1.6")
             throw new Exception("Java Markdown parser currently fails with " +
                                 "1.6 Java")
 
@@ -288,4 +310,39 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     private def fileLines(path: Path): Iterator[String] =
         Source.fromFile(path.absolutePath).getLines
+
+    private def createBuildInfo: Unit =
+    {
+        import java.util.{Date, Properties}
+        import java.text.SimpleDateFormat
+        import java.io.{File, FileOutputStream}
+        import _root_.grizzled.file.{util => FileUtil}
+
+        val fullPath = buildInfoPath.absolutePath
+        log.info("Creating build properties in " + fullPath)
+        val dir = new File(FileUtil.dirname(fullPath))
+        if ((! dir.exists) && (! dir.mkdirs))
+            throw new Exception("Can't create directory path: " + dir.getPath)
+
+        val buildProps = new Properties
+        val formatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss")
+        buildProps.setProperty("build.date", formatter.format(new Date))
+        buildProps.setProperty("build.compiler",
+                               "Scala " + scalaVersion.value.toString)
+
+        val osName = system[String]("os.name").get
+        val osVersion = system[String]("os.version").get
+        (osName, osVersion) match
+        {
+            case (Some(name), None) => 
+                buildProps.setProperty("build.os", name)
+            case (Some(name), Some(version)) =>
+                buildProps.setProperty("build.os", name + " " + version)
+            case _ =>
+                buildProps.setProperty("build.os", "unknown")
+        }
+
+        buildProps.store(new FileOutputStream(fullPath),
+                         "Automatically generated SQLShell build information")
+    }
 }
