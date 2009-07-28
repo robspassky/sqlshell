@@ -74,26 +74,14 @@ private class SourceReader(source: Source)
 /**
  * Holds information about a table
  */
-private[sqlshell] class TableSpec(val name: Option[String],
-                                  val schema: Option[String],
-                                  val tableType: Option[String])
-
-/**
- * "Holds" the autocommit value
- */
-private[sqlshell] class AutocommitSetting(connection: Connection)
-    extends Setting with BooleanValueConverter
-{
-    override def get = connection.getAutoCommit
-
-    override def set(newValue: Any) =
-        connection.setAutoCommit(newValue.asInstanceOf[Boolean])
-}
+class TableSpec(val name: Option[String],
+                val schema: Option[String],
+                val tableType: Option[String])
 
 /**
  * "Holds" the max history value
  */
-private[sqlshell] class MaxHistorySetting(readline: Readline)
+class MaxHistorySetting(readline: Readline)
     extends Setting with IntValueConverter
 {
     override def get = readline.history.max
@@ -132,7 +120,6 @@ class SQLShell(val config: Configuration,
     val historyPath = connectionInfo.configInfo.get("history")
 
     val settings = new Settings(
-        ("autocommit",   new AutocommitSetting(connection)),
         ("ansi",         new BooleanSetting(useAnsiColors)),
         ("echo",         new BooleanSetting(false)),
         ("maxhistory",   new MaxHistorySetting(readline)),
@@ -148,7 +135,9 @@ class SQLShell(val config: Configuration,
 
     val aboutHandler = new AboutHandler(this)
     val setHandler = new SetHandler(this)
-    val handlers = List(new HistoryHandler(this),
+    val transactionManager = new TransactionManager(this, connection)
+    val handlers = transactionManager.handlers ++
+                   List(new HistoryHandler(this),
                         new RedoHandler(this),
                         new RunFileHandler(this),
 
@@ -159,12 +148,10 @@ class SQLShell(val config: Configuration,
                         new CreateHandler(this, connection),
                         new AlterHandler(this, connection),
                         new DropHandler(this, connection),
-                        new BeginHandler(this, connection),
-                        new CommitHandler(this, connection),
-                        new RollbackHandler(this, connection),
 
                         new ShowHandler(this, connection),
-                        new DescribeHandler(this, connection),
+                        new DescribeHandler(this, connection, 
+                                            transactionManager),
                         setHandler,
                         new EchoHandler,
                         new ExitHandler,
@@ -224,6 +211,12 @@ class SQLShell(val config: Configuration,
 
     override def postLoop: Unit =
     {
+        if (transactionManager.inTransaction)
+        {
+            warning("An uncommitted transaction is open. Rolling it back.")
+            transactionManager.rollback()
+        }
+
         historyPath match
         {
             case None =>
@@ -480,7 +473,7 @@ class SQLShell(val config: Configuration,
 /**
  * Timer mix-in.
  */
-private[sqlshell] trait Timer
+trait Timer
 {
     import org.joda.time.Period
     import org.joda.time.format.PeriodFormatterBuilder
@@ -537,28 +530,42 @@ private[sqlshell] trait Timer
         formatInterval(end - start)
 }
 
+abstract class SQLShellCommandHandler extends CommandHandler
+{
+    def runCommand(commandName: String, args: String): CommandAction =
+        doRunCommand(commandName, removeSemicolon(args))
+
+    def doRunCommand(commandName: String, args: String): CommandAction
+
+    protected def removeSemicolon(s: String): String =
+        if (s endsWith ";")
+            s.rtrim.substring(0, s.length - 1)
+        else
+            s
+}
+
 /**
  * Handles the "exit" command
  */
-class ExitHandler extends CommandHandler
+class ExitHandler extends SQLShellCommandHandler
 {
     val CommandName = "exit"
     val Help = "Exit SQLShell."
 
-    def runCommand(commandName: String, args: String): CommandAction = Stop
+    def doRunCommand(commandName: String, args: String): CommandAction = Stop
 }
 
 /**
  * Handles the ".echo" command
  */
-class EchoHandler extends CommandHandler
+class EchoHandler extends SQLShellCommandHandler
 {
     val CommandName = ".echo"
     val Help = """|Echo the remaining arguments to the terminal. For example:
                   |
                   |     .echo This will be displayed.""".stripMargin
 
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         println(args)
         KeepGoing
@@ -568,7 +575,7 @@ class EchoHandler extends CommandHandler
 /**
  * Handles the ".run" command
  */
-class RunFileHandler(val shell: SQLShell) extends CommandHandler
+class RunFileHandler(val shell: SQLShell) extends SQLShellCommandHandler
 {
     val CommandName = ".run"
     val Help = """|Load and run the contents of the specified file.
@@ -577,7 +584,7 @@ class RunFileHandler(val shell: SQLShell) extends CommandHandler
 
     private val completer = new PathnameCompleter
 
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         args.tokenize match
         {
@@ -601,7 +608,7 @@ class RunFileHandler(val shell: SQLShell) extends CommandHandler
 /**
  * Handles the ".set" command.
  */
-class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
+class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
 {
     val CommandName = ".set"
     val Help = """Change one of the SQLShell settings. Usage:
@@ -613,7 +620,7 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
     val variables = shell.settings.variableNames
     val completer = new ListCompleter(variables)
 
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         val trimmedArgs = args.trim
         if (trimmedArgs == "")
@@ -687,12 +694,12 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
 /**
  * Handles the ".about" command.
  */
-class AboutHandler(val shell: SQLShell) extends CommandHandler with Sorter
+class AboutHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
 {
     val CommandName = ".about"
     val Help = "Display information about SQLShell"
 
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         show
         KeepGoing
@@ -740,18 +747,11 @@ trait JDBCHelper
     }
 }
 
-private[sqlshell] abstract class SQLHandler(val shell: SQLShell,
-                                            val connection: Connection) 
-    extends CommandHandler with Timer with JDBCHelper
+abstract class SQLHandler(val shell: SQLShell, val connection: Connection) 
+    extends SQLShellCommandHandler with Timer with JDBCHelper
 {
     override def moreInputNeeded(lineSoFar: String): Boolean =
         (! lineSoFar.ltrim.endsWith(";"))
-
-    protected def removeSemicolon(s: String): String =
-        if (s endsWith ";")
-            s.rtrim.substring(0, s.length - 1)
-        else
-            s
 
     override def complete(token: String, line: String): List[String] =
     {
@@ -766,8 +766,7 @@ private[sqlshell] abstract class SQLHandler(val shell: SQLShell,
 /**
  * Handles SQL "SELECT" statements.
  */
-private[sqlshell] class SelectHandler(shell: SQLShell,
-                                      connection: Connection) 
+class SelectHandler(shell: SQLShell, connection: Connection) 
     extends SQLHandler(shell, connection) with Timer
 {
     import java.io.{EOFException,
@@ -786,7 +785,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
     val tempFile = File.createTempFile("sqlshell", ".dat")
     tempFile.deleteOnExit
 
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         val newArgs = removeSemicolon(args)
         withSQLStatement(connection)
@@ -1021,7 +1020,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                 case SQLTypes.TIME          => getDateString(rs.getTime(i))
                 case SQLTypes.TIMESTAMP     => getDateString(rs.getTimestamp(i))
                 case SQLTypes.VARBINARY     => binaryString(i)
-                case _                      => colAsString(i)
+                case _                      => rs.getObject(i).toString
             }
         }
 
@@ -1043,11 +1042,10 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
  * is abstract so that specific handlers can be instantiated for individual
  * commands (allowing individual help).
  */
-private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
-                                                  connection: Connection) 
+abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection) 
     extends SQLHandler(shell, connection) with Timer
 {
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         val newArgs = removeSemicolon(args)
         withSQLStatement(connection)
@@ -1081,7 +1079,7 @@ private[sqlshell] abstract class AnyUpdateHandler(shell: SQLShell,
 /**
  * Handles a SQL "UPDATE" command.
  */
-private[sqlshell] class UpdateHandler(shell: SQLShell, connection: Connection)
+class UpdateHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
     val CommandName = "update"
@@ -1091,7 +1089,7 @@ private[sqlshell] class UpdateHandler(shell: SQLShell, connection: Connection)
 /**
  * Handles a SQL "INSERT" command.
  */
-private[sqlshell] class InsertHandler(shell: SQLShell, connection: Connection)
+class InsertHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
     val CommandName = "insert"
@@ -1101,7 +1099,7 @@ private[sqlshell] class InsertHandler(shell: SQLShell, connection: Connection)
 /**
  * Handles a SQL "DELETE" command.
  */
-private[sqlshell] class DeleteHandler(shell: SQLShell, connection: Connection)
+class DeleteHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
     val CommandName = "delete"
@@ -1111,7 +1109,7 @@ private[sqlshell] class DeleteHandler(shell: SQLShell, connection: Connection)
 /**
  * Handles a SQL "ALTER" command.
  */
-private[sqlshell] class AlterHandler(shell: SQLShell, connection: Connection)
+class AlterHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
     val CommandName = "alter"
@@ -1121,7 +1119,7 @@ private[sqlshell] class AlterHandler(shell: SQLShell, connection: Connection)
 /**
  * Handles a SQL "CREATE" command.
  */
-private[sqlshell] class CreateHandler(shell: SQLShell, connection: Connection)
+class CreateHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
     val CommandName = "create"
@@ -1131,7 +1129,7 @@ private[sqlshell] class CreateHandler(shell: SQLShell, connection: Connection)
 /**
  * Handles a SQL "DROP" command.
  */
-private[sqlshell] class DropHandler(shell: SQLShell, connection: Connection)
+class DropHandler(shell: SQLShell, connection: Connection)
     extends AnyUpdateHandler(shell, connection)
 {
     val CommandName = "drop"
@@ -1139,80 +1137,162 @@ private[sqlshell] class DropHandler(shell: SQLShell, connection: Connection)
 }
 
 /**
- * Handles a SQL "BEGIN" pseudo-command.
+ * Contains handlers and state for transaction management.
  */
-private[sqlshell] class BeginHandler(shell: SQLShell, connection: Connection)
-    extends CommandHandler
+class TransactionManager(val shell: SQLShell, val connection: Connection)
 {
-    val CommandName = "begin"
-    val Help = 
-"""|Start a new transaction. BEGIN is a pseudocommand. If autocommit is enabled,
-   |BEGIN doesn't really do anything. If autocommit is disabled, BEGIN just
-   |complains before not doing anything. BEGIN exists primarily to accomodate
-   |SQL scripts.""".stripMargin
-
-    override def runCommand(commandName: String, args: String): CommandAction =
+    /**
+     * Determines whether a transaction is open or not. If a transaction
+     * is open, autocommit will be off. Otherwise, it will be on.
+     *
+     * @return <tt>true</tt> if a transaction is open (i.e., "BEGIN"
+     *         was invoked, without yet seeing <tt>COMMIT</tt> or
+     *         <tt>ROLLBACK</tt>; <tt>false</tt> if not.
+     */
+    def inTransaction: Boolean =
     {
-        if (shell.settings.booleanSettingIsTrue("autocommit"))
-            shell.warning("Autocommit is on. BEGIN ignored.")
+        try
+        {
+            ! connection.getAutoCommit
+        }
 
-        KeepGoing
+        catch
+        {
+            case e: SQLException =>
+                shell.error("Cannot determine autocommit status: " +
+                            e.getMessage)
+                false
+        }
     }
-}
 
-/**
- * Handles a SQL "COMMIT" command.
- */
-private[sqlshell] class CommitHandler(shell: SQLShell, connection: Connection)
-    extends CommandHandler
-{
-    val CommandName = "commit"
-    val Help = 
-"""|Commits a transaction. This command is only meaningful if the autocommit
-   |is enabled. Otherwise, it just complains and does nothing.
-   |
-   |See the "rollback" command and ".set autocommit".""".stripMargin
-
-    override def runCommand(commandName: String, args: String): CommandAction =
+    /**
+     * Commit a transaction.
+     */
+    def commit(): Unit =
     {
-        if (shell.settings.booleanSettingIsTrue("autocommit"))
-            shell.warning("Autocommit is on. COMMIT ignored.")
+        if (! inTransaction)
+            shell.warning("Not in a transaction. Commit ignored.")
+
         else
-            connection.commit
-
-        KeepGoing
+        {
+            connection.commit()
+            setAutoCommit(true)
+        }
     }
-}
 
-/**
- * Handles a SQL "ROLLBACK" command.
- */
-private[sqlshell] class RollbackHandler(shell: SQLShell, connection: Connection)
-    extends CommandHandler
-{
-    val CommandName = "rollback"
-    val Help = 
-"""|Rolls a transaction back. This command is only meaningful if the autocommit
-   |is enabled. Otherwise, it just complains and does nothing.
-   |
-   |See the "commit" command and ".set autocommit".""".stripMargin
-
-    override def runCommand(commandName: String, args: String): CommandAction =
+    /**
+     * Roll a transaction back.
+     */
+    def rollback(): Unit =
     {
-        if (shell.settings.booleanSettingIsTrue("autocommit"))
-            shell.warning("Autocommit is on. ROLLBACK ignored.")
-        else
-            connection.rollback
+        if (! inTransaction)
+            shell.warning("Not in a transaction. Rollback ignored.")
 
-        KeepGoing
+        else
+        {
+            connection.rollback()
+            setAutoCommit(true)
+        }
     }
+
+    private def setAutoCommit(onOff: Boolean) =
+    {
+        try
+        {
+            connection.setAutoCommit(onOff)
+        }
+
+        catch
+        {
+            case e: SQLException =>
+                shell.error("Cannot change autocommit status: " +
+                            e.getMessage)
+        }
+    }
+
+    trait NoArgChecker
+    {
+        protected def checkForNoArgs(commandName: String, args: String) =
+        {
+            if (args.trim != "")
+                shell.warning("Ignoring arguments to " + commandName +
+                              " command.")
+        }
+    }
+
+    /**
+     * Handles a SQL "BEGIN" pseudo-command.
+     */
+    object BeginHandler extends SQLShellCommandHandler with NoArgChecker
+    {
+        val CommandName = "begin"
+        val Help = 
+"""|Start a new transaction. BEGIN switches disables autocommit for the
+   |database connection. Any SQL updates to the database occur within a
+   |transaction that must either be committed or rolled back. (See the "commit"
+   |and "rollback" commands.)""".stripMargin
+
+        def doRunCommand(commandName: String, args: String): CommandAction =
+        {
+            checkForNoArgs(commandName, args)
+            if (inTransaction)
+                shell.warning("Already in a transaction. BEGIN ignored.")
+            else
+                setAutoCommit(false)
+
+            KeepGoing
+        }
+    }
+
+    /**
+     * Handles a SQL "COMMIT" command.
+     */
+    object CommitHandler extends SQLShellCommandHandler with NoArgChecker
+    {
+        val CommandName = "commit"
+        val Help = 
+"""|Commits a transaction. This command is only within a transaction (that is,
+   |if "begin" has been issued, but neither "commit" nor "rollback" has yet
+   |issued. (See the "begin" and "rollback" commands.)""".stripMargin
+
+        def doRunCommand(commandName: String, args: String): CommandAction =
+        {
+            checkForNoArgs(commandName, args)
+            commit()
+            KeepGoing
+        }
+    }
+
+    /**
+     * Handles a SQL "ROLLBACK" command.
+     */
+    object RollbackHandler extends SQLShellCommandHandler with NoArgChecker
+    {
+        val CommandName = "rollback"
+        val Help = 
+"""|Rolls a transaction back. This command is only within a transaction (that 
+   |is, if "begin" has been issued, but neither "commit" nor "rollback" has yet
+   |issued. (See the "begin" and "commit" commands.)""".stripMargin
+
+        def doRunCommand(commandName: String, args: String): CommandAction =
+        {
+            checkForNoArgs(commandName, args)
+            rollback()
+            KeepGoing
+        }
+    }
+
+    /**
+     * Gets all the handlers supplied by this class.
+     */
+    val handlers = List(BeginHandler, CommitHandler, RollbackHandler)
 }
 
 /**
  * Handles any unknown command.
  */
-private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
-    extends CommandHandler
+class UnknownHandler(shell: SQLShell, connection: Connection)
+    extends SQLShellCommandHandler
 {
     val CommandName = ""
     val Help = """Issue an unknown SQL statement."""
@@ -1220,7 +1300,7 @@ private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
     val updateHandler = new UpdateHandler(shell, connection)
     val queryHandler = new SelectHandler(shell, connection)
 
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         // Try it as both a query and an update.
 
@@ -1238,9 +1318,10 @@ private[sqlshell] class UnknownHandler(shell: SQLShell, connection: Connection)
     }
 }
 
-private[sqlshell] class DescribeHandler(val shell: SQLShell, 
-                                        val connection: Connection)
-    extends CommandHandler 
+class DescribeHandler(val shell: SQLShell, 
+                      val connection: Connection,
+                      val transactionManager: TransactionManager)
+    extends SQLShellCommandHandler 
     with Wrapper with JDBCHelper with Sorter
 {
     val CommandName = ".desc"
@@ -1248,7 +1329,8 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
 """|Describe database objects.
    |
    |.desc database
-   |    Show information about the database.
+   |    Show information about the database, including the database vendor,
+   |    the JDBC driver, and whether or not a transaction is currently open.
    |
    |.desc table [full]
    |
@@ -1270,7 +1352,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
         new ListCompleter(subCommands ++ tables, _.toLowerCase)
     }
 
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         args.tokenize match
         {
@@ -1344,11 +1426,11 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
             }
 
         val user = metadata.getUserName
-        val displayUser = 
-            if ((user == null) || (user.trim == ""))
-                null
-            else
-                user
+        val displayUser = if ((user == null) || (user.trim == "")) null
+                          else user
+
+        val inTransactionStr = if (transactionManager.inTransaction) "yes"
+                               else "no"
 
         wrapPrintln("Connected to database: " + metadata.getURL)
         if (user != null)
@@ -1358,6 +1440,7 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
         wrapPrintln("JDBC driver:           " + driverName)
         wrapPrintln("JDBC driver version:   " + driverVersion)
         wrapPrintln("Transaction isolation: " + isolation)
+        wrapPrintln("Open transaction?      " + inTransactionStr)
     }
 
     private def describeTable(table: String, full: Boolean) =
@@ -1706,9 +1789,8 @@ private[sqlshell] class DescribeHandler(val shell: SQLShell,
     }
 }
 
-private[sqlshell] class ShowHandler(val shell: SQLShell, 
-                                    val connection: Connection)
-    extends CommandHandler with Wrapper with Sorter
+class ShowHandler(val shell: SQLShell, val connection: Connection)
+    extends SQLShellCommandHandler with Wrapper with Sorter
 {
     val CommandName = ".show"
     val Help =
@@ -1732,7 +1814,7 @@ private[sqlshell] class ShowHandler(val shell: SQLShell,
     private val ShowTables = """^\s*tables(/[^/.\s]+)?\s*$""".r
     private val ShowSchemas = """^\s*(schemas)\s*$""".r
 
-    def runCommand(commandName: String, args: String): CommandAction =
+    def doRunCommand(commandName: String, args: String): CommandAction =
     {
         args.tokenize match
         {

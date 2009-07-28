@@ -531,8 +531,14 @@ transcript, to whet your appetite:
       stacktrace: false
          verbose: false
     ? .desc database
-    MySQL, 4.1.16
-    Using JDBC driver MySQL-AB JDBC Driver, mysql-connector-java-5.1.7 ( Revision: ${svn.Revision} )
+    Connected to database: jdbc:postgresql://localhost:5432/bmc
+    Connected as user:     moe
+    Database vendor:       PostgreSQL
+    Database version:      8.3.4
+    JDBC driver:           PostgreSQL Native Driver
+    JDBC driver version:   PostgreSQL 8.2 JDBC3 with SSL (build 505)
+    Transaction isolation: read committed
+    Open transaction?      no
     ? .show tables;
     users    customers
     ? .desc users

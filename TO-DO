@@ -1,4 +1,2 @@
 - Templates for DB connection strings
-- Check for open transaction at EOF, and roll it back
-- Add "verbose" setting.
- 
+- Add ability to change transaction isolation level
