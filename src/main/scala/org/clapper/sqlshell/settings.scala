@@ -117,8 +117,7 @@ private[sqlshell] trait IntValueConverter
         {
             case e: NumberFormatException =>
                 throw new SQLShellException("Cannot convert value \"" + 
-                                            newValue + "\" to a number: " +
-                                            e.getMessage)
+                                            newValue + "\" to a number.")
         }
     }
 }

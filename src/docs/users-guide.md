@@ -91,7 +91,12 @@ or
 
     -s, --stack                   Show all exception stack traces.
 
-    -v, --version                 Show version and exit.
+    -v, --verbose                 Enable various verbose messages. This
+                                  option just sets the initial value for this
+                                  setting. The value can be changed later from
+                                  within SQLShell itself.
+
+    -V, --version                 Show version and exit.
 
 ### Parameters
 
@@ -518,11 +523,13 @@ transcript, to whet your appetite:
             ansi: true
       autocommit: true
             echo: false
+      maxhistory: 2147483647
           schema: 
       showbinary: 20
     showrowcount: true
      showtimings: true
       stacktrace: false
+         verbose: false
     ? .desc database
     MySQL, 4.1.16
     Using JDBC driver MySQL-AB JDBC Driver, mysql-connector-java-5.1.7 ( Revision: ${svn.Revision} )
@@ -753,11 +760,13 @@ from commands that are processed by the connected database engine.
             ansi: true
       autocommit: true
             echo: false
+      maxhistory: 2147483647
           schema: 
       showbinary: 20
     showrowcount: true
      showtimings: true
       stacktrace: false
+         verbose: false
 
 > The initial value for any setting may be placed in the `[settings]` section
 > of the configuration file.
@@ -774,6 +783,12 @@ from commands that are processed by the connected database engine.
     on, 1, yes, true
     off, 0, no, false
 
+> Values can be quoted, either with paired single or double quotes. Currently,
+> the only real use for that feature is to clear string settings. Values like
+> `schema` can be cleared by setting them to the empty string, as follows:
+
+    .set schema=""
+
 > The supported settings are:
 > 
 > * `ansi`: Whether or not to use ANSI terminal escape sequences in output.
@@ -788,6 +803,10 @@ from commands that are processed by the connected database engine.
 >
 > * `echo`: Whether or not commands are echoed before they are run.
 >   **Default**: off
+>
+> * `maxhistory`: Sets the maximum number of entries in the command history.
+>   **Default:** A really large number (the largest possible signed 32-bit
+>   integer, 2147483647).
 >
 > * `schema': The schema to use when resolving table names. If omitted,
 >   then SQLShell considers all tables that are visible to the connected
@@ -809,6 +828,9 @@ from commands that are processed by the connected database engine.
 >
 > * `stacktrace`: Whether or not to display Scala stack traces when internal
 >   exceptions occur. Useful mostly for debugging. **Default:* off
+>
+> * `verbose`: Whether or not to display various verbose messages.
+>   **Default**: off
 
 `.show`
 

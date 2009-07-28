@@ -112,6 +112,7 @@ private[sqlshell] class MaxHistorySetting(readline: Readline)
  * @param useAnsiColors   <tt>true</tt> to use ANSI terminal colors in various
  *                        output, <tt>false</tt> to avoid them
  * @param showStackTraces whether or not to show stack traces on error
+ * @param beVerbose       whether or not to enable verbose messages
  * @param fileToRun       a file to run (then exit), or none for interactive
  *                        mode
  */
@@ -120,6 +121,7 @@ class SQLShell(val config: Configuration,
                readlineLibs: List[ReadlineType],
                useAnsiColors: Boolean,
                showStackTraces: Boolean,
+               beVerbose: Boolean,
                fileToRun: Option[File])
     extends CommandInterpreter("sqlshell", readlineLibs) 
     with Wrapper with Sorter
@@ -138,14 +140,14 @@ class SQLShell(val config: Configuration,
         ("showbinary",   new IntSetting(0)),
         ("showrowcount", new BooleanSetting(true)),
         ("showtimings",  new BooleanSetting(true)),
-        ("stacktrace",   new BooleanSetting(showStackTraces))
+        ("stacktrace",   new BooleanSetting(showStackTraces)),
+        ("verbose",      new BooleanSetting(beVerbose))
     )
-
-    loadSettings(config, connectionInfo)
 
     // List of command handlers.
 
     val aboutHandler = new AboutHandler(this)
+    val setHandler = new SetHandler(this)
     val handlers = List(new HistoryHandler(this),
                         new RedoHandler(this),
                         new RunFileHandler(this),
@@ -163,11 +165,12 @@ class SQLShell(val config: Configuration,
 
                         new ShowHandler(this, connection),
                         new DescribeHandler(this, connection),
-                        new SetHandler(this),
+                        setHandler,
                         new EchoHandler,
                         new ExitHandler,
                         aboutHandler)
 
+    loadSettings(config, connectionInfo)
     aboutHandler.show
 
     if (fileToRun != None)
@@ -197,6 +200,15 @@ class SQLShell(val config: Configuration,
         else
             println("Warning: " + message)
 
+    def verbose(message: String) =
+        if (settings.booleanSettingIsTrue("verbose"))
+        {
+            if (settings.booleanSettingIsTrue("ansi"))
+                println(Console.BLUE + Console.BOLD + message + Console.RESET)
+            else
+                println(message)
+        }
+
     override def preLoop: Unit =
     {
         historyPath match
@@ -205,7 +217,7 @@ class SQLShell(val config: Configuration,
                 return
 
             case Some(path) =>
-                println("Loading history from \"" + path + "\"...")
+                verbose("Loading history from \"" + path + "\"...")
                 history.load(path)
         }
     }
@@ -218,13 +230,14 @@ class SQLShell(val config: Configuration,
                 return
 
             case Some(path) =>
-                println("Saving history to \"" + path + "\"...")
+                verbose("Saving history to \"" + path + "\"...")
                 history.save(path)
         }
     }
 
     override def handleEOF: CommandAction =
     {
+        verbose("EOF. Exiting.")
         println()
         Stop
     }
@@ -242,6 +255,8 @@ class SQLShell(val config: Configuration,
                           e.getClass.getName
                       else
                           e.getMessage
+
+        verbose("Caught exception.")
         error(message)
         if (settings.booleanSettingIsTrue("stacktrace"))
             e.printStackTrace(System.out)
@@ -437,10 +452,13 @@ class SQLShell(val config: Configuration,
     {
         if (config.hasSection("settings"))
         {
+            verbose("Loading settings from configuration.")
             for ((variable, value) <- config.options("settings"))
                 try
                 {
                     settings.changeSetting(variable, value)
+                    verbose("+ " + setHandler.CommandName + " " +
+                            variable + "=" + value)
                 }
                 catch
                 {
@@ -448,9 +466,14 @@ class SQLShell(val config: Configuration,
                 }
         }
 
-        if (connectionInfo.configInfo.get("schema") != None)
-            settings.changeSetting("schema", 
-                                   connectionInfo.configInfo.get("schema").get)
+        connectionInfo.configInfo.get("schema") match
+        {
+            case None =>
+
+            case Some(schema) =>
+                settings.changeSetting("schema", schema)
+                verbose("+ " + setHandler.CommandName + " schema=" + schema)
+        }
     }
 }
 
@@ -562,6 +585,7 @@ class RunFileHandler(val shell: SQLShell) extends CommandHandler
                 error("You must specify a file to be run.")
             case file :: Nil =>
                 val reader = new SourceReader(Source.fromFile(file))
+                shell.verbose("Loading and running \"" + file + "\"")
                 shell.pushReader(reader.readline)
             case _ =>
                 error("Too many parameters to " + CommandName + " command.")
@@ -612,7 +636,8 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
                 {
                     val variable = args.substring(0, chopAt).trim
                     val value = args.substring(chopAt + 1).trim
-                    shell.settings.changeSetting(variable, value)
+                    val strippedValue = stripQuotes(value)
+                    shell.settings.changeSetting(variable, strippedValue)
                 }
             }
 
@@ -627,6 +652,24 @@ class SetHandler(val shell: SQLShell) extends CommandHandler with Sorter
 
     override def complete(token: String, line: String): List[String] =
         completer.complete(token, line)
+
+    private def stripQuotes(s: String): String =
+    {
+        val ch = s(0)
+        if ("\"'" contains ch)
+        {
+            if (s.length == 1)
+                throw new SQLShellException("Unbalanced quotes in value: " + s)
+
+            if (s.last != ch)
+                throw new SQLShellException("Unbalanced quotes in value: " + s)
+
+            s.substring(1, s.length - 1)
+        }
+
+        else
+            s
+    }
 
     private def showSettings =
     {
@@ -875,6 +918,7 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                 }
             }
 
+            shell.verbose("Preprocessing result set...")
             val rows = preprocessResultRow(rs, 0)
             (rows, colNamesAndSizes, tempFile)
         }
@@ -892,16 +936,17 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
 
         def getDateString(date: Date): String = DateFormatter.format(date)
 
-        def clobString(r: Reader): String =
+        def clobString(i: Int): String =
         {
-            try
+            val binaryLength = shell.settings.intSetting("showbinary")
+            if (binaryLength == 0)
+                "<clob>"
+
+            else
             {
-                val binaryLength = shell.settings.intSetting("showbinary")
+                val r = rs.getCharacterStream(i)
 
-                if (binaryLength == 0)
-                    "<clob>"
-
-                else
+                try
                 {
                     // Read one more than the binary length. If we get that
                     // many, then display an ellipsis.
@@ -914,23 +959,25 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                         case n =>                       buf.mkString("")
                     }
                 }
-            }
 
-            finally
-            {
-                r.close
+                finally
+                {
+                    r.close
+                }
             }
         }
 
-        def binaryString(is: InputStream): String =
+        def binaryString(i: Int): String =
         {
-            try
-            {
-                val binaryLength = shell.settings.intSetting("showbinary")
-                if (binaryLength == 0)
-                    "<binary>"
+            val binaryLength = shell.settings.intSetting("showbinary")
+            if (binaryLength == 0)
+                "<blob>"
 
-                else
+            else
+            {
+                val is = rs.getBinaryStream(i)
+
+                try
                 {
                     // Read one more than the binary length. If we get that
                     // many, then display an ellipsis.
@@ -949,11 +996,11 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                     val hexString = hexList.mkString("")
                     if (ellipsis) hexString + "..." else hexString
                 }
-            }
 
-            finally
-            {
-                is.close
+                finally
+                {
+                    is.close
+                }
             }
         }
 
@@ -964,17 +1011,17 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
                 // Handle just the oddballs. getObject(i).toString should be
                 // sufficient to handle the other column types.
 
-                case SQLTypes.BINARY        => binaryString(rs.getBinaryStream(i))
-                case SQLTypes.BLOB          => binaryString(rs.getBinaryStream(i))
-                case SQLTypes.CLOB          => clobString(rs.getCharacterStream( i))
+                case SQLTypes.BINARY        => binaryString(i)
+                case SQLTypes.BLOB          => binaryString(i)
+                case SQLTypes.CLOB          => clobString(i)
                 case SQLTypes.DATE          => getDateString(rs.getDate(i))
-                case SQLTypes.LONGVARBINARY => binaryString(rs.getBinaryStream(i))
-                case SQLTypes.LONGVARCHAR   => clobString(rs.getCharacterStream(i))
+                case SQLTypes.LONGVARBINARY => binaryString(i)
+                case SQLTypes.LONGVARCHAR   => clobString(i)
                 case SQLTypes.NULL          => "<null>"
                 case SQLTypes.TIME          => getDateString(rs.getTime(i))
                 case SQLTypes.TIMESTAMP     => getDateString(rs.getTimestamp(i))
-                case SQLTypes.VARBINARY     => binaryString(rs.getBinaryStream(i))
-                case _                      => rs.getObject(i).toString
+                case SQLTypes.VARBINARY     => binaryString(i)
+                case _                      => colAsString(i)
             }
         }
 
@@ -988,11 +1035,6 @@ private[sqlshell] class SelectHandler(shell: SQLShell,
             {for {i <- 1 to metadata.getColumnCount
                   colName = metadata.getColumnName(i)}
                  yield (colName, colAsString(i))}.toList
-    }
-
-    private def loadResultRow(os: ObjectInputStream): Map[String,String] =
-    {
-        Map.empty[String,String]
     }
 }
 

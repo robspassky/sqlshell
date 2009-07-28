@@ -16,9 +16,10 @@ private[tool] class Params(val configFile: String,
                            val readlineLibs: List[ReadlineType],
                            val useAnsiColors: Boolean,
                            val showStackTraces: Boolean,
+                           val verbose: Boolean,
                            val fileToRun: Option[File])
 {
-    def this() = this(null, null, Nil, true, false, None)
+    def this() = this(null, null, Nil, true, false, false, None)
 }
 
 /**
@@ -58,6 +59,7 @@ object Tool
                                      params.readlineLibs,
                                      params.useAnsiColors,
                                      params.showStackTraces,
+                                     params.verbose,
                                      params.fileToRun)
             shell.mainLoop
         }
@@ -100,8 +102,13 @@ object Tool
               .describedAs("lib_name")
         parser.acceptsAll(asList("s", "stack"),
                           "Show all exception stack traces.")
+        parser.acceptsAll(asList("v", "verbose"),
+                          "Enable various verbose messages. This option just " +
+                          "sets the initial value for this setting. The " +
+                          "value can be changed later from within SQLShell " +
+                          "itself.")
+        parser.acceptsAll(asList("V", "version"), "Show version and exit.")
         parser.acceptsAll(asList("?", "h", "help"), "Show this usage message.")
-        parser.acceptsAll(asList("v", "version"), "Show version and exit.")
 
         try
         {
@@ -114,6 +121,7 @@ object Tool
                     DefaultConfig
 
             val showStackTraces = options.has("s")
+            val verbose = options.has("v")
             val showAnsi = ! options.has("n")
 
             val positionalParams =
@@ -185,10 +193,11 @@ object Tool
                                     readlineLibs,
                                     showAnsi,
                                     showStackTraces,
+                                    verbose,
                                     fileToRun)
 
-            val abort = options.has("?") || options.has("v")
-            if (options.has("v"))
+            val abort = options.has("?") || options.has("V")
+            if (options.has("V"))
                 println(Ident.IdentString)
 
             if (options.has("?"))
