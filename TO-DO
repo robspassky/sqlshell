@@ -1,2 +1,3 @@
 - Templates for DB connection strings
 - Add ability to change transaction isolation level
+- Added build info to identification string, if possible.
