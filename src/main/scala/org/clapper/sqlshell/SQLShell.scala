@@ -841,6 +841,14 @@ class SelectHandler(shell: SQLShell, connection: Connection)
     val tempFile = File.createTempFile("sqlshell", ".dat")
     tempFile.deleteOnExit
 
+    /**
+     * Run the "SELECT" command and dump the output.
+     *
+     * @param commandName the command (i.e., "select")
+     * @param args        the remainder of the SELECT command
+     *
+     * @return KeepGoing, always
+     */
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
         val newArgs = removeSemicolon(args)
@@ -863,7 +871,14 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         KeepGoing
     }
 
-    protected def dumpResults(queryTime: Long, rs: ResultSet) =
+    /**
+     * Dump the results of a query.
+     *
+     * @param queryTime  the number of milliseconds the query took to run;
+     *                   displayed with the results
+     * @param rs         the JDBC result set
+     */
+    protected def dumpResults(queryTime: Long, rs: ResultSet): Unit =
     {
         shell.verbose("Processing results...")
 
@@ -945,7 +960,16 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         dumpNextRow
     }
 
-    private def preprocess(rs: ResultSet) =
+    /**
+     * Preprocess the result set. The result set is read completely and
+     * serialized to a file, allowing the number of rows to be counted,
+     * the maximum size of each column of output to be determined, etc.
+     *
+     * @param rs  the result set
+     *
+     * @return a PreprocessedResults object containing the results
+     */
+    private def preprocess(rs: ResultSet): PreprocessedResults =
     {
         import scala.collection.mutable.LinkedHashMap
 
@@ -998,10 +1022,18 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         }
     }
 
+    /**
+     * Map a result set row, returning the each column and its name.
+     *
+     * @param rs       the result set
+     * @param metadata the result set's metadata
+     *
+     * @return a map of (columnName, columnValue) string pairs
+     */
     private def mapRow(rs: ResultSet,
                        metadata: ResultSetMetaData): Map[String, String] =
     {
-        import grizzled.io.implicits._
+        import grizzled.io.implicits._   // for the readSome() method
 
         def getDateString(date: Date): String = DateFormatter.format(date)
 

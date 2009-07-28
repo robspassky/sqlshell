@@ -1,3 +1,6 @@
+/**
+ * Database connection stuff.
+ */
 package org.clapper.sqlshell
 
 import grizzled.string.WordWrapper
@@ -39,14 +42,21 @@ private[sqlshell] class DatabaseInfo(val dbName: Option[String],
  */
 private[sqlshell] class ConnectionInfo(val connection: SQLConnection,
                                        val configInfo: Map[String, String])
-{
-}
 
 /**
  * Handles connecting to a database.
  */
 private[sqlshell] class DatabaseConnector(val config: Configuration)
 {
+    /**
+     * Connect to the database specified in a <tt>DatabaseInfo</tt>
+     * object, consulting the configuration, if necessary.
+     *
+     * @param info  the database information
+     *
+     * @return a <tt>ConnectionInfo</tt> object, containing the connection
+     *         and the configuration data for the database
+     */
     def connect(info: DatabaseInfo): ConnectionInfo =
     {
         if (info.dbName != None)
