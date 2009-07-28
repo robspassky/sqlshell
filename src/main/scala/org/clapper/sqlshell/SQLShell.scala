@@ -91,6 +91,18 @@ private[sqlshell] class AutocommitSetting(connection: Connection)
 }
 
 /**
+ * "Holds" the max history value
+ */
+private[sqlshell] class MaxHistorySetting(readline: Readline)
+    extends Setting with IntValueConverter
+{
+    override def get = readline.history.max
+
+    override def set(newValue: Any) =
+        readline.history.max = newValue.asInstanceOf[Int]
+}
+
+/**
  * The actual class that implements the command line interpreter.
  *
  * @param config          the loaded configuration file
@@ -121,6 +133,7 @@ class SQLShell(val config: Configuration,
         ("autocommit",   new AutocommitSetting(connection)),
         ("ansi",         new BooleanSetting(useAnsiColors)),
         ("echo",         new BooleanSetting(false)),
+        ("maxhistory",   new MaxHistorySetting(readline)),
         ("schema",       new StringSetting("")),
         ("showbinary",   new IntSetting(0)),
         ("showrowcount", new BooleanSetting(true)),

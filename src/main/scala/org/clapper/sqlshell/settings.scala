@@ -79,8 +79,20 @@ private[sqlshell] trait BooleanValueConverter extends ValueConverter
 /**
  * ValueConverter that converts from a string to a integer.
  */
-private[sqlshell] trait IntValueConverter extends ValueConverter
+private[sqlshell] trait IntValueConverter
+    extends ValueConverter
 {
+    /**
+     * The minimum legal value for the setting. Defaults to 0.
+     */
+    val minimum: Int = 0
+
+    /**
+     * The maximum legal value for the setting. Defaults to
+     * Integer.MAX_VALUE
+     */
+    val maximum: Int = Integer.MAX_VALUE
+
     /**
      * Convert a string value into an integer, returning it as an
      * <tt>Any</tt>.
@@ -93,7 +105,12 @@ private[sqlshell] trait IntValueConverter extends ValueConverter
     {
         try
         {
-            newValue.toInt
+            val result = newValue.toInt
+            if ((result < minimum) || (result > maximum))
+                throw new SQLShellException("Value " + result + " is not " +
+                                            "between " + minimum + " and " +
+                                            maximum)
+            result
         }
 
         catch
