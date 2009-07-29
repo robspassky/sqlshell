@@ -5,7 +5,7 @@ import grizzled.readline.{ListCompleter, PathnameCompleter}
 import grizzled.readline.Readline
 import grizzled.readline.Readline.ReadlineType
 import grizzled.readline.Readline.ReadlineType._
-import grizzled.GrizzledString._
+import grizzled.string.implicits._
 import grizzled.string.WordWrapper
 import grizzled.config.Configuration
 import grizzled.math.util._
