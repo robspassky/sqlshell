@@ -1106,12 +1106,24 @@ These instructions differ, depending on the Linux distribution.
 
 ### Getting Editline to work
 
+Editline keyboard bindings aren't always "correct" out of the box. For instance,
+tab completion didn't work for me on Ubuntu or Mac OS X. To correct this
+problem, I put the following line in my `$HOME/.editrc` file:
+
+    bind \\t rl_complete
+
+Since I am also a long-time Emacs user, I want an incremental reverse-search
+capability. To do that with Editline requires an additional line in `.editrc`:
+
+    bind '^R' em-inc-search-prev
+
+Here are instructions on getting Editline installed and working on various
+platforms.
+
 #### Mac OS X
 
 See **Getting GNU Readline to work**, above. (On Mac OS X, GNU Readline is
 really Editline.)
-
-*To be written*
 
 #### Linux
 
