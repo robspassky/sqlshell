@@ -958,26 +958,29 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 
         def dumpNextRow: Unit =
         {
-            try
-            {
-                val rowMap = rowsIn.readObject.asInstanceOf[Map[String, String]]
-                val data =
-                    {for {col <- columnNames
-                          size = colNamesAndSizes(col)
-                          fmt = columnFormats(col)}
-                         yield formatter.format(fmt, rowMap(col))}.toList
-                println(data mkString ColumnSeparator)
+            // Have to cast it to a MutableMap, because the original
+            // MutableMap that was written is not compatible with Map.
+            val rowMap = rowsIn.readObject
+                               .asInstanceOf[MutableMap[String, String]]
+            val data =
+                {for {col <- columnNames
+                      size = colNamesAndSizes(col)
+                      fmt = columnFormats(col)}
+                     yield formatter.format(fmt, rowMap(col))}.toList
 
-                dumpNextRow
-            }
-
-            catch
-            {
-                case _: EOFException =>
-            }
+            println(data mkString ColumnSeparator)
+            dumpNextRow
         }
 
-        dumpNextRow
+        try
+        {
+            dumpNextRow
+        }
+
+        catch
+        {
+            case _: EOFException =>
+        }
     }
 
     /**
@@ -1008,29 +1011,35 @@ class SelectHandler(shell: SQLShell, connection: Connection)
             // Serialize the results to a file. This allows counting
             // the rows ahead of time.
 
-            def preprocessResultRow(rs: ResultSet, lastRowNum: Int): Int =
+            def preprocessResultRow(rs: ResultSet, 
+                                    lastRowNum: Int,
+                                    rowMap: MutableMap[String, String]): Int =
             {
                 if (! rs.next)
                     lastRowNum
 
                 else
                 {
-                    val mappedRow = mapRow(rs, metadata)
-                    tempOut.writeObject(mappedRow)
+                    rowMap.clear
+                    mapRow(rs, metadata, rowMap)
+                    tempOut.writeObject(rowMap)
 
-                    for ((colName, value) <- mappedRow)
+                    for ((colName, value) <- rowMap)
                     {
                         val size = value.length
                         val max = Math.max(colNamesAndSizes(colName), size)
                         colNamesAndSizes(colName) = max
                     }
 
-                    preprocessResultRow(rs, lastRowNum + 1)
+                    preprocessResultRow(rs, lastRowNum + 1, rowMap)
                 }
             }
 
             shell.verbose("Preprocessing result set...")
-            val rows = preprocessResultRow(rs, 0)
+            // Use a pre-allocated mutable map, to avoid GC thrashing.
+            val rowMap = MutableMap.empty[String, String]
+            val rows = preprocessResultRow(rs, 0, rowMap)
+            rowMap.clear
             new PreprocessedResults(rows,
                                     Map.empty[String, Int] ++ colNamesAndSizes,
                                     tempFile)
@@ -1047,11 +1056,13 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      *
      * @param rs       the result set
      * @param metadata the result set's metadata
+     * @param rowMap   preallocated mutable map into which to dump information
      *
      * @return a map of (columnName, columnValue) string pairs
      */
     private def mapRow(rs: ResultSet,
-                       metadata: ResultSetMetaData): Map[String, String] =
+                       metadata: ResultSetMetaData,
+                       rowMap: MutableMap[String, String]): Unit =
     {
         import grizzled.io.implicits._   // for the readSome() method
 
@@ -1152,10 +1163,9 @@ class SelectHandler(shell: SQLShell, connection: Connection)
             if (rs.wasNull) "NULL" else nonNullColAsString(i)
         }
 
-        Map.empty[String, String] ++
-            {for {i <- 1 to metadata.getColumnCount
-                  colName = metadata.getColumnName(i)}
-                 yield (colName, colAsString(i))}.toList
+        for {i <- 1 to metadata.getColumnCount
+             colName = metadata.getColumnName(i)}
+            rowMap += (colName -> colAsString(i))
     }
 }
 
