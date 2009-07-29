@@ -41,7 +41,8 @@ private[sqlshell] class DatabaseInfo(val dbName: Option[String],
  *                    connection
  */
 private[sqlshell] class ConnectionInfo(val connection: SQLConnection,
-                                       val configInfo: Map[String, String])
+                                       val configInfo: Map[String, String],
+                                       val jdbcURL:    String)
 
 /**
  * Handles connecting to a database.
@@ -81,7 +82,7 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                               "url" -> optionToString(info.dbURL),
                               "user" -> optionToString(info.dbURL),
                               "password" -> optionToString(info.dbPassword))
-            new ConnectionInfo(conn, options)
+            new ConnectionInfo(conn, options, info.dbURL.get)
         }
     }
 
@@ -118,11 +119,12 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                 // class name.
                 val driverOption = option(sectionName, "driver", true)
                 val driverClassName = getDriver(driverOption.get)
+                val url = option(sectionName, "url", true).get
                 val conn = connectJDBC(driverClassName,
-                                       option(sectionName, "url", true).get,
+                                       url,
                                        option(sectionName, "user", false),
                                        option(sectionName, "password", false))
-                new ConnectionInfo(conn, config.options(sectionName))
+                new ConnectionInfo(conn, config.options(sectionName), url)
 
             case _ =>
                 val message = "The following database sections " +

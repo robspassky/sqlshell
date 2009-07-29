@@ -159,6 +159,7 @@ class SQLShell(val config: Configuration,
 
     loadSettings(config, connectionInfo)
     aboutHandler.showAbbreviatedInfo
+    verbose("Connected to: " + connectionInfo.jdbcURL)
 
     if (fileToRun != None)
     {
@@ -174,6 +175,17 @@ class SQLShell(val config: Configuration,
 
     // Allow "." characters in commands.
     override def StartCommandIdentifier = super.StartCommandIdentifier + "."
+
+    /**
+     * The primary prompt string.
+     */
+    override def primaryPrompt = "sqlshell> "
+
+    /**
+     * The second prompt string, used when additional input is being
+     * retrieved.
+     */
+    override def secondaryPrompt = "> "
 
     override def error(message: String) =
         if (settings.booleanSettingIsTrue("ansi"))
@@ -268,6 +280,14 @@ class SQLShell(val config: Configuration,
                 printf("\n>>> %s\n\n", line)
             Some(line)
         }
+    }
+
+    override def postCommand(command: String, 
+                             unparsedArgs: String): CommandAction =
+    {
+        // Force a newline after each command's output.
+        println()
+        return KeepGoing
     }
 
     /**
@@ -1011,7 +1031,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 
             shell.verbose("Preprocessing result set...")
             val rows = preprocessResultRow(rs, 0)
-            new PreprocessedResults(rows, 
+            new PreprocessedResults(rows,
                                     Map.empty[String, Int] ++ colNamesAndSizes,
                                     tempFile)
         }
@@ -1914,7 +1934,8 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
    |    Show the names of all schemas in the database.""".stripMargin
 
     private val subCommands = List("tables", "schemas")
-    private val subCommandCompleter = new ListCompleter(subCommands)
+    private val subCommandCompleter = new ListCompleter(subCommands,
+                                                        _.toLowerCase)
     private val ShowTables = """^\s*tables(/[^/.\s]+)?\s*$""".r
     private val ShowSchemas = """^\s*(schemas)\s*$""".r
 

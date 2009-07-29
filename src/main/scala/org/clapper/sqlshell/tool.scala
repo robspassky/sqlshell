@@ -196,8 +196,8 @@ object Tool
                                     verbose,
                                     fileToRun)
 
-            val abort = options.has("?") || options.has("V")
-            if (options.has("V"))
+            val abort = options.has("?") || options.has("version")
+            if (options.has("version"))
                 println(Ident.IdentString)
 
             if (options.has("?"))
