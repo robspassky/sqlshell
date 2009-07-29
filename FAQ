@@ -13,3 +13,7 @@
        - Ensure that /usr/share/java/libreadline-java.jar is in your
          CLASSPATH
        - Ensure that LD_LIBRARY_PATH contains /usr/lib/jni
+       - If you want to use Editline, instead of Readline, ensure that
+         libedit2 is installed. Then, use the sqlshell "-r editline"
+         argument to override SQLShell's default readline library
+         search.
