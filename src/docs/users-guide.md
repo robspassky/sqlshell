@@ -1,23 +1,27 @@
 SQLShell: A Cross-platform, Cross-database SQL Command Line Tool
 ================================================================
 
-# User's Guide
+## User's Guide
 
 This is the SQLShell User's Guide.
 
-# Introduction
+## Table of Contents
+
+<div id="toc"/>
+
+## Introduction
 
 SQLShell is a SQL command line tool, similar in concept to tools like
 Oracle's [SQL*Plus][sqlplus], the PostgreSQL `psql` command, and
 MySQL's `mysql` tool.
 
-  [sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html
+[sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html
 
-SQLShell is a [Scala][1] rewrite of my Python *sqlcmd* tool (rewritten because,
-as it turns out, I think JDBC is more consistent and portable than Python's
-DB API).
+SQLShell is a [Scala][scala] rewrite of my Python *sqlcmd* tool (rewritten
+because, as it turns out, I think JDBC is more consistent and portable than
+Python's DB API).
 
-## Some features at a glance
+### Some features at a glance
 
 * Connection parameters for individual databases can be kept in a
   configuration file in your home directory, allowing you to specify a
@@ -36,18 +40,18 @@ DB API).
 
 * SQLShell supports any database engine or which a JDBC driver exists.
 
-* SQLShell is written in [Scala][1] and uses some third-party, open-source
+* SQLShell is written in [Scala][scala] and uses some third-party, open-source
   Scala and Java libraries.
 
 * SQLShell is open source, and is licensed under a liberal BSD-style
   license.
 
-[1]: http://www.scala-lang.org/
+[scala]: http://www.scala-lang.org/
 
 In short, SQLShell is a SQL command tool that attempts to provide the same
 interface for all supported databases and across all platforms.
 
-# Prerequisites
+## Prerequisites
 
 SQLShell requires the following:
 
@@ -55,7 +59,7 @@ SQLShell requires the following:
 - An installed Java runtime, version 1.5 or better.
 - Appropriate JDBC drivers for the database(s) you want to use.
 
-# Usage
+## Usage
 
 SQLShell is invoked from the command line. You specify the database either
 via a logical name that refers to an entry in your configuration file, or
@@ -64,7 +68,7 @@ allows you to record the connection information for multiple databases,
 then specify a single database via a the least number of unique characters
 necessary to find it in the configuration file.
 
-## Command Line
+### Command Line
 
 > sqlshell [OPTIONS] *db*
 
@@ -72,7 +76,7 @@ or
 
 > sqlshell [OPTIONS] *driver* *url* \[*user* \[*pw*\]\]
 
-### Options
+#### Options
 
     -?, -h, --help                Show this usage message.
 
@@ -98,7 +102,7 @@ or
 
     -V, --version                 Show version and exit.
 
-### Parameters
+#### Parameters
 
 * The *db* parameter identifies an alias for the database in the
   configuration file. The configuration section for the specified database
@@ -115,7 +119,7 @@ or
   certain kinds of databases. *user* and *password* are only used when the
   *driver* and *url* parameters are used.
 
-### Specifying a Database
+#### Specifying a Database
 
 When specifying the *driver* and *url* (and, optionally, *user* and
 *password*) on the command line, you can abbreviate the JDBC driver class,
@@ -139,7 +143,7 @@ With those aliases in place, you can connect to a SQLite3 database named
     $ sqlshell org.sqlite.JDBC jdbc:sqlite:test.db
     $ sqlshell sqlite jdbc:sqlite:test.db
 
-#### Examples:
+##### Examples
 
 Connect to a SQLite3 database residing in file `/tmp/test.db`:
 
@@ -155,14 +159,14 @@ Connect to a PostgreSQL database named "mydb" on the current host, using user
 
     $ sqlshell postgres jdbc:postgresql://localhost/mydb psql foo.bar
 
-# Configuration File
+## Configuration File
 
 Specifying the database connection parameters on the command line is both
 tedious and error prone, even with a good shell history mechanism. So,
 SQLShell permits you to store your database connection information in a
 configuration file.
 
-## A Brief Overview of the Configuration File
+### A Brief Overview of the Configuration File
 
 Things will be a little clearer if we look at a sample configuration file.
 The following file specifies the same databases as in the examples, above:
@@ -209,7 +213,7 @@ SQLShell where it is:
 See the next section for details on the specific sections and options in the
 SQLShell configuration file.
 
-## Configuration File in Depth
+### Configuration File in Depth
 
 A SQLShell configuration file, typically stored in `$HOME/.sqlshell/config`,
 is an INI-style file divided into logical sections. Each of those sections
@@ -257,7 +261,7 @@ Other sections are permitted, but SQLShell doesn't explicitly use them. You
 can use other sections for common variable definitions; a section called
 "common" or "vars" is often useful for that.
 
-### Including other configuration files
+#### Including other configuration files
 
 A special `include` directive permits inline inclusion of another
 configuration file. The include directive takes two forms:
@@ -282,7 +286,7 @@ syntax that is essentially identical to Java's properties file syntax, it's
 also legal to include a properties file, provided it's included within a
 valid section.
 
-### Variable Substitution
+#### Variable Substitution
 
 A variable value can interpolate the values of other variables, using a
 variable substitution syntax. The general form of a variable reference is
@@ -331,7 +335,7 @@ Notes and caveats:
   backslash, e.g., "var=value with \$ dollar sign", or use the `->` assignment
   operator.
 
-### The [settings] Section
+#### The [settings] Section
 
 The optional `settings` section can contain initial values for any of the
 settings that are understood by the `.set` command. See the description of
@@ -341,7 +345,7 @@ settings that are understood by the `.set` command. See the description of
     # Show up to 20 characters of CLOB and BLOB data
     showbinary: 20
 
-### The [drivers] section
+#### The [drivers] section
 
 The optional `drivers` section contains alias names for JDBC drivers. Using
 this section, you can assign short names to the JDBC driver class names,
@@ -360,7 +364,7 @@ For example:
     oracle = oracle.jdbc.driver.OracleDriver
     access = sun.jdbc.odbc.JdbcOdbcDriver
 
-### The [db_] Sections
+#### The [db_] Sections
 
 A `db_` section contains the connection definition for a particular
 database. The `db_` prefix must be followed by the primary name of the
@@ -454,7 +458,7 @@ section supports the following parameters.
     password: foobar1
     history: $common.historyDir/employees.hist
 
-## A Note about Database Names
+### A Note about Database Names
 
 When you specify the name of a database on the SQLShell command line,
 SQLShell attempts to match that name against the names of all databases in
@@ -495,7 +499,7 @@ names:
 - `pay`: a unique abbreviation of `payroll`, a database alias
 
 
-# Using SQLShell
+## Using SQLShell
 
 When invoked, SQLShell prompts on standard input with a "?" and waits for
 commands to be entered, executing each one as it's entered. It continues to
@@ -566,7 +570,7 @@ transcript, to whet your appetite:
     1   1          Clapper   Brian      M              1                 
     2   1          User      Joe        NULL           1                 
 
-## SQL
+### SQL
 
 SQLShell will issue any valid SQL command. It does not interpret the SQL
 command at all, beyond recognizing the initial `SELECT`, `INSERT`,
@@ -588,7 +592,7 @@ the SQL syntax.
 - `INSERT`
 - `UPDATE`
 
-## Timings
+### Timings
 
 By default, SQLShell times how long it takes to execute a SQL statement
 and prints the resulting times on the screen. To suppress this behavior,
@@ -596,7 +600,7 @@ set the `timings` setting to `false`:
 
     .set showtimings off
 
-## SQL Echo
+### SQL Echo
 
 By default, SQLShell does *not* echo commands to the screen. That's a
 reasonable behavior when you're using SQLShell interactively. However, when
@@ -612,7 +616,7 @@ Example of use:
     .run /tmp/foo.sql
     .set echo off
 
-## Comments
+### Comments
 
 SQLShell honors (and ignores) SQL comments, as long as each comment is on a
 line by itself. A SQL comment begins with "--".
@@ -626,7 +630,7 @@ Example of *unsupported* syntax:
 
     INSERT INTO foo VALUES (1); -- initialize foo
 
-## SQLShell-specific Commands
+### SQLShell-specific Commands
 
 These internal SQLShell commands are one-line commands that do not require
 a trailing semi-colon and cannot be on multiple lines. Most (but not all)
@@ -875,7 +879,7 @@ from commands that are processed by the connected database engine.
 As you can see from the example, the regular expression is implicitly anchored
 to the beginning of the table name.
 
-## Extended Commands
+### Extended Commands
 
 If you type a command that SQLShell doesn't recognize as a SQL command or one
 of its internal commands, it passes the command straight through to the
@@ -939,7 +943,7 @@ Here's an example of running `ANALYZE` on a PostgreSQL database:
     Execution time: 0.r4 seconds
     0 rows
 
-### Restrictions
+#### Restrictions
 
 * Some extended commands don't work well through SQLShell. Your mileage
   may vary.
@@ -981,8 +985,7 @@ path via the `history` variable. For example:
 The history file for the `employees` database is
 `$HOME/.sqlshell/employees.hist`.
 
-Command Completion
--------------------
+## Command Completion
 
 SQLShell supports TAB-completion in various places, in the manner of the GNU
 `bash`_ shell. TAB-completion is (mostly) context sensitive. For example:
@@ -1032,7 +1035,107 @@ SQLShell supports TAB-completion in various places, in the manner of the GNU
 
 etc.
 
-# License and Copyright
+## Readline Implementations
+
+SQLShell supports the following readline libraries:
+
+* [JLine][jline]. JLine supports some of the "standard" Readline capabilities,
+  and it's the readline library used by the [Scala][scala] REPL. It's
+  self-contained, requiring the installation of no third-party libraries.
+  It also has a license permitting its inclusion and use in other software.
+  SQLShell ships with JLine. But JLine doesn't support many of the features
+  of more advance readline libraries, such as GNU Readline and Editline. For
+  instance, it lacks support for non-arrow key escape sequences and an
+  incremental reverse history search.
+
+* [GNU Readline][gnureadline], via [Java-Readline][javareadline]. GNU
+  Readline is licensed using the GNU Public License (GPL). If SQLShell were
+  to link with GNU Readline, it, too, would have to be GPL-licensed. In
+  addition, GNU Readline requires the presence of platform-specific C
+  libraries. For those reasons, SQLShell does not ship with GNU Readline.
+  However, if you install the right pieces, SQLShell *will* work with GNU
+  Readline. See below.
+
+* [Editline][editline], via [Java-Readline][javareadline]. Editline has a
+  more liberal BSD license. However, SQLShell cannot ship with built-in
+  Editline support, because the process of enabling Editline differs on
+  each platform. See below for instructions on getting Editline to work.
+
+* "Simple", a simple Java-only library. "Simple" doesn't support keybindings,
+  but it does support a command history. If you have the option of using
+  JLine, GNU Readline, or Editline, you'll probably never want to use the
+  "Simple" library; it's included solely as a fallback.
+
+[javareadline]: http://java-readline.sourceforge.net/
+[jline]: http://jline.sourceforge.net/
+[editline]: http://www.thrysoee.dk/editline/
+[gnureadline]: http://tiswww.case.edu/php/chet/readline/rltop.html
+
+By default, SQLShell looks for the following readline libraries, in order:
+
+* GNU Readline (which, on Mac OS X, is really Editline)
+* Editline
+* JLine
+* Simple
+
+### Getting GNU Readline to work
+
+#### Mac OS X
+
+For Mac OS X, follow the instructions at
+<http://blog.toonetown.com/2006/07/java-readline-on-mac-os-x-update.html>.
+
+Note: While SQLShell will report that it is using GNU Readline, Mac OS X
+actually uses the Editline library, with a shim library to make it look more
+or less like GNU Readline to calling programs. To customize the key bindings,
+see the *editrc*(5) man page.
+
+#### BSD
+
+*To be written*
+
+#### Linux
+
+These instructions differ, depending on the Linux distribution.
+
+##### Ubuntu
+
+* Via *apt*, install the `libreadline-java` package.
+* Ensure that `/usr/share/java/libreadline-java.jar` is in your `CLASSPATH`.
+* Ensure that `LD_LIBRARY_PATH` contains `/usr/lib/jni`
+
+### Getting Editline to work
+
+#### Mac OS X
+
+See **Getting GNU Readline to work**, above. (On Mac OS X, GNU Readline is
+really Editline.)
+
+*To be written*
+
+#### Linux
+
+These instructions differ, depending on the Linux distribution.
+
+##### Ubuntu
+
+* Via *apt*, install the `libreadline-java` and `libedit2` packages.
+* Ensure that `/usr/share/java/libreadline-java.jar` is in your `CLASSPATH`.
+* Ensure that `LD_LIBRARY_PATH` contains `/usr/lib/jni`
+* Invoke SQLShell with `-r editline`, to force it to use Editline.
+* See the *editrc*(5) man page for keybinding customization instructions.
+
+### Using a Specific Readline Library
+
+You can force SQLShell to try to use a specific readline library, or to
+restrict the set of libraries it tries to find, via the `-r` (`--readline`)
+command line option. For instance, to force SQLShell to try Editline before
+Readline, you can use this command line:
+
+    $ sqlshell -r editline -r gnu -r jline somedbname
+
+
+## License and Copyright
 
 This software is released under a BSD-style license:
 
@@ -1075,3 +1178,24 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
+
+## Acknowledgements
+
+SQLShell uses the following third-party software:
+
+* [Java-Readline][javareadline], written by Bernhard Bablok. Licensed
+  under the Lesser GNU Public License (LGPL).
+* [JLine][jline], written by Mark Prud'hommeaux. Licensed under the BSD
+  license.
+* [JOpt Simple][joptsimple], licensed under the [MIT License][mitlicense].
+* [Joda Time][jodatime], licensed under the [Apache Licence][apachelicense],
+  version 2.
+* The Grizzled Scala Library, written by Brian M. Clapper. Licensed under
+  a BSD-style license.
+
+[joptsimple]: http://jopt-simple.sourceforge.net/
+[mitlicense]: http://www.opensource.org/licenses/mit-license.php
+[jodatime]: http://joda-time.sourceforge.net/
+[apachelicense]: http://www.apache.org/licenses/
+
+

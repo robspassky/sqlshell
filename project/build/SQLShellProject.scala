@@ -40,7 +40,9 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val markdownHtmlFiles = transformPaths(targetDocsDir,
                                            markdownFiles,
                                            {_.replaceAll("\\.md$", ".html")})
-    val markdownSources = markdownFiles +++ (sourceDocsDir / "markdown.css")
+    val markdownSources = markdownFiles +++
+                          (sourceDocsDir / "markdown.css") +++
+                          (sourceDocsDir ** "*.js")
 
     // Add the build info file to the resources to be included in the jar
     override def mainResources = super.mainResources +++ buildInfoPath
@@ -63,10 +65,13 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // Generate HTML docs from Markdown sources
     lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownSources)
     { 
-        markdown("README.md", targetDocsDir / "README.html")
-        markdown("BUILDING.md", targetDocsDir / "BUILDING.html")
-        markdown("LICENSE.md", targetDocsDir / "LICENSE.html")
-        markdown(usersGuide, targetDocsDir / "users-guide.html")
+        markdown("README.md", targetDocsDir / "README.html", false)
+        markdown("BUILDING.md", targetDocsDir / "BUILDING.html", false)
+        markdown("LICENSE.md", targetDocsDir / "LICENSE.html", false)
+        markdown(usersGuide, targetDocsDir / "users-guide.html", true)
+        FileUtilities.copyFile(sourceDocsDir / "toc.js", 
+                               targetDocsDir / "toc.js",
+                               log)
         None
     } 
     .dependsOn(makeTargetDocsDir)
@@ -177,9 +182,9 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
      *
      * @param source  the path to the source file
      * @param target  the path to the output file
-     * @param title   the title for the HTML document
+     * @param useToc  whether or not to include the table of contents
      */
-    private def markdown(source: Path, target: Path): Unit =
+    private def markdown(source: Path, target: Path, useToc: Boolean): Unit =
     {
         val javaVersion = system[String]("java.version").get.get
         if (javaVersion startsWith "1.6")
@@ -198,6 +203,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         log.info("Generating \"" + target + "\" from \"" + source + "\"")
         val cssLines = fileLines(sourceDocsDir / "markdown.css")
         val sourceLines = fileLines(source).toList
+        val tocJavascriptSrc = if (useToc) "toc.js" else ""
         // Title is first line.
         val title = sourceLines.head
         val sHTML = "<body>" + md.markdown(sourceLines mkString "") + "</body>"
@@ -213,9 +219,12 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 <style type="text/css">
 {cssLines mkString ""}
 </style>
+<script type="text/javascript" src={tocJavascriptSrc}/>
 <meta http-equiv="content-type" content={contentType}/>
 </head>
+<div id="body">
 {body}
+</div>
 </html>
         out.println(html.toString)
         out.close
