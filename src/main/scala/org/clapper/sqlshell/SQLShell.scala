@@ -1534,15 +1534,17 @@ class DescribeHandler(val shell: SQLShell,
         val inTransactionStr = if (transactionManager.inTransaction) "yes"
                                else "no"
 
-        wrapPrintln("Connected to database: " + metadata.getURL)
+        // Need to use our own wrapper, to get a prefix.
+        val w = new WordWrapper(79, 0, "                       ", ' ')
+        println(w.wrap("Connected to database: " + metadata.getURL))
         if (user != null)
-            wrapPrintln("Connected as user:     " + displayUser)
-        wrapPrintln("Database vendor:       " + productName)
-        wrapPrintln("Database version:      " + productVersion)
-        wrapPrintln("JDBC driver:           " + driverName)
-        wrapPrintln("JDBC driver version:   " + driverVersion)
-        wrapPrintln("Transaction isolation: " + isolation)
-        wrapPrintln("Open transaction?      " + inTransactionStr)
+            println(w.wrap("Connected as user:     " + displayUser))
+        println(w.wrap("Database vendor:       " + productName))
+        println(w.wrap("Database version:      " + productVersion))
+        println(w.wrap("JDBC driver:           " + driverName))
+        println(w.wrap("JDBC driver version:   " + driverVersion))
+        println(w.wrap("Transaction isolation: " + isolation))
+        println(w.wrap("Open transaction?      " + inTransactionStr))
     }
 
     private def describeTable(table: String, full: Boolean) =
