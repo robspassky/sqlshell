@@ -21,7 +21,7 @@ import java.io.File
 import java.util.Date
 import java.text.SimpleDateFormat
 
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.{ArrayBuffer, Map => MutableMap}
 import scala.io.Source
 import scala.util.matching.Regex
 
@@ -160,6 +160,7 @@ class SQLShell(val config: Configuration,
     loadSettings(config, connectionInfo)
     aboutHandler.showAbbreviatedInfo
     verbose("Connected to: " + connectionInfo.jdbcURL)
+    println()
 
     if (fileToRun != None)
     {
@@ -849,17 +850,87 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                     ObjectOutputStream,
                     Reader}
 
-    class PreprocessedResults(val rowCount: Int,
-                              val columnNamesAndSizes: Map[String, Int],
-                              val dataFile: File)
+    val tempFile = File.createTempFile("sqlshell", ".dat")
+    tempFile.deleteOnExit
+
+    /**
+     * Encapsulated the preprocessed results from a query.
+     */
+    class PreprocessedResults(val metadata: ResultSetMetaData,
+                              val dataFile: File) 
+        extends Iterable[Array[String]]
+    {
+        import scala.collection.mutable.LinkedHashMap
+
+        private val columnData = new LinkedHashMap[String, Int]
+        private var totalRows = 0
+                              
+        // Get the column names and initialize the associated size.
+
+        for {i <- 1 to metadata.getColumnCount
+             name = metadata.getColumnName(i)}
+            columnData += (name -> name.length)
+
+        class ResultIterator extends Iterator[Array[String]]
+        {
+            val in = new ObjectInputStream(new FileInputStream(dataFile))
+            val buf = new ArrayBuffer[String]
+
+            def hasNext: Boolean =
+            {
+                try
+                {
+                    buf.clear
+                    buf ++= in.readObject.asInstanceOf[Array[String]]
+                    true
+                }
+
+                catch
+                {
+                    case _: EOFException => 
+                        in.close
+                        buf.clear
+                        false
+                }
+            }
+
+            def next: Array[String] =
+            {
+                assert(buf.length > 0)
+                buf.toArray
+            }
+        }
+
+        def elements: Iterator[Array[String]] = new ResultIterator
+
+        def rowCount = totalRows
+
+        /**
+         * Return the stored column names, in the order they appeared in
+         * the result set.
+         */
+        def columnNamesAndSizes = columnData.readOnly
+
+        def saveMappedRow(out: ObjectOutputStream, row: Array[String])
+        {
+            out.writeObject(row)
+            totalRows += 1
+
+            for {i <- 1 to metadata.getColumnCount
+                 name = metadata.getColumnName(i)}
+            {
+                val value = row(i - 1)
+                val size = value.length
+                val max = Math.max(columnData(name), size)
+                columnData(name) = max
+            }
+        }
+    }
 
     val DateFormatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.S")
     val CommandName = "select"
     val Help = """Issue a SQL SELECT statement and display the results"""
     val ColumnSeparator = "  "
-
-    val tempFile = File.createTempFile("sqlshell", ".dat")
-    tempFile.deleteOnExit
 
     /**
      * Run the "SELECT" command and dump the output.
@@ -902,10 +973,11 @@ class SelectHandler(shell: SQLShell, connection: Connection)
     {
         shell.verbose("Processing results...")
 
+        val metadata = rs.getMetaData
         val (preprocessingTime, preprocessedResults) =
             time[PreprocessedResults]
             {
-                preprocess(rs)
+                preprocess(rs, metadata)
             }
 
         if (shell.settings.booleanSettingIsTrue("showrowcount"))
@@ -952,34 +1024,17 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         )
 
         // Now, load the serialized results and dump them.
-        val rowsIn = new ObjectInputStream(
-            new FileInputStream(preprocessedResults.dataFile)
-        )
 
-        def dumpNextRow: Unit =
+        for (resultRow <- preprocessedResults)
         {
-            // Have to cast it to a MutableMap, because the original
-            // MutableMap that was written is not compatible with Map.
-            val rowMap = rowsIn.readObject
-                               .asInstanceOf[MutableMap[String, String]]
             val data =
-                {for {col <- columnNames
-                      size = colNamesAndSizes(col)
-                      fmt = columnFormats(col)}
-                     yield formatter.format(fmt, rowMap(col))}.toList
+                {for {i <- 1 to metadata.getColumnCount
+                      name = metadata.getColumnName(i)
+                      size = colNamesAndSizes(name)
+                      fmt = columnFormats(name)}
+                     yield formatter.format(fmt, resultRow(i - 1))}.toList
 
             println(data mkString ColumnSeparator)
-            dumpNextRow
-        }
-
-        try
-        {
-            dumpNextRow
-        }
-
-        catch
-        {
-            case _: EOFException =>
         }
     }
 
@@ -988,32 +1043,24 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      * serialized to a file, allowing the number of rows to be counted,
      * the maximum size of each column of output to be determined, etc.
      *
-     * @param rs  the result set
+     * @param rs       the result set
+     * @param metadata the result set metadata
      *
      * @return a PreprocessedResults object containing the results
      */
-    private def preprocess(rs: ResultSet): PreprocessedResults =
+    private def preprocess(rs: ResultSet,
+                           metadata: ResultSetMetaData): PreprocessedResults =
     {
-        import scala.collection.mutable.LinkedHashMap
-
         val tempOut = new ObjectOutputStream(new FileOutputStream(tempFile))
+        val results = new PreprocessedResults(metadata, tempFile)
         try
         {
-            val colNamesAndSizes = new LinkedHashMap[String, Int]
-
-            // Get the column names.
-
-            val metadata = rs.getMetaData
-            for {i <- 1 to metadata.getColumnCount
-                 name = metadata.getColumnName(i)}
-                colNamesAndSizes += (name -> name.length)
-
             // Serialize the results to a file. This allows counting
             // the rows ahead of time.
 
-            def preprocessResultRow(rs: ResultSet, 
-                                    lastRowNum: Int,
-                                    rowMap: MutableMap[String, String]): Int =
+            val rowMap = new ArrayBuffer[String]
+
+            def preprocessResultRow(rs: ResultSet, lastRowNum: Int): Int =
             {
                 if (! rs.next)
                     lastRowNum
@@ -1021,28 +1068,15 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                 else
                 {
                     rowMap.clear
-                    mapRow(rs, metadata, rowMap)
-                    tempOut.writeObject(rowMap)
-
-                    for ((colName, value) <- rowMap)
-                    {
-                        val size = value.length
-                        val max = Math.max(colNamesAndSizes(colName), size)
-                        colNamesAndSizes(colName) = max
-                    }
-
-                    preprocessResultRow(rs, lastRowNum + 1, rowMap)
+                    results.saveMappedRow(tempOut, mapRow(rs, metadata, rowMap))
+                    preprocessResultRow(rs, lastRowNum + 1)
                 }
             }
 
             shell.verbose("Preprocessing result set...")
             // Use a pre-allocated mutable map, to avoid GC thrashing.
-            val rowMap = MutableMap.empty[String, String]
-            val rows = preprocessResultRow(rs, 0, rowMap)
-            rowMap.clear
-            new PreprocessedResults(rows,
-                                    Map.empty[String, Int] ++ colNamesAndSizes,
-                                    tempFile)
+            val rows = preprocessResultRow(rs, 0)
+            results
         }
 
         finally
@@ -1056,13 +1090,14 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      *
      * @param rs       the result set
      * @param metadata the result set's metadata
-     * @param rowMap   preallocated mutable map into which to dump information
+     * @param rowMap   preallocated array buffer into which to dump information.
+     *                 Data is indexed by (columnNumber - 1)
      *
-     * @return a map of (columnName, columnValue) string pairs
+     * @return the row map buffer, as an array
      */
     private def mapRow(rs: ResultSet,
                        metadata: ResultSetMetaData,
-                       rowMap: MutableMap[String, String]): Unit =
+                       rowMap: ArrayBuffer[String]): Array[String] =
     {
         import grizzled.io.implicits._   // for the readSome() method
 
@@ -1163,9 +1198,13 @@ class SelectHandler(shell: SQLShell, connection: Connection)
             if (rs.wasNull) "NULL" else nonNullColAsString(i)
         }
 
+        // Actual function
+
         for {i <- 1 to metadata.getColumnCount
              colName = metadata.getColumnName(i)}
-            rowMap += (colName -> colAsString(i))
+            rowMap += colAsString(i)
+
+        rowMap.toArray
     }
 }
 
@@ -1584,8 +1623,6 @@ class DescribeHandler(val shell: SQLShell,
         {
             def precisionAndScale =
             {
-                import scala.collection.mutable.ArrayBuffer
-
                 val precision = md.getPrecision(i)
                 val scale = md.getScale(i)
                 val buf = new ArrayBuffer[String]
@@ -1778,7 +1815,6 @@ class DescribeHandler(val shell: SQLShell,
                           val ascending: Option[Boolean],
                           val indexType: String)
 
-        import scala.collection.mutable.ArrayBuffer
         val uniqueIndexes = MutableMap.empty[String, ArrayBuffer[IndexColumn]]
         val nonUniqueIndexes = MutableMap.empty[String,
                                                 ArrayBuffer[IndexColumn]]
