@@ -135,16 +135,18 @@ class SQLShell(val config: Configuration,
 
     val aboutHandler = new AboutHandler(this)
     val setHandler = new SetHandler(this)
+    val selectHandler = new SelectHandler(this, connection)
+    val updateHandler = new UpdateHandler(this, connection)
     val transactionManager = new TransactionManager(this, connection)
     val handlers = transactionManager.handlers ++
                    List(new HistoryHandler(this),
                         new RedoHandler(this),
                         new RunFileHandler(this),
 
-                        new SelectHandler(this, connection),
+                        selectHandler,
                         new InsertHandler(this, connection),
                         new DeleteHandler(this, connection),
-                        new UpdateHandler(this, connection),
+                        updateHandler,
                         new CreateHandler(this, connection),
                         new AlterHandler(this, connection),
                         new DropHandler(this, connection),
@@ -172,7 +174,9 @@ class SQLShell(val config: Configuration,
         pushReader(new SourceReader(Source.fromFile(fileToRun.get)).readline)
     }
 
-    private val unknownHandler = new UnknownHandler(this, connection)
+    private val unknownHandler = new UnknownHandler(this,
+                                                    selectHandler,
+                                                    updateHandler)
 
     // Allow "." characters in commands.
     override def StartCommandIdentifier = super.StartCommandIdentifier + "."
@@ -1462,14 +1466,13 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
 /**
  * Handles any unknown command.
  */
-class UnknownHandler(shell: SQLShell, connection: Connection)
+class UnknownHandler(shell: SQLShell,
+                     val selectHandler: SelectHandler,
+                     val updateHandler: UpdateHandler)
     extends SQLShellCommandHandler
 {
     val CommandName = ""
     val Help = """Issue an unknown SQL statement."""
-
-    val updateHandler = new UpdateHandler(shell, connection)
-    val queryHandler = new SelectHandler(shell, connection)
 
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
@@ -1477,7 +1480,7 @@ class UnknownHandler(shell: SQLShell, connection: Connection)
 
         try
         {
-            queryHandler.runCommand(commandName, args)
+            selectHandler.runCommand(commandName, args)
         }
 
         catch
