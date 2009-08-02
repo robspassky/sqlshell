@@ -27,22 +27,16 @@ Python's DB API).
   configuration file in your home directory, allowing you to specify a
   short logical name for the database when you connect to it. (Multiple
   logical names are permitted for each database.)
-
 * SQLShell has command history management, with GNU Readline-like
   support. Each database has its own history file.
-
 * SQLShell supports retrieving and displaying database metadata (e.g.,
   getting a list of tables, querying the table's columns and their
   data types, listing the indexes and foreign keys for a table, etc.).
-
 * SQLShell provides a standard interface that looks and behaves the same
   no matter what database you're using.
-
 * SQLShell supports any database engine or which a JDBC driver exists.
-
 * SQLShell is written in [Scala][scala] and uses some third-party, open-source
   Scala and Java libraries.
-
 * SQLShell is open source, and is licensed under a liberal BSD-style
   license.
 
