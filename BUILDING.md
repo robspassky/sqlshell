@@ -27,6 +27,14 @@ with:
 
 The resulting jar file will be in the top-level `target` directory.
 
+To build the installer, you currently need to have the [IzPack][izpack]
+product installed, and you need to set `IZPACK_HOME` set to its top-level
+directory. Once that's in place, you can build the installer with
+
+    sbt installer
+
+[izpack]: http://izpack.org/
+
 ---
 Copyright &copy; 2009 Brian M. Clapper, <i>bmc@clapper.org</i>
 
