@@ -84,5 +84,4 @@ then
     _CP="$_CP:$_sep:$CLASSPATH"
 fi
 
-exec $SCALA_HOME/bin/scala $vmopts \
--cp "$_CP" org.clapper.sqlshell.tool.Tool "${@}"
+exec java -cp "$_CP" $vmopts org.clapper.sqlshell.tool.Tool "${@}"

@@ -30,7 +30,7 @@ import scala.util.matching.Regex
  */
 object Ident
 {
-    val Version = "0.1"
+    val Version = "0.2"
     val Name = "sqlshell"
     val Copyright = "Copyright (c) 2009 Brian M. Clapper. All rights reserved."
 

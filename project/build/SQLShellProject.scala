@@ -255,9 +255,11 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             // jar. Note to self: "**" means "recursive drill down". "*"
             // means "immediate descendent".
 
-            val jars = ("lib" +++ "lib_managed") **
-                       ("*.jar" - "izpack*.jar" - "scalatest*.jar" -
-                        "ocutil*.jar")
+            val jars = (("lib" +++ "lib_managed") **
+                        ("*.jar" - "izpack*.jar" - "scalatest*.jar" -
+                         "ocutil*.jar")) +++
+                       ("project" / "boot"  ** "scala-library.jar")
+            println(jars.get)
             val jarDirPath = Path.fromFile(jarDir)
             log.info("Copying jars to \"" + jarDir + "\"")
             FileUtilities.copyFlat(jars.get, jarDirPath, log)
