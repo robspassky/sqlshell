@@ -9,3 +9,7 @@
 - Capture:
   + Allow file name expansion
   + Add completion
+  + Handlers should get a readonly result set they can't advance
+
+- NOTE: "help" should complete on command names.
+
