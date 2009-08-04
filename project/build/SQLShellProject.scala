@@ -113,6 +113,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val izPack = "org.codehaus.izpack" % "izpack-standalone-compiler" % "4.3.1"
+    val opencsv = "net.sf.opencsv" % "opencsv" % "1.8"
 
     // Grizzled comes from local machine for now. This works, though, as long
     // as someone has done a publish-local.

@@ -59,6 +59,21 @@ trait Timer
     }
 
     /**
+     * Takes a fragment of code, executes it, and returns how long it took
+     * (in real time) to execute.
+     *
+     * @param block  block of code to run
+     *
+     * @return the number of milliseconds it took to run the block
+     */
+    def time(block: => Unit): Long =
+    {
+        val start = System.currentTimeMillis
+        block
+        System.currentTimeMillis - start
+    }
+
+    /**
      * Format the value of the period between two times, returning the
      * string.
      *

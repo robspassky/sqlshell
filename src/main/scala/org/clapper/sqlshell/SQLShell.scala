@@ -21,7 +21,9 @@ import java.io.File
 import java.util.Date
 import java.text.SimpleDateFormat
 
-import scala.collection.mutable.{ArrayBuffer, Map => MutableMap}
+import scala.collection.mutable.{ArrayBuffer, 
+                                 Map => MutableMap, 
+                                 Set => MutableSet}
 import scala.io.Source
 import scala.util.matching.Regex
 
@@ -105,6 +107,7 @@ class SQLShell(val config: Configuration,
                         new AlterHandler(this, connection),
                         new DropHandler(this, connection),
 
+                        new CaptureHandler(this, selectHandler),
                         new ShowHandler(this, connection),
                         new DescribeHandler(this, connection,
                                             transactionManager),
@@ -508,7 +511,7 @@ class RunFileHandler(val shell: SQLShell) extends SQLShellCommandHandler
         args.tokenize match
         {
             case Nil =>
-                error("You must specify a file to be run.")
+                shell.error("You must specify a file to be run.")
             case file :: Nil =>
                 val reader = new SourceReader(Source.fromFile(file))
                 shell.verbose("Loading and running \"" + file + "\"")
@@ -713,253 +716,19 @@ abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
 }
 
 /**
- * Handles SQL "SELECT" statements.
+ * The interface for a class that can consume a result set.
  */
-class SelectHandler(shell: SQLShell, connection: Connection)
-    extends SQLHandler(shell, connection) with Timer
+trait ResultSetHandler
 {
-    import java.io.{EOFException,
-                    FileInputStream,
-                    FileOutputStream,
-                    InputStream,
-                    ObjectInputStream,
-                    ObjectOutputStream,
-                    Reader}
+    def startResultSet(metadata: ResultSetMetaData, statement: String): Unit
+    def handleRow(rs: ResultSet): Unit
+    def endResultSet: Unit
+    def closeResultSetHandler: Unit = return
+}
 
-    val tempFile = File.createTempFile("sqlshell", ".dat")
-    tempFile.deleteOnExit
-
-    /**
-     * Encapsulated the preprocessed results from a query.
-     */
-    class PreprocessedResults(val metadata: ResultSetMetaData,
-                              val dataFile: File) 
-        extends Iterable[Array[String]]
-    {
-        import scala.collection.mutable.LinkedHashMap
-
-        private val columnData = new LinkedHashMap[String, Int]
-        private var totalRows = 0
-                              
-        // Get the column names and initialize the associated size.
-
-        for {i <- 1 to metadata.getColumnCount
-             name = metadata.getColumnName(i)}
-            columnData += (name -> name.length)
-
-        class ResultIterator extends Iterator[Array[String]]
-        {
-            val in = new ObjectInputStream(new FileInputStream(dataFile))
-            val buf = new ArrayBuffer[String]
-
-            def hasNext: Boolean =
-            {
-                try
-                {
-                    buf.clear
-                    buf ++= in.readObject.asInstanceOf[Array[String]]
-                    true
-                }
-
-                catch
-                {
-                    case _: EOFException => 
-                        in.close
-                        buf.clear
-                        false
-                }
-            }
-
-            def next: Array[String] =
-            {
-                assert(buf.length > 0)
-                buf.toArray
-            }
-        }
-
-        def elements: Iterator[Array[String]] = new ResultIterator
-
-        def rowCount = totalRows
-
-        /**
-         * Return the stored column names, in the order they appeared in
-         * the result set.
-         */
-        def columnNamesAndSizes = columnData.readOnly
-
-        def saveMappedRow(out: ObjectOutputStream, row: Array[String])
-        {
-            out.writeObject(row)
-            totalRows += 1
-
-            for {i <- 1 to metadata.getColumnCount
-                 name = metadata.getColumnName(i)}
-            {
-                val value = row(i - 1)
-                val size = value.length
-                val max = Math.max(columnData(name), size)
-                columnData(name) = max
-            }
-        }
-    }
-
-    val DateFormatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.S")
-    val CommandName = "select"
-    val Help = """Issue a SQL SELECT statement and display the results"""
-    val ColumnSeparator = "  "
-
-    /**
-     * Run the "SELECT" command and dump the output.
-     *
-     * @param commandName the command (i.e., "select")
-     * @param args        the remainder of the SELECT command
-     *
-     * @return KeepGoing, always
-     */
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
-        val newArgs = removeSemicolon(args)
-        withSQLStatement(connection)
-        {
-            statement =>
-
-            val (elapsed, rs) =
-                time[ResultSet]
-                {
-                    statement.executeQuery(commandName + " " + newArgs)
-                }
-
-            withResultSet(rs)
-            {
-                dumpResults(elapsed, rs)
-            }
-        }
-
-        KeepGoing
-    }
-
-    /**
-     * Dump the results of a query.
-     *
-     * @param queryTime  the number of milliseconds the query took to run;
-     *                   displayed with the results
-     * @param rs         the JDBC result set
-     */
-    protected def dumpResults(queryTime: Long, rs: ResultSet): Unit =
-    {
-        shell.verbose("Processing results...")
-
-        val metadata = rs.getMetaData
-        val (preprocessingTime, preprocessedResults) =
-            time[PreprocessedResults]
-            {
-                preprocess(rs, metadata)
-            }
-
-        if (shell.settings.booleanSettingIsTrue("showrowcount"))
-        {
-            if (preprocessedResults.rowCount == 0)
-                println("No rows returned.")
-            else if (preprocessedResults.rowCount == 1)
-                println("1 row returned.")
-            else
-                printf("%d rows returned.\n", preprocessedResults.rowCount)
-        }
-
-        if (shell.settings.booleanSettingIsTrue("showtimings"))
-        {
-            println("Execution time: " + formatInterval(queryTime))
-            println("Retrieval time: " + formatInterval(preprocessingTime))
-        }
-
-        // Note: Scala's format method doesn't left-justify.
-        def formatter = new java.util.Formatter
-
-        // Print column names...
-        val colNamesAndSizes = preprocessedResults.columnNamesAndSizes
-        val columnNames = colNamesAndSizes.keys.toList
-        val columnFormats =
-            Map.empty[String, String] ++
-            (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
-
-        println()
-        println(
-            {for (col <- columnNames)
-                 yield formatter.format(columnFormats(col), col)}
-            .toList
-            .mkString(ColumnSeparator)
-        )
-
-        // ...and a separator.
-        println(
-            {for {col <- columnNames
-                  size = colNamesAndSizes(col)}
-                 yield formatter.format(columnFormats(col), "-" * size)}
-            .toList
-            .mkString(ColumnSeparator)
-        )
-
-        // Now, load the serialized results and dump them.
-
-        for (resultRow <- preprocessedResults)
-        {
-            val data =
-                {for {i <- 1 to metadata.getColumnCount
-                      name = metadata.getColumnName(i)
-                      size = colNamesAndSizes(name)
-                      fmt = columnFormats(name)}
-                     yield formatter.format(fmt, resultRow(i - 1))}.toList
-
-            println(data mkString ColumnSeparator)
-        }
-    }
-
-    /**
-     * Preprocess the result set. The result set is read completely and
-     * serialized to a file, allowing the number of rows to be counted,
-     * the maximum size of each column of output to be determined, etc.
-     *
-     * @param rs       the result set
-     * @param metadata the result set metadata
-     *
-     * @return a PreprocessedResults object containing the results
-     */
-    private def preprocess(rs: ResultSet,
-                           metadata: ResultSetMetaData): PreprocessedResults =
-    {
-        val tempOut = new ObjectOutputStream(new FileOutputStream(tempFile))
-        val results = new PreprocessedResults(metadata, tempFile)
-        try
-        {
-            // Serialize the results to a file. This allows counting
-            // the rows ahead of time.
-
-            val rowMap = new ArrayBuffer[String]
-
-            def preprocessResultRow(rs: ResultSet, lastRowNum: Int): Int =
-            {
-                if (! rs.next)
-                    lastRowNum
-
-                else
-                {
-                    rowMap.clear
-                    results.saveMappedRow(tempOut, mapRow(rs, metadata, rowMap))
-                    preprocessResultRow(rs, lastRowNum + 1)
-                }
-            }
-
-            shell.verbose("Preprocessing result set...")
-            // Use a pre-allocated mutable map, to avoid GC thrashing.
-            val rows = preprocessResultRow(rs, 0)
-            results
-        }
-
-        finally
-        {
-            tempOut.close
-        }
-    }
+abstract class ResultSetStringifier(showBinary: Int)
+{
+    private val DateFormatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.S")
 
     /**
      * Map a result set row, returning the each column and its name.
@@ -971,9 +740,9 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      *
      * @return the row map buffer, as an array
      */
-    private def mapRow(rs: ResultSet,
-                       metadata: ResultSetMetaData,
-                       rowMap: ArrayBuffer[String]): Array[String] =
+    def mapRow(rs: ResultSet,
+               metadata: ResultSetMetaData,
+               rowMap: ArrayBuffer[String]): Array[String] =
     {
         import grizzled.io.implicits._   // for the readSome() method
 
@@ -981,8 +750,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 
         def clobString(i: Int): String =
         {
-            val binaryLength = shell.settings.intSetting("showbinary")
-            if (binaryLength == 0)
+            if (showBinary == 0)
                 "<clob>"
 
             else
@@ -994,12 +762,12 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                     // Read one more than the binary length. If we get that
                     // many, then display an ellipsis.
 
-                    val buf = r.readSome(binaryLength + 1)
+                    val buf = r.readSome(showBinary + 1)
                     buf.length match
                     {
-                        case 0 =>                       ""
-                        case n if (n > binaryLength) => buf.mkString("") + "..."
-                        case n =>                       buf.mkString("")
+                        case 0 =>                     ""
+                        case n if (n > showBinary) => buf.mkString("") + "..."
+                        case n =>                     buf.mkString("")
                     }
                 }
 
@@ -1012,8 +780,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 
         def binaryString(i: Int): String =
         {
-            val binaryLength = shell.settings.intSetting("showbinary")
-            if (binaryLength == 0)
+            if (showBinary == 0)
                 "<blob>"
 
             else
@@ -1025,8 +792,8 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                     // Read one more than the binary length. If we get that
                     // many, then display an ellipsis.
 
-                    val buf = is.readSome(binaryLength + 1)
-                    val ellipsis = buf.length > binaryLength
+                    val buf = is.readSome(showBinary + 1)
+                    val ellipsis = buf.length > showBinary
                     val hexList =
                     {
                         for (b <- buf)
@@ -1085,6 +852,315 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 }
 
 /**
+ * Encapsulates the preprocessed results from a query.
+ */
+private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData, 
+                                            val dataFile: File) 
+    extends Iterable[Array[String]]
+{
+    import java.io.{EOFException,
+                    FileInputStream,
+                    FileOutputStream,
+                    InputStream,
+                    ObjectInputStream,
+                    ObjectOutputStream,
+                    Reader}
+
+    import scala.collection.mutable.LinkedHashMap
+
+    private val columnData = new LinkedHashMap[String, Int]
+    private var totalRows = 0
+
+    // Get the column names and initialize the associated size.
+
+    for {i <- 1 to metadata.getColumnCount
+         name = metadata.getColumnName(i)}
+        columnData += (name -> name.length)
+
+    class ResultIterator extends Iterator[Array[String]]
+    {
+        val in = new ObjectInputStream(new FileInputStream(dataFile))
+        val buf = new ArrayBuffer[String]
+
+        def hasNext: Boolean =
+        {
+            try
+            {
+                buf.clear
+                buf ++= in.readObject.asInstanceOf[Array[String]]
+                true
+            }
+
+            catch
+            {
+                case _: EOFException => 
+                    in.close
+                    buf.clear
+                    false
+            }
+        }
+
+        def next: Array[String] =
+        {
+            assert(buf.length > 0)
+            buf.toArray
+        }
+    }
+
+    def elements: Iterator[Array[String]] = new ResultIterator
+
+    def rowCount = totalRows
+
+    /**
+     * Return the stored column names, in the order they appeared in
+     * the result set.
+     */
+    def columnNamesAndSizes = columnData.readOnly
+
+    /**
+     * Save a mapped row to the specified object stream.
+     *
+     * @param out  the <tt>ObjectOutputStream</tt> to which to save the row
+     * @param row  the data, converted to a string
+     */
+    def saveMappedRow(out: ObjectOutputStream, row: Array[String])
+    {
+        out.writeObject(row)
+        totalRows += 1
+
+        for {i <- 1 to metadata.getColumnCount
+             name = metadata.getColumnName(i)}
+        {
+            val value = row(i - 1)
+            val size = value.length
+            val max = Math.max(columnData(name), size)
+            columnData(name) = max
+        }
+    }
+}
+
+/**
+ * Used by the select handler to process and cache a result set.
+ */
+private[sqlshell] class ResultSetCacheHandler(tempFile: File,
+                                              val showBinary: Int) 
+    extends ResultSetStringifier(showBinary) with ResultSetHandler
+{
+    import java.io.{FileOutputStream, ObjectOutputStream}
+
+    val tempOut = new ObjectOutputStream(new FileOutputStream(tempFile))
+    var results: PreprocessedResults = null
+    val rowMap = new ArrayBuffer[String]
+
+    def startResultSet(metadata: ResultSetMetaData, statement: String): Unit =
+        results = new PreprocessedResults(metadata, tempFile)
+
+    def handleRow(rs: ResultSet)
+    {
+        rowMap.clear
+        results.saveMappedRow(tempOut, mapRow(rs, results.metadata, rowMap))
+    }
+
+    def endResultSet = tempOut.close
+}
+
+/**
+ * Handles SQL "SELECT" statements.
+ */
+class SelectHandler(shell: SQLShell, connection: Connection)
+    extends SQLHandler(shell, connection) with Timer
+{
+    import java.io.{File, FileOutputStream, ObjectOutputStream}
+
+    val tempFile = File.createTempFile("sqlshell", ".dat")
+    tempFile.deleteOnExit
+
+    val CommandName = "select"
+    val Help = """Issue a SQL SELECT statement and display the results"""
+    val ColumnSeparator = "  "
+
+    private val resultHandlers = MutableMap.empty[String, ResultSetHandler]
+
+    /**
+     * Run the "SELECT" command and dump the output.
+     *
+     * @param commandName the command (i.e., "select")
+     * @param args        the remainder of the SELECT command
+     *
+     * @return KeepGoing, always
+     */
+    def doRunCommand(commandName: String, args: String): CommandAction =
+    {
+        val fullStatement = commandName + " " + removeSemicolon(args)
+        withSQLStatement(connection)
+        {
+            statement =>
+
+            val (elapsed, rs) =
+                time[ResultSet]
+                {
+                    statement.executeQuery(fullStatement)
+                }
+
+            withResultSet(rs)
+            {
+                dumpResults(elapsed, rs, fullStatement)
+            }
+        }
+
+        KeepGoing
+    }
+
+    /**
+     * Add a result handler to the list of result handlers.
+     *
+     * @param key     the key for the handler
+     * @param handler the <tt>ResultSetHandler</tt> to add
+     */
+    def addResultHandler(key: String, handler: ResultSetHandler) =
+    {
+        assert(! (resultHandlers contains key))
+        resultHandlers += (key -> handler)
+    }
+
+    /**
+     * Get a result handler from the list of result handlers.
+     *
+     * @param key     the key for the handler
+     *
+     * @return <tt>Some(handler)</tt> or <tt>None</tt>
+     */
+    def getResultHandler(key: String): Option[ResultSetHandler] =
+        resultHandlers.get(key)
+
+    /**
+     * Remove a result handler from the list of result handlers
+     *
+     * @param key     the key for the handler
+     *
+     * @return <tt>Some(handler)</tt> or <tt>None</tt>
+     */
+    def removeResultHandler(key: String): Option[ResultSetHandler] =
+    {
+        assert(resultHandlers contains key)
+        val result = getResultHandler(key)
+        resultHandlers -= key
+        result
+    }
+
+    /**
+     * Dump the results of a query.
+     *
+     * @param queryTime  the number of milliseconds the query took to run;
+     *                   displayed with the results
+     * @param rs         the JDBC result set
+     * @param statement  the statement that was issued, as a string
+     */
+    protected def dumpResults(queryTime: Long, 
+                              rs: ResultSet,
+                              statement: String): Unit =
+    {
+        shell.verbose("Processing results...")
+
+        val metadata = rs.getMetaData
+        val showBinary = shell.settings.intSetting("showbinary")
+        val cacheHandler = new ResultSetCacheHandler(tempFile, showBinary)
+        val handlers = cacheHandler :: resultHandlers.values.toList
+
+        val retrievalTime =
+            time
+            {
+                try
+                {
+                    for (h <- handlers)
+                        h.startResultSet(metadata, statement)
+
+                    processNextRow(rs, handlers)
+                }
+
+                finally
+                {
+                    for (h <- handlers)
+                        h.endResultSet
+                }
+            }
+
+        // Now, post-process (i.e., display) the results cached by the
+        // cache handler
+
+        val preprocessedResults = cacheHandler.results
+        if (shell.settings.booleanSettingIsTrue("showrowcount"))
+        {
+            if (preprocessedResults.rowCount == 0)
+                println("No rows returned.")
+            else if (preprocessedResults.rowCount == 1)
+                println("1 row returned.")
+            else
+                printf("%d rows returned.\n", preprocessedResults.rowCount)
+        }
+
+        if (shell.settings.booleanSettingIsTrue("showtimings"))
+        {
+            println("Execution time: " + formatInterval(queryTime))
+            println("Retrieval time: " + formatInterval(retrievalTime))
+        }
+
+        // Note: Scala's format method doesn't left-justify.
+        def formatter = new java.util.Formatter
+
+        // Print column names...
+        val colNamesAndSizes = preprocessedResults.columnNamesAndSizes
+        val columnNames = colNamesAndSizes.keys.toList
+        val columnFormats =
+            Map.empty[String, String] ++
+            (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
+
+        println()
+        println(
+            {for (col <- columnNames)
+                 yield formatter.format(columnFormats(col), col)}
+            .toList
+            .mkString(ColumnSeparator)
+        )
+
+        // ...and a separator.
+        println(
+            {for {col <- columnNames
+                  size = colNamesAndSizes(col)}
+                 yield formatter.format(columnFormats(col), "-" * size)}
+            .toList
+            .mkString(ColumnSeparator)
+        )
+
+        // Now, load the serialized results and dump them.
+
+        for (resultRow <- preprocessedResults)
+        {
+            val data =
+                {for {i <- 1 to metadata.getColumnCount
+                      name = metadata.getColumnName(i)
+                      size = colNamesAndSizes(name)
+                      fmt = columnFormats(name)}
+                     yield formatter.format(fmt, resultRow(i - 1))}.toList
+
+            println(data mkString ColumnSeparator)
+        }
+    }
+
+    def processNextRow(rs: ResultSet, 
+                       handlers: Iterable[ResultSetHandler]): Unit =
+    {
+        if (rs.next)
+        {
+            for (h <- handlers)
+                h.handleRow(rs)
+
+            processNextRow(rs, handlers)
+        }
+    }
+}
+
+/**
  * Handles any command that calls Statement.executeUpdate(). This class
  * is abstract so that specific handlers can be instantiated for individual
  * commands (allowing individual help).
@@ -1121,6 +1197,139 @@ abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection)
 
         KeepGoing
     }
+}
+
+/**
+ * Handles the .capture command
+ */
+class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
+    extends SQLShellCommandHandler
+{
+    val CommandName = ".capture"
+    val Help =
+"""|Captures the results of queries to a CSV file.
+   |
+   |To turn capture on:
+   |
+   |    .capture to /path/to/file  -- captures to specified file
+   |    .capture on                -- captures to a temporary file
+   |
+   |To turn capture off:
+   |
+   |    .capture off
+   |
+   |Example:
+   |
+   |    .capture to /tmp/results.csv
+   |    SELECT * from foo;
+   |    SELECT * from bar;
+   |    .capture off
+   |
+   |SQLShell opens the file for writing (truncating it, if it already exists).
+   |Then, SQLShell writes each result set to the file, along with column 
+   |headers, until it sees ".capture off".""".stripMargin
+
+    private val HandlerKey = this.getClass.getName
+    private val showBinary = shell.settings.intSetting("showbinary")
+
+    private class SaveToCSVHandler(path: File) 
+        extends ResultSetStringifier(showBinary) with ResultSetHandler
+    {
+        import au.com.bytecode.opencsv.CSVWriter
+        import java.io.{FileOutputStream, OutputStreamWriter}
+
+        val writer = new CSVWriter(
+            new OutputStreamWriter(new FileOutputStream(path), "UTF-8")
+        )
+        private var metadata: ResultSetMetaData = null
+        private val rowMap = new ArrayBuffer[String]
+
+        def startResultSet(metadata: ResultSetMetaData, 
+                           statement: String): Unit =
+        {
+            this.metadata = metadata
+
+            val headers = 
+                {for {i <- 1 to metadata.getColumnCount
+                      name = metadata.getColumnName(i)}
+                     yield name}.toArray
+            writer.writeNext(headers)
+        }
+
+        def handleRow(rs: ResultSet): Unit =
+        {
+            rowMap.clear
+            mapRow(rs, metadata, rowMap)
+            writer.writeNext(rowMap.toArray)
+            rowMap.clear
+        }
+
+        def endResultSet: Unit =
+        {
+            this.metadata = null
+            writer.flush
+        }
+
+        override def closeResultSetHandler: Unit = writer.close
+    }
+
+    def doRunCommand(commandName: String, args: String): CommandAction =
+    {
+        args.tokenize match
+        {
+            case Nil =>
+                usage
+
+            case "on" :: Nil =>
+                installHandler(File.createTempFile("sqlshell", ".csv"))
+
+            case "to" :: Nil =>
+                shell.error("Missing path to which to save query data.")
+
+            case "to" :: path :: Nil =>
+                installHandler(new File(path))
+
+            case "off" :: Nil =>
+                removeHandler
+
+            case _ =>
+                usage
+        }
+
+        KeepGoing
+    }
+
+    private def installHandler(path: File) =
+    {
+        selectHandler.getResultHandler(HandlerKey) match
+        {
+            case None =>
+                selectHandler.addResultHandler(HandlerKey, 
+                                               new SaveToCSVHandler(path))
+                println("Capturing result sets to: " + path.getPath)
+
+            case handler =>
+                shell.error("You're already capturing query results.")
+        }
+    }
+
+    private def removeHandler =
+    {
+        selectHandler.removeResultHandler(HandlerKey) match
+        {
+            case None =>
+                shell.error("You're not currently capturing query results.")
+
+            case Some(handler) =>
+                handler.closeResultSetHandler
+                println("No longer capturing query results.")
+        }
+    }
+
+    private def usage =
+        shell.error("Usage: .capture to /path/to/file\n" +
+                    "   or: .capture off")
+
 }
 
 /**

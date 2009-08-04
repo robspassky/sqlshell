@@ -1,8 +1,11 @@
 - Templates for DB connection strings
+
 - Add ability to change transaction isolation level
-- Add capture-to-spreadsheet:
-      .capture to /path/to/file
-      select ...
-      select ...
-      ...
-      .capture off
+
+- Fix completion handler:
+  + Not always handling upper- and lower-case properly
+  + Not completing in the middle of a command
+
+- Capture:
+  + Allow file name expansion
+  + Add completion
