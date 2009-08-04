@@ -34,7 +34,7 @@ Python's DB API).
   data types, listing the indexes and foreign keys for a table, etc.).
 * SQLShell provides a standard interface that looks and behaves the same
   no matter what database you're using.
-* SQLShell supports any database engine or which a JDBC driver exists.
+* SQLShell supports any database engine for which a JDBC driver exists.
 * SQLShell is written in [Scala][scala] and uses some third-party, open-source
   Scala and Java libraries.
 * SQLShell is open source, and is licensed under a liberal BSD-style

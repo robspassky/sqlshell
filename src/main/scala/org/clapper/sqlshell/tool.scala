@@ -34,6 +34,7 @@ object Tool
     val DefaultConfig = joinPath(System.getProperty("user.home"),
                                  ".sqlshell", "config")
     private val NoParams = new Params
+    private val aboutInfo = new AboutInfo
 
     def main(args: Array[String]): Unit =
     {
@@ -198,7 +199,7 @@ object Tool
 
             val abort = options.has("?") || options.has("version")
             if (options.has("version"))
-                println(Ident.IdentString)
+                aboutInfo.identString
 
             if (options.has("?"))
                 printHelp(parser)
@@ -214,12 +215,12 @@ object Tool
             case e: OptionException =>
                 System.err.println(e.getMessage)
                 printHelp(parser)
-                throw new CommandLineException(Ident.Name + " aborted.")
+                throw new CommandLineException(aboutInfo.name + " aborted.")
 
             case e: CommandLineException =>
                 System.err.println(e.getMessage)
                 printHelp(parser)
-                throw new CommandLineException(Ident.Name + " aborted.")
+                throw new CommandLineException(aboutInfo.name + " aborted.")
         }
     }
 

@@ -26,18 +26,6 @@ import scala.io.Source
 import scala.util.matching.Regex
 
 /**
- * Constants that identify the name, version, copyright, etc., of this tool.
- */
-object Ident
-{
-    val Version = "0.2"
-    val Name = "sqlshell"
-    val Copyright = "Copyright (c) 2009 Brian M. Clapper. All rights reserved."
-
-    val IdentString = "%s, version %s\n%s" format (Name, Version, Copyright)
-}
-
-/**
  * Holds information about a table
  */
 class TableSpec(val name: Option[String],
@@ -633,7 +621,7 @@ class AboutHandler(val shell: SQLShell)
     val CommandName = ".about"
     val Help = "Display information about SQLShell"
 
-    private val buildInfo: Properties = loadBuildInfo
+    val aboutInfo = new AboutInfo
 
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
@@ -641,18 +629,14 @@ class AboutHandler(val shell: SQLShell)
         KeepGoing
     }
 
-    def showAbbreviatedInfo =
-    {
-        println(Ident.IdentString)
-        println("Using " + shell.readline + " readline implementation.")
-    }
+    def showAbbreviatedInfo = println(aboutInfo.identString)
 
     def showFullInfo =
     {
         showAbbreviatedInfo
-        val buildDate = buildInfo.getProperty("build.date")
-        val compiler = buildInfo.getProperty("build.compiler")
-        val buildOS = buildInfo.getProperty("build.os")
+        val buildDate = aboutInfo("build.date")
+        val compiler = aboutInfo("build.compiler")
+        val buildOS = aboutInfo("build.os")
         if (buildDate != null)
             println("Build date: " + buildDate);
         if (compiler != null)
@@ -673,42 +657,9 @@ class AboutHandler(val shell: SQLShell)
                 buf.append(" from " + vmVendor)
             println("Running on: " + buf.toString);
         }
+
+        println("Using " + shell.readline + " readline implementation.")
     }
-
-    private def loadBuildInfo =
-    {
-        val classLoader = getClass.getClassLoader
-        val BuildInfoURL = classLoader.getResource(
-            "org/clapper/sqlshell/BuildInfo.properties")
-
-        val buildInfo = new Properties
-        if (BuildInfoURL != null)
-        {
-            try
-            {
-                val is = BuildInfoURL.openStream
-                try
-                {
-                    buildInfo.load(is)
-                }
-
-                finally
-                {
-                    is.close
-                }
-            }
-
-            catch
-            {
-                case e: Throwable =>
-                    shell.warning("Can't load " + BuildInfoURL + ": " +
-                                  e.getMessage)
-            }
-        }
-
-        buildInfo
-    }
-
 }
 
 /**

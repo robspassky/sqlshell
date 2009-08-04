@@ -110,3 +110,71 @@ class SourceReader(source: Source)
             None
 }
 
+/**
+ * Contains information about the utility. The available keys are defined in
+ * the project build script.
+ */
+class AboutInfo
+{
+    import java.util.Properties
+
+    private val aboutInfo: Properties = loadAboutInfo
+
+    /**
+     * Get information about the specified key.
+     *
+     * @param key  the key
+     *
+     * @return the associated value, or null if not found
+     */
+    def apply(key: String): String = aboutInfo.getProperty(key)
+
+    /**
+     * Convenience method to get the identification string for the program.
+     *
+     * @return the identification string
+     */
+    def identString: String =
+    {
+        "%s, version %s\n%s" format (name, version,
+                                     "Copyright (c) 2009 Brian M. Clapper")
+    }
+
+    /**
+     * Convenience method to get the program name.
+     *
+     * @return the program name
+     */
+    def name = aboutInfo.getProperty("sqlshell.name")
+
+    /**
+     * Convenience method to get the program version.
+     *
+     * @return the program name
+     */
+    def version = aboutInfo.getProperty("sqlshell.version")
+
+    private def loadAboutInfo =
+    {
+        val classLoader = getClass.getClassLoader
+        val AboutInfoURL = classLoader.getResource(
+            "org/clapper/sqlshell/SQLShell.properties")
+
+        val aboutInfo = new Properties
+        if (AboutInfoURL != null)
+        {
+            val is = AboutInfoURL.openStream
+            try
+            {
+                aboutInfo.load(is)
+            }
+
+            finally
+            {
+                is.close
+            }
+        }
+
+        aboutInfo
+    }
+}
