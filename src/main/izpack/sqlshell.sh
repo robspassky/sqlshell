@@ -75,7 +75,7 @@ _CP=
 _sep=
 for i in $INSTALL_PATH/lib/*
 do
-    _CP="$_CP:$_sep:$i"
+    _CP="${_CP}${_sep}${i}"
     _sep=":"
 done
 
