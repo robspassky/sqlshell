@@ -1,7 +1,8 @@
 package org.clapper.sqlshell
 
 import grizzled.cmd._
-import grizzled.readline.{ListCompleter, PathnameCompleter}
+import grizzled.readline.{ListCompleter, PathnameCompleter, 
+                          CompletionToken, LineToken, Delim, Cursor}
 import grizzled.readline.Readline
 import grizzled.readline.Readline.ReadlineType
 import grizzled.readline.Readline.ReadlineType._
@@ -523,8 +524,10 @@ class RunFileHandler(val shell: SQLShell) extends SQLShellCommandHandler
         KeepGoing
     }
 
-    override def complete(token: String, line: String): List[String] =
-        completer.complete(token, line)
+    override def complete(token: String, 
+                          allTokens: List[CompletionToken],
+                          line: String): List[String] =
+        completer.complete(token, allTokens, line)
 }
 
 /**
@@ -579,8 +582,10 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
         KeepGoing
     }
 
-    override def complete(token: String, line: String): List[String] =
-        completer.complete(token, line)
+    override def complete(token: String,
+                          allTokens: List[CompletionToken],
+                          line: String): List[String] =
+        completer.complete(token, allTokens, line)
 
     private def stripQuotes(s: String): String =
     {
@@ -705,13 +710,15 @@ abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
     override def moreInputNeeded(lineSoFar: String): Boolean =
         (! lineSoFar.ltrim.endsWith(";"))
 
-    override def complete(token: String, line: String): List[String] =
+    override def complete(token: String,
+                          allTokens: List[CompletionToken],
+                          line: String): List[String] =
     {
         // Allocate a new completer each time, because the table names can
         // change between invocations of this method.
 
         new ListCompleter(shell.getTableNames(None), _.toLowerCase).
-            complete(token, line)
+            complete(token, allTokens, line)
     }
 }
 
@@ -1628,27 +1635,32 @@ class DescribeHandler(val shell: SQLShell,
         KeepGoing
     }
 
-    override def complete(token: String, line: String): List[String] =
+    override def complete(token: String,
+                          allTokens: List[CompletionToken],
+                          line: String): List[String] =
     {
-        line.tokenize match
+        allTokens match
         {
             case Nil =>
                 assert(false) // shouldn't happen
                 Nil
 
-            case cmd :: Nil =>
+            case LineToken(cmd) :: Delim :: Cursor :: Nil =>
                 // Command filled in (obviously, or we wouldn't be in here),
                 // but first argument not.
-                subCommandCompleter.complete(token, line)
+                subCommandCompleter.complete(token, allTokens, line)
 
-            case cmd :: s :: Nil if (s == "database") =>
+            case LineToken(cmd) :: Delim :: 
+                 LineToken("database") :: Cursor :: Nil =>
                 Nil
 
-            case cmd :: s :: Nil if (s.endsWith(" ")) =>
+            case LineToken(cmd) :: Delim :: 
+                 LineToken(arg) :: Delim :: Cursor :: Nil =>
                 List("full")
 
-            case cmd :: s :: Nil =>
-                subCommandCompleter.complete(token, line)
+            case LineToken(cmd) :: Delim :: 
+                 LineToken(arg) :: Cursor :: Nil =>
+                subCommandCompleter.complete(token, allTokens, line)
 
             case _ =>
                 Nil
@@ -2088,27 +2100,39 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
         KeepGoing
     }
 
-    override def complete(token: String, line: String): List[String] =
+    override def complete(token: String,
+                          allTokens: List[CompletionToken],
+                          line: String): List[String] =
     {
-        line.tokenize match
+        allTokens match
         {
             case Nil =>
                 assert(false) // shouldn't happen
                 Nil
 
-            case cmd :: Nil =>
+            case LineToken(cmd) :: Delim :: Cursor :: Nil =>
                 // Command filled in (obviously, or we wouldn't be in here),
                 // but first argument not.
-                subCommandCompleter.complete(token, line)
+                subCommandCompleter.complete(token, allTokens, line)
 
-            case cmd :: ShowTables(s) :: Nil =>
+            case LineToken(cmd) :: Delim ::
+                 LineToken(ShowTables(s)) :: Cursor :: Nil =>
                 Nil
 
-            case cmd :: ShowSchemas(s) :: Nil =>
+            case LineToken(cmd) :: Delim ::
+                 LineToken(ShowTables(s)) :: Delim :: Cursor :: Nil =>
                 Nil
 
-            case cmd :: s :: Nil =>
-                subCommandCompleter.complete(token, line)
+            case LineToken(cmd) :: Delim ::
+                 LineToken(ShowSchemas(s)) :: Cursor :: Nil =>
+                Nil
+
+            case LineToken(cmd) :: Delim ::
+                 LineToken(ShowSchemas(s)) :: Delim :: Cursor :: Nil =>
+                Nil
+
+            case LineToken(cmd) :: Delim :: LineToken(arg) :: Cursor :: Nil =>
+                subCommandCompleter.complete(token, allTokens, line)
 
             case _ =>
                 Nil
