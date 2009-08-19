@@ -2,7 +2,8 @@ package org.clapper.sqlshell
 
 import grizzled.cmd._
 import grizzled.readline.{ListCompleter, PathnameCompleter, 
-                          CompletionToken, LineToken, Delim, Cursor}
+                          CompletionToken, CompleterHelper,
+                          LineToken, Delim, Cursor}
 import grizzled.readline.Readline
 import grizzled.readline.Readline.ReadlineType
 import grizzled.readline.Readline.ReadlineType._
@@ -392,6 +393,33 @@ class SQLShell(val config: Configuration,
         val tableData = getTables(schema)
         val tableNames = tableData.filter(_.name != None).map(_.name.get)
         tableNames.sort(nameSorter)
+    }
+
+    /**
+     * Get a list of table names that match a prefix. Useful for completers.
+     *
+     * @param schema  the schema to use, or None for the default
+     * @param prefix  the table name prefix, or None to match all tables
+     *
+     * @return a sorted list of table names, or Nil for no match
+     */
+    private[sqlshell] def matchTableNames(schema: Option[String],
+                                          prefix: Option[String]):
+        List[String] =
+    {
+        prefix match
+        {
+            case None =>
+                getTableNames(schema)
+
+            case Some(p) =>
+                val tables = getTables(schema)
+                val lcPrefix = p.toLowerCase
+                tables.filter(ts => 
+                              (ts.name != None) &&
+                              (ts.name.get.toLowerCase.startsWith(lcPrefix)))
+                      .map(_.name.get)
+        }
     }
 
     /**
@@ -975,7 +1003,7 @@ private[sqlshell] class ResultSetCacheHandler(tempFile: File,
  * Handles SQL "SELECT" statements.
  */
 class SelectHandler(shell: SQLShell, connection: Connection)
-    extends SQLHandler(shell, connection) with Timer
+    extends SQLHandler(shell, connection) with Timer with CompleterHelper
 {
     import java.io.{File, FileOutputStream, ObjectOutputStream}
 
@@ -1016,6 +1044,37 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         }
 
         KeepGoing
+    }
+
+    override def complete(token: String,
+                          allTokens: List[CompletionToken],
+                          line: String): List[String] =
+    {
+        allTokens match
+        {
+            case Nil =>
+                assert(false) // shouldn't happen
+                Nil
+
+            case LineToken(cmd) :: Cursor :: rest =>
+                Nil
+
+            case LineToken(cmd) :: rest =>
+                tokenBeforeCursor(rest) match
+                {
+                    case None => 
+                        Nil
+                    case Some(Delim) =>
+                        // All table names
+                        shell.matchTableNames(None, None)
+                    case Some(LineToken(prefix)) => 
+                        // Table names matching the prefix
+                        shell.matchTableNames(None, Some(prefix))
+                }
+
+            case _ =>
+                Nil
+        }
     }
 
     /**
@@ -2120,8 +2179,13 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
                 Nil
 
             case LineToken(cmd) :: Delim ::
-                 LineToken(ShowTables(s)) :: Delim :: Cursor :: Nil =>
-                Nil
+                 LineToken(ShowTables(schema)) :: Delim :: Cursor :: Nil =>
+                shell.matchTableNames(extractSchema(schema), None)
+
+            case LineToken(cmd) :: Delim ::
+                 LineToken(ShowTables(schema)) :: Delim :: 
+                 LineToken(tablePrefix) :: Cursor :: Nil =>
+                shell.matchTableNames(extractSchema(schema), Some(tablePrefix))
 
             case LineToken(cmd) :: Delim ::
                  LineToken(ShowSchemas(s)) :: Cursor :: Nil =>
@@ -2137,6 +2201,17 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
             case _ =>
                 Nil
         }
+    }
+
+    // Extract the schema from something matched by the ShowTables regex
+    private def extractSchema(regexField: String): Option[String] =
+    {
+        if (regexField == null)
+            None
+        else if (regexField(0) == '/')
+            Some(regexField drop 1)
+        else
+            Some(regexField)
     }
 
     private def showTables(schema: String, pattern: String) =
