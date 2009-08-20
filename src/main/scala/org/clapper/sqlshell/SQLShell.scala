@@ -337,29 +337,22 @@ class SQLShell(val config: Configuration,
 
         try
         {
-            getSchema(schema) match
+            val jdbcSchema = if (schema == None) null else schema.get
+            val metadata = connection.getMetaData
+            val rs = metadata.getTables(null, jdbcSchema, null,
+                                        Array("TABLE", "VIEW"))
+            try
             {
-                case None =>
-                    // Error already reported.
-                    Nil
+                def matches(ts: TableSpec): Boolean =
+                    (ts != None) &&
+                    (nameFilter.findFirstIn(ts.name.get) != None)
 
-                case Some(schema) =>
-                    val metadata = connection.getMetaData
-                    val rs = metadata.getTables(null, schema, null,
-                                                Array("TABLE", "VIEW"))
-                    try
-                    {
-                        def matches(ts: TableSpec): Boolean =
-                            (ts != None) &&
-                            (nameFilter.findFirstIn(ts.name.get) != None)
+                getTableData(rs).filter(matches(_))
+            }
 
-                        getTableData(rs).filter(matches(_))
-                    }
-
-                    finally
-                    {
-                        rs.close
-                    }
+            finally
+            {
+                rs.close
             }
         }
 
