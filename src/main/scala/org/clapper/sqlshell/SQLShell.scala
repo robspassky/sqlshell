@@ -805,8 +805,18 @@ abstract class ResultSetStringifier(showBinary: Int)
                rowMap: ArrayBuffer[String]): Array[String] =
     {
         import grizzled.io.implicits._   // for the readSome() method
+        import grizzled.io.util.useThenClose
 
-        def getDateString(date: Date): String = DateFormatter.format(date)
+        val NULL_STR = "NULL"
+
+        def getDateString(i: Int, dateFromResultSet: (Int) => Date): String =
+        {
+            val date = dateFromResultSet(i)
+            if (rs.wasNull)
+                NULL_STR
+            else
+                DateFormatter.format(date)
+        }
 
         def clobString(i: Int): String =
         {
@@ -816,24 +826,25 @@ abstract class ResultSetStringifier(showBinary: Int)
             else
             {
                 val r = rs.getCharacterStream(i)
+                if (rs.wasNull)
+                    NULL_STR
 
-                try
+                else
                 {
-                    // Read one more than the binary length. If we get that
-                    // many, then display an ellipsis.
-
-                    val buf = r.readSome(showBinary + 1)
-                    buf.length match
+                    useThenClose(r)
                     {
-                        case 0 =>                     ""
-                        case n if (n > showBinary) => buf.mkString("") + "..."
-                        case n =>                     buf.mkString("")
-                    }
-                }
+                        // Read one more than the binary length. If we get
+                        // that many, then display an ellipsis.
 
-                finally
-                {
-                    r.close
+                        val buf = r.readSome(showBinary + 1)
+                        buf.length match
+                        {
+                            case 0 =>                     ""
+                            case n if (n > showBinary) => buf.mkString("") +
+                                                          "..."
+                            case n =>                     buf.mkString("")
+                        }
+                    }
                 }
             }
         }
@@ -846,36 +857,57 @@ abstract class ResultSetStringifier(showBinary: Int)
             else
             {
                 val is = rs.getBinaryStream(i)
+                if (rs.wasNull)
+                    NULL_STR
 
-                try
+                else
                 {
-                    // Read one more than the binary length. If we get that
-                    // many, then display an ellipsis.
-
-                    val buf = is.readSome(showBinary + 1)
-                    val ellipsis = buf.length > showBinary
-                    val hexList =
+                    useThenClose(is)
                     {
-                        for (b <- buf)
+                        // Read one more than the binary length. If we get
+                        // that many, then display an ellipsis.
+
+                        val buf = is.readSome(showBinary + 1)
+                        val ellipsis = buf.length > showBinary
+                        val hexList =
+                        {
+                            for (b <- buf)
                             yield b.asInstanceOf[Int].toHexString.toList match
                             {
                                 case digit :: Nil => "0" + digit
                                 case digits       => digits mkString ""
                             }
+                        }
+                        val hexString = hexList.mkString("")
+                        if (ellipsis) hexString + "..." else hexString
                     }
-                    val hexString = hexList.mkString("")
-                    if (ellipsis) hexString + "..." else hexString
-                }
-
-                finally
-                {
-                    is.close
                 }
             }
         }
 
-        def nonNullColAsString(i: Int): String =
+        def objToString(i: Int): String =
         {
+            val o = rs.getObject(i)
+            if (rs.wasNull)
+                NULL_STR
+            else
+                o.toString
+        }
+
+        def colAsString(i: Int): String =
+        {
+            // What we'd like to do:
+            /*
+            rs.getObject(i)
+            if (rs.wasNull) "NULL" else nonNullColAsString(i)
+            */
+
+            // Problem: With some RDBMS types (e.g., Microsoft Access, with the
+            // JDBC-ODBC bridge driver), double retrieval of the column causes
+            // an error. To solve this problem, we have to ensure that we
+            // retrieve the column value once, which means the null test
+            // has to go in multiple places.
+
             metadata.getColumnType(i) match
             {
                 // Handle just the oddballs. getObject(i).toString should be
@@ -884,21 +916,15 @@ abstract class ResultSetStringifier(showBinary: Int)
                 case SQLTypes.BINARY        => binaryString(i)
                 case SQLTypes.BLOB          => binaryString(i)
                 case SQLTypes.CLOB          => clobString(i)
-                case SQLTypes.DATE          => getDateString(rs.getDate(i))
+                case SQLTypes.DATE          => getDateString(i, rs.getDate)
                 case SQLTypes.LONGVARBINARY => binaryString(i)
                 case SQLTypes.LONGVARCHAR   => clobString(i)
                 case SQLTypes.NULL          => "<null>"
-                case SQLTypes.TIME          => getDateString(rs.getTime(i))
-                case SQLTypes.TIMESTAMP     => getDateString(rs.getTimestamp(i))
+                case SQLTypes.TIME          => getDateString(i, rs.getTime)
+                case SQLTypes.TIMESTAMP     => getDateString(i, rs.getTimestamp)
                 case SQLTypes.VARBINARY     => binaryString(i)
-                case _                      => rs.getObject(i).toString
+                case _                      => objToString(i)
             }
-        }
-
-        def colAsString(i: Int): String =
-        {
-            rs.getObject(i)
-            if (rs.wasNull) "NULL" else nonNullColAsString(i)
         }
 
         // Actual function
