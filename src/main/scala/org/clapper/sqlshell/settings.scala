@@ -185,7 +185,10 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      */
     def apply(variableName: String): Any =
     {
-        assert(settingsMap contains variableName)
+        if (! (settingsMap contains variableName))
+            throw new UnknownVariableException("Unknown setting: \"" +
+                                               variableName + "\"")
+
         settingsMap(variableName).get
     }
 
@@ -199,7 +202,9 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      */
     def booleanSettingIsTrue(variableName: String): Boolean =
     {
-        assert(settingsMap contains variableName)
+        if (! (settingsMap contains variableName))
+            throw new UnknownVariableException("Unknown setting: \"" +
+                                               variableName + "\"")
 
         val handler = settingsMap(variableName)
         handler.get.asInstanceOf[Boolean]
@@ -215,7 +220,9 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      */
     def intSetting(variableName: String): Int =
     {
-        assert(settingsMap contains variableName)
+        if (! (settingsMap contains variableName))
+            throw new UnknownVariableException("Unknown setting: \"" +
+                                               variableName + "\"")
 
         val handler = settingsMap(variableName)
         handler.get.asInstanceOf[Int]
@@ -231,7 +238,9 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      */
     def stringSetting(variableName: String): Option[String] =
     {
-        assert(settingsMap contains variableName)
+        if (! (settingsMap contains variableName))
+            throw new UnknownVariableException("Unknown setting: \"" +
+                                               variableName + "\"")
 
         val handler = settingsMap(variableName)
         val sValue = handler.get.asInstanceOf[String]
