@@ -1,7 +1,7 @@
 package org.clapper.sqlshell
 
 import grizzled.cmd._
-import grizzled.readline.{ListCompleter, PathnameCompleter, 
+import grizzled.readline.{ListCompleter, PathnameCompleter,
                           CompletionToken, CompleterHelper,
                           LineToken, Delim, Cursor}
 import grizzled.readline.Readline
@@ -23,8 +23,8 @@ import java.io.File
 import java.util.Date
 import java.text.SimpleDateFormat
 
-import scala.collection.mutable.{ArrayBuffer, 
-                                 Map => MutableMap, 
+import scala.collection.mutable.{ArrayBuffer,
+                                 Map => MutableMap,
                                  Set => MutableSet}
 import scala.io.Source
 import scala.util.matching.Regex
@@ -246,7 +246,7 @@ class SQLShell(val config: Configuration,
         }
     }
 
-    override def postCommand(command: String, 
+    override def postCommand(command: String,
                              unparsedArgs: String): CommandAction =
     {
         // Force a newline after each command's output.
@@ -415,7 +415,7 @@ class SQLShell(val config: Configuration,
             case Some(p) =>
                 val tables = getTables(schema)
                 val lcPrefix = p.toLowerCase
-                tables.filter(ts => 
+                tables.filter(ts =>
                               (ts.name != None) &&
                               (ts.name.get.toLowerCase.startsWith(lcPrefix)))
                       .map(_.name.get)
@@ -552,7 +552,7 @@ class RunFileHandler(val shell: SQLShell) extends SQLShellCommandHandler
         KeepGoing
     }
 
-    override def complete(token: String, 
+    override def complete(token: String,
                           allTokens: List[CompletionToken],
                           line: String): List[String] =
         completer.complete(token, allTokens, line)
@@ -649,7 +649,7 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
 /**
  * Handles the ".about" command.
  */
-class AboutHandler(val shell: SQLShell) 
+class AboutHandler(val shell: SQLShell)
     extends SQLShellCommandHandler with Sorter
 {
     import java.util.Properties
@@ -733,7 +733,10 @@ trait JDBCHelper
 }
 
 abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
-    extends SQLShellCommandHandler with Timer with JDBCHelper
+    extends SQLShellCommandHandler
+    with Timer
+    with JDBCHelper
+    with CompleterHelper
 {
     override def moreInputNeeded(lineSoFar: String): Boolean =
         (! lineSoFar.ltrim.endsWith(";"))
@@ -742,11 +745,33 @@ abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
                           allTokens: List[CompletionToken],
                           line: String): List[String] =
     {
-        // Allocate a new completer each time, because the table names can
-        // change between invocations of this method.
+        allTokens match
+        {
+            case Nil =>
+                assert(false) // shouldn't happen
+                Nil
 
-        new ListCompleter(shell.getTableNames(None), _.toLowerCase).
-            complete(token, allTokens, line)
+            case LineToken(cmd) :: Cursor :: rest =>
+                Nil
+
+            case LineToken(cmd) :: Delim :: rest =>
+                tokenBeforeCursor(rest) match
+                {
+                    case None =>
+                        Nil
+                    case Some(Delim) =>
+                        // All table names
+                        shell.getTableNames(None)
+                    case Some(LineToken(prefix)) =>
+                        // Table names matching the prefix
+                        shell.matchTableNames(None, Some(prefix))
+                    case _ =>
+                        shell.getTableNames(None)
+                }
+
+            case _ =>
+                shell.getTableNames(None)
+        }
     }
 }
 
@@ -889,8 +914,8 @@ abstract class ResultSetStringifier(showBinary: Int)
 /**
  * Encapsulates the preprocessed results from a query.
  */
-private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData, 
-                                            val dataFile: File) 
+private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
+                                            val dataFile: File)
     extends Iterable[Array[String]]
 {
     import java.io.{EOFException,
@@ -928,7 +953,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
 
             catch
             {
-                case _: EOFException => 
+                case _: EOFException =>
                     in.close
                     buf.clear
                     false
@@ -978,7 +1003,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
  * Used by the select handler to process and cache a result set.
  */
 private[sqlshell] class ResultSetCacheHandler(tempFile: File,
-                                              val showBinary: Int) 
+                                              val showBinary: Int)
     extends ResultSetStringifier(showBinary) with ResultSetHandler
 {
     import java.io.{FileOutputStream, ObjectOutputStream}
@@ -1003,7 +1028,7 @@ private[sqlshell] class ResultSetCacheHandler(tempFile: File,
  * Handles SQL "SELECT" statements.
  */
 class SelectHandler(shell: SQLShell, connection: Connection)
-    extends SQLHandler(shell, connection) with Timer with CompleterHelper
+    extends SQLHandler(shell, connection) with Timer
 {
     import java.io.{File, FileOutputStream, ObjectOutputStream}
 
@@ -1044,37 +1069,6 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         }
 
         KeepGoing
-    }
-
-    override def complete(token: String,
-                          allTokens: List[CompletionToken],
-                          line: String): List[String] =
-    {
-        allTokens match
-        {
-            case Nil =>
-                assert(false) // shouldn't happen
-                Nil
-
-            case LineToken(cmd) :: Cursor :: rest =>
-                Nil
-
-            case LineToken(cmd) :: rest =>
-                tokenBeforeCursor(rest) match
-                {
-                    case None => 
-                        Nil
-                    case Some(Delim) =>
-                        // All table names
-                        shell.matchTableNames(None, None)
-                    case Some(LineToken(prefix)) => 
-                        // Table names matching the prefix
-                        shell.matchTableNames(None, Some(prefix))
-                }
-
-            case _ =>
-                Nil
-        }
     }
 
     /**
@@ -1122,7 +1116,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      * @param rs         the JDBC result set
      * @param statement  the statement that was issued, as a string
      */
-    protected def dumpResults(queryTime: Long, 
+    protected def dumpResults(queryTime: Long,
                               rs: ResultSet,
                               statement: String): Unit =
     {
@@ -1213,7 +1207,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         }
     }
 
-    def processNextRow(rs: ResultSet, 
+    def processNextRow(rs: ResultSet,
                        handlers: Iterable[ResultSetHandler]): Unit =
     {
         if (rs.next)
@@ -1292,13 +1286,13 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
    |    .capture off
    |
    |SQLShell opens the file for writing (truncating it, if it already exists).
-   |Then, SQLShell writes each result set to the file, along with column 
+   |Then, SQLShell writes each result set to the file, along with column
    |headers, until it sees ".capture off".""".stripMargin
 
     private val HandlerKey = this.getClass.getName
     private val showBinary = shell.settings.intSetting("showbinary")
 
-    private class SaveToCSVHandler(path: File) 
+    private class SaveToCSVHandler(path: File)
         extends ResultSetStringifier(showBinary) with ResultSetHandler
     {
         import au.com.bytecode.opencsv.CSVWriter
@@ -1310,12 +1304,12 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
         private var metadata: ResultSetMetaData = null
         private val rowMap = new ArrayBuffer[String]
 
-        def startResultSet(metadata: ResultSetMetaData, 
+        def startResultSet(metadata: ResultSetMetaData,
                            statement: String): Unit =
         {
             this.metadata = metadata
 
-            val headers = 
+            val headers =
                 {for {i <- 1 to metadata.getColumnCount
                       name = metadata.getColumnName(i)}
                      yield name}.toArray
@@ -1370,7 +1364,7 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
         selectHandler.getResultHandler(HandlerKey) match
         {
             case None =>
-                selectHandler.addResultHandler(HandlerKey, 
+                selectHandler.addResultHandler(HandlerKey,
                                                new SaveToCSVHandler(path))
                 println("Capturing result sets to: " + path.getPath)
 
@@ -1709,15 +1703,15 @@ class DescribeHandler(val shell: SQLShell,
                 // but first argument not.
                 subCommandCompleter.complete(token, allTokens, line)
 
-            case LineToken(cmd) :: Delim :: 
+            case LineToken(cmd) :: Delim ::
                  LineToken("database") :: Cursor :: Nil =>
                 Nil
 
-            case LineToken(cmd) :: Delim :: 
+            case LineToken(cmd) :: Delim ::
                  LineToken(arg) :: Delim :: Cursor :: Nil =>
                 List("full")
 
-            case LineToken(cmd) :: Delim :: 
+            case LineToken(cmd) :: Delim ::
                  LineToken(arg) :: Cursor :: Nil =>
                 subCommandCompleter.complete(token, allTokens, line)
 
@@ -2183,7 +2177,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
                 shell.matchTableNames(extractSchema(schema), None)
 
             case LineToken(cmd) :: Delim ::
-                 LineToken(ShowTables(schema)) :: Delim :: 
+                 LineToken(ShowTables(schema)) :: Delim ::
                  LineToken(tablePrefix) :: Cursor :: Nil =>
                 shell.matchTableNames(extractSchema(schema), Some(tablePrefix))
 
