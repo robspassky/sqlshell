@@ -331,29 +331,43 @@ class SQLShell(val config: Configuration,
                 getTableData(rs)
         }
 
-        getSchema(schema) match
+        // Note that it's possible for the retrieval of metadata to fail.
+        // Some databases (e.g., MS Access over the JDBC-ODBC bridge) don't
+        // support it.
+
+        try
         {
-            case None =>
-                // Error already reported.
+            getSchema(schema) match
+            {
+                case None =>
+                    // Error already reported.
+                    Nil
+
+                case Some(schema) =>
+                    val metadata = connection.getMetaData
+                    val rs = metadata.getTables(null, schema, null,
+                                                Array("TABLE", "VIEW"))
+                    try
+                    {
+                        def matches(ts: TableSpec): Boolean =
+                            (ts != None) &&
+                            (nameFilter.findFirstIn(ts.name.get) != None)
+
+                        getTableData(rs).filter(matches(_))
+                    }
+
+                    finally
+                    {
+                        rs.close
+                    }
+            }
+        }
+
+        catch
+        {
+            case e: SQLException =>
+                verbose("Failed to retrieve metadata: " + e.getMessage)
                 Nil
-
-            case Some(schema) =>
-                val metadata = connection.getMetaData
-                val rs = metadata.getTables(null, schema, null,
-                                            Array("TABLE", "VIEW"))
-                try
-                {
-                    def matches(ts: TableSpec): Boolean =
-                        (ts != None) &&
-                        (nameFilter.findFirstIn(ts.name.get) != None)
-
-                    getTableData(rs).filter(matches(_))
-                }
-
-                finally
-                {
-                    rs.close
-                }
         }
     }
 
@@ -1791,6 +1805,18 @@ class DescribeHandler(val shell: SQLShell,
         println(w.wrap("Open transaction?      " + inTransactionStr))
     }
 
+    private def nullIfEmpty(s: String) =
+        if ((s == null) || (s.trim == "")) null else s
+
+    private def nullIfEmpty(os: Option[String]) =
+        os match
+        {
+            case None                    => null
+            case Some(s) if s == null    => null
+            case Some(s) if s.trim == "" => null
+            case Some(s)                 => s.trim
+        }
+
     private def describeTable(table: String, full: Boolean) =
     {
         def getColumnDescriptions(md: ResultSetMetaData,
@@ -1902,7 +1928,16 @@ class DescribeHandler(val shell: SQLShell,
 
                     if (full)
                     {
-                        val schema = metadata.getSchemaName(1)
+                        val settings = shell.settings
+                        val s = nullIfEmpty(metadata.getSchemaName(1))
+                        val schema =
+                            if (s == null)
+                                nullIfEmpty(settings.stringSetting("schema"))
+                            else
+                                s
+
+                        val catalog = nullIfEmpty(metadata.getCatalogName(1))
+
                         // Map the table name to what the database engine
                         // thinks the table's name should be. (Necessary
                         // for Oracle.)
@@ -1910,9 +1945,7 @@ class DescribeHandler(val shell: SQLShell,
                         {
                             case None =>
                             case Some(s) =>
-                                showExtraTableData(metadata.getCatalogName(1),
-                                                   schema,
-                                                   s)
+                                showExtraTableData(catalog, schema, s)
                         }
                     }
                 }
@@ -1971,12 +2004,24 @@ class DescribeHandler(val shell: SQLShell,
                 rs.getString("COLUMN_NAME") :: getPrimaryKeyColumns(rs)
         }
 
-        val rs = dmd.getPrimaryKeys(catalog, schema, table)
-        withResultSet(rs)
+        try
         {
-            val columns = getPrimaryKeyColumns(rs)
-            if (columns != Nil)
-                println("\nPrimary key columns: " + columns.mkString(", "))
+            shell.verbose("Getting primary keys for table " + table + 
+                          ", catalog " + catalog + ", schema " + schema)
+            val rs = dmd.getPrimaryKeys(catalog, schema, table)
+            withResultSet(rs)
+            {
+                val columns = getPrimaryKeyColumns(rs)
+                if (columns != Nil)
+                    println("\nPrimary key columns: " + columns.mkString(", "))
+            }
+        }
+
+        catch
+        {
+            case e: SQLException =>
+                shell.error("Unable to retrieve primary key information: " +
+                            e.getMessage)
         }
     }
 
@@ -2066,26 +2111,31 @@ class DescribeHandler(val shell: SQLShell,
             wrapPrintln(buf.toString)
         }
 
-        def nullIfEmpty(s: String) =
-            if ((s == null) || (s.trim == "")) null else s
-
-        val rs = dmd.getIndexInfo(nullIfEmpty(catalog),
-                                  nullIfEmpty(schema),
-                                  table,
-                                  false,
-                                  true)
-        withResultSet(rs)
+        shell.verbose("Getting index information for table " + table + 
+                      ", catalog " + catalog + ", schema " + schema)
+        try
         {
-            gatherIndexInfo(rs)
+            val rs = dmd.getIndexInfo(catalog, schema, table, false, true)
+            withResultSet(rs)
+            {
+                gatherIndexInfo(rs)
+            }
+
+            if ((uniqueIndexes.size + nonUniqueIndexes.size) > 0)
+            {
+                println()
+                for (indexName <- uniqueIndexes.keys.toList.sort(nameSorter))
+                    printIndex(indexName, uniqueIndexes(indexName).toList)
+                for (indexName <- nonUniqueIndexes.keys.toList.sort(nameSorter))
+                    printIndex(indexName, nonUniqueIndexes(indexName).toList)
+            }
         }
 
-        if ((uniqueIndexes.size + nonUniqueIndexes.size) > 0)
+        catch
         {
-            println()
-            for (indexName <- uniqueIndexes.keys.toList.sort(nameSorter))
-                printIndex(indexName, uniqueIndexes(indexName).toList)
-            for (indexName <- nonUniqueIndexes.keys.toList.sort(nameSorter))
-                printIndex(indexName, nonUniqueIndexes(indexName).toList)
+            case e: SQLException =>
+                shell.error("Unable to retrieve index information: " +
+                            e.getMessage)
         }
     }
 
@@ -2111,10 +2161,22 @@ class DescribeHandler(val shell: SQLShell,
             }
         }
 
-        val rs = dmd.getImportedKeys(catalog, schema, table)
-        withResultSet(rs)
+        try
         {
-            printOne(rs)
+            shell.verbose("Getting constraint information for table " + table + 
+                          ", catalog " + catalog + ", schema " + schema)
+            val rs = dmd.getImportedKeys(catalog, schema, table)
+            withResultSet(rs)
+            {
+                printOne(rs)
+            }
+        }
+
+        catch
+        {
+            case e: SQLException =>
+                shell.error("Unable to retrieve constraint information: " +
+                            e.getMessage)
         }
     }
 
