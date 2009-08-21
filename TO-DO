@@ -1,15 +1,8 @@
-- Templates for DB connection strings
-
 - Add ability to change transaction isolation level
 
 - Fix completion handler:
-  + Not always handling upper- and lower-case properly
-  + Not completing in the middle of a command
+  + Implement a custom interface to EditLine (and, perhaps, Readline).
+    JavaReadline doesn't expose enough of the underlying API.
 
-- Capture:
-  + Allow file name expansion
-  + Add completion
-  + Handlers should get a readonly result set they can't advance
-
-- NOTE: "help" should complete on command names.
+- "help" should complete on command names.
 
