@@ -229,8 +229,7 @@ private[sqlshell] class Settings(values: (String, Setting)*)
     }
 
     /**
-     * Test the value of a boolean setting. Throws an assertion failure if
-     * the variable isn't a boolean.
+     * Get a string setting.
      *
      * @param variableName the name of the variable
      *
@@ -245,6 +244,29 @@ private[sqlshell] class Settings(values: (String, Setting)*)
         val handler = settingsMap(variableName)
         val sValue = handler.get.asInstanceOf[String]
         Some(sValue)
+    }
+
+    /**
+     * Get a string setting.
+     *
+     * @param variableName the name of the variable
+     * @param default      the default value to use, if the string setting
+     *                     is empty or null
+     *
+     * @return the value of the setting, or the default
+     */
+    def stringSetting(variableName: String, default: String): String =
+    {
+        if (! (settingsMap contains variableName))
+            throw new UnknownVariableException("Unknown setting: \"" +
+                                               variableName + "\"")
+
+        val handler = settingsMap(variableName)
+        val sValue = handler.get.asInstanceOf[String]
+        if ((sValue == null) || (sValue == ""))
+            default
+        else
+            sValue
     }
 
     /**

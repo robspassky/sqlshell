@@ -79,6 +79,7 @@ class SQLShell(val config: Configuration,
 
     val settings = new Settings(
         ("ansi",         new BooleanSetting(useAnsiColors)),
+        ("catalog",      new StringSetting("")),
         ("echo",         new BooleanSetting(false)),
         ("maxhistory",   new MaxHistorySetting(readline)),
         ("schema",       new StringSetting("")),
@@ -337,9 +338,16 @@ class SQLShell(val config: Configuration,
 
         try
         {
-            val jdbcSchema = if (schema == None) null else schema.get
+            val jdbcSchema = 
+                if (schema == None)
+                    settings.stringSetting("schema", null)
+                else
+                    schema.get
+            val catalog = settings.stringSetting("catalog", null)
             val metadata = connection.getMetaData
-            val rs = metadata.getTables(null, jdbcSchema, null,
+            verbose("Getting list of tables. schema=" + jdbcSchema +
+                    ", catalog=" + catalog)
+            val rs = metadata.getTables(catalog, jdbcSchema, null,
                                         Array("TABLE", "VIEW"))
             try
             {
@@ -764,9 +772,7 @@ abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
             case LineToken(cmd) :: Delim :: rest =>
                 tokenBeforeCursor(rest) match
                 {
-                    case None =>
-                        Nil
-                    case Some(Delim) =>
+                    case (None | Some(Delim)) =>
                         // All table names
                         shell.getTableNames(None)
                     case Some(LineToken(prefix)) =>
