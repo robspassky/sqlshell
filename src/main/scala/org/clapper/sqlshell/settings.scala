@@ -1,3 +1,40 @@
+/*
+  ---------------------------------------------------------------------------
+  This software is released under a BSD license, adapted from
+  http://opensource.org/licenses/bsd-license.php
+
+  Copyright (c) 2009, Brian M. Clapper
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
+
+  * Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+  * Neither the names "clapper.org", "SQLShell", nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+  IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+  PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  ---------------------------------------------------------------------------
+*/
+
 package org.clapper.sqlshell
 
 import scala.collection.mutable.{Map => MutableMap}
@@ -21,6 +58,11 @@ trait ValueConverter
      * @throws SQLShellException on conversion error
      */
     def convertString(newValue: String): Any
+
+    /**
+     * The list of legal values, as strings
+     */
+    val legalValues: List[String]
 }
 
 /**
@@ -49,6 +91,8 @@ private[sqlshell] trait Setting extends ValueConverter
  */
 private[sqlshell] trait BooleanValueConverter extends ValueConverter
 {
+    val legalValues = List("true", "false", "on", "off", "0", "1")
+
     /**
      * Convert a string value into a boolean, returning it as an
      * <tt>Any</tt>.
@@ -82,6 +126,8 @@ private[sqlshell] trait BooleanValueConverter extends ValueConverter
 private[sqlshell] trait IntValueConverter
     extends ValueConverter
 {
+    val legalValues = Nil
+
     /**
      * The minimum legal value for the setting. Defaults to 0.
      */
@@ -126,7 +172,7 @@ private[sqlshell] trait IntValueConverter
  * A setting that stores its value internally (as opposed to retrieving it
  * from someplace).
  */
-private[sqlshell] class VarSetting(initialValue: Any)
+private[sqlshell] abstract class VarSetting(initialValue: Any)
     extends Setting
 {
     private var value = initialValue
@@ -153,6 +199,9 @@ private[sqlshell] class IntSetting(initialValue: Int)
  */
 private[sqlshell] class StringSetting(initialValue: String)
     extends VarSetting(initialValue)
+{
+    val legalValues = Nil
+}
 
 /**
  * Stores the settings. The arguments are <tt>(variableName, Setting)</tt>
@@ -175,6 +224,22 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      * @return the variable names, sorted alphabetically
      */
     def variableNames = settingsMap.keys.toList.sort(nameSorter)
+
+    /**
+     * Get list of legal values, if any, for a variable.
+     *
+     * @param variableName the name of the variable
+     *
+     * @return the list of legal values, or Nil
+     */
+    def legalValuesFor(variableName: String): List[String] =
+    {
+        if (! (settingsMap contains variableName))
+            throw new UnknownVariableException("Unknown setting: \"" +
+                                               variableName + "\"")
+
+        settingsMap(variableName).legalValues
+    }
 
     /**
      * Retrieve the value for a variable.

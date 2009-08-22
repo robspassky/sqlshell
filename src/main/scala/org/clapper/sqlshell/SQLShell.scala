@@ -1,9 +1,52 @@
+/*
+  ---------------------------------------------------------------------------
+  This software is released under a BSD license, adapted from
+  http://opensource.org/licenses/bsd-license.php
+
+  Copyright (c) 2009, Brian M. Clapper
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
+
+  * Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+  * Neither the names "clapper.org", "SQLShell", nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+  IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+  PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  ---------------------------------------------------------------------------
+*/
+
 package org.clapper.sqlshell
 
+import org.clapper.sqlshell.log.{logger, Verbose}
+
 import grizzled.cmd._
-import grizzled.readline.{ListCompleter, PathnameCompleter,
-                          CompletionToken, CompleterHelper,
-                          LineToken, Delim, Cursor}
+import grizzled.readline.{ListCompleter,
+                          PathnameCompleter,
+                          CompletionToken,
+                          CompleterHelper,
+                          LineToken,
+                          Delim,
+                          Cursor}
 import grizzled.readline.Readline
 import grizzled.readline.Readline.ReadlineType
 import grizzled.readline.Readline.ReadlineType._
@@ -49,6 +92,28 @@ class MaxHistorySetting(readline: Readline)
 }
 
 /**
+ * Handles enabling/disabling verbose messages.
+ */
+object LogLevelSetting extends Setting with ValueConverter
+{
+    override val legalValues = logger.Levels.map(_.toString)
+    override def get = logger.level.toString
+    override def set(newValue: Any) = logger.level = newValue
+    override def convertString(newValue: String): Any = newValue
+}
+
+/**
+ * Handles changes to the "ansi" setting.
+ */
+object AnsiSetting extends Setting with BooleanValueConverter
+{
+    override def get = logger.useAnsi
+
+    override def set(newValue: Any) =
+        logger.useAnsi = newValue.asInstanceOf[Boolean]
+}
+
+/**
  * The actual class that implements the command line interpreter.
  *
  * @param config          the loaded configuration file
@@ -77,17 +142,22 @@ class SQLShell(val config: Configuration,
     val connection = connectionInfo.connection
     val historyPath = connectionInfo.configInfo.get("history")
 
+    if (beVerbose)
+        logger.level = Verbose
+
+    AnsiSetting.set(useAnsiColors)
+
     val settings = new Settings(
-        ("ansi",         new BooleanSetting(useAnsiColors)),
+        ("ansi",         AnsiSetting),
         ("catalog",      new StringSetting("")),
         ("echo",         new BooleanSetting(false)),
+        ("logging",      LogLevelSetting),
         ("maxhistory",   new MaxHistorySetting(readline)),
         ("schema",       new StringSetting("")),
         ("showbinary",   new IntSetting(0)),
         ("showrowcount", new BooleanSetting(true)),
         ("showtimings",  new BooleanSetting(true)),
-        ("stacktrace",   new BooleanSetting(showStackTraces)),
-        ("verbose",      new BooleanSetting(beVerbose))
+        ("stacktrace",   new BooleanSetting(showStackTraces))
     )
 
     // List of command handlers.
@@ -121,7 +191,7 @@ class SQLShell(val config: Configuration,
 
     loadSettings(config, connectionInfo)
     aboutHandler.showAbbreviatedInfo
-    verbose("Connected to: " + connectionInfo.jdbcURL)
+    logger.verbose("Connected to: " + connectionInfo.jdbcURL)
     println()
 
     if (fileToRun != None)
@@ -152,27 +222,6 @@ class SQLShell(val config: Configuration,
      */
     override def secondaryPrompt = "> "
 
-    override def error(message: String) =
-        if (settings.booleanSettingIsTrue("ansi"))
-            println(Console.RED + "Error: " + message + Console.RESET)
-        else
-            println("Error: " + message)
-
-    override def warning(message: String) =
-        if (settings.booleanSettingIsTrue("ansi"))
-            println(Console.YELLOW + "Warning: " + message + Console.RESET)
-        else
-            println("Warning: " + message)
-
-    def verbose(message: String) =
-        if (settings.booleanSettingIsTrue("verbose"))
-        {
-            if (settings.booleanSettingIsTrue("ansi"))
-                println(Console.BLUE + Console.BOLD + message + Console.RESET)
-            else
-                println(message)
-        }
-
     override def preLoop: Unit =
     {
         historyPath match
@@ -181,7 +230,7 @@ class SQLShell(val config: Configuration,
                 return
 
             case Some(path) =>
-                verbose("Loading history from \"" + path + "\"...")
+                logger.verbose("Loading history from \"" + path + "\"...")
                 history.load(path)
         }
     }
@@ -200,14 +249,14 @@ class SQLShell(val config: Configuration,
                 return
 
             case Some(path) =>
-                verbose("Saving history to \"" + path + "\"...")
+                logger.verbose("Saving history to \"" + path + "\"...")
                 history.save(path)
         }
     }
 
     override def handleEOF: CommandAction =
     {
-        verbose("EOF. Exiting.")
+        logger.verbose("EOF. Exiting.")
         println()
         Stop
     }
@@ -226,8 +275,8 @@ class SQLShell(val config: Configuration,
                       else
                           e.getMessage
 
-        verbose("Caught exception.")
-        error(message)
+        logger.verbose("Caught exception.")
+        logger.error(message)
         if (settings.booleanSettingIsTrue("stacktrace"))
             e.printStackTrace(System.out)
 
@@ -345,8 +394,8 @@ class SQLShell(val config: Configuration,
                     schema.get
             val catalog = settings.stringSetting("catalog", null)
             val metadata = connection.getMetaData
-            verbose("Getting list of tables. schema=" + jdbcSchema +
-                    ", catalog=" + catalog)
+            logger.verbose("Getting list of tables. schema=" + jdbcSchema +
+                           ", catalog=" + catalog)
             val rs = metadata.getTables(catalog, jdbcSchema, null,
                                         Array("TABLE", "VIEW"))
             try
@@ -367,7 +416,7 @@ class SQLShell(val config: Configuration,
         catch
         {
             case e: SQLException =>
-                verbose("Failed to retrieve metadata: " + e.getMessage)
+                logger.verbose("Failed to retrieve metadata: " + e.getMessage)
                 Nil
         }
     }
@@ -471,13 +520,13 @@ class SQLShell(val config: Configuration,
     {
         if (config.hasSection("settings"))
         {
-            verbose("Loading settings from configuration.")
+            logger.verbose("Loading settings from configuration.")
             for ((variable, value) <- config.options("settings"))
                 try
                 {
                     settings.changeSetting(variable, value)
-                    verbose("+ " + setHandler.CommandName + " " +
-                            variable + "=" + value)
+                    logger.verbose("+ " + setHandler.CommandName + " " +
+                                   variable + "=" + value)
                 }
                 catch
                 {
@@ -491,7 +540,8 @@ class SQLShell(val config: Configuration,
 
             case Some(schema) =>
                 settings.changeSetting("schema", schema)
-                verbose("+ " + setHandler.CommandName + " schema=" + schema)
+                logger.verbose("+ " + setHandler.CommandName + " schema=" + 
+                               schema)
         }
     }
 }
@@ -555,13 +605,14 @@ class RunFileHandler(val shell: SQLShell) extends SQLShellCommandHandler
         args.tokenize match
         {
             case Nil =>
-                shell.error("You must specify a file to be run.")
+                logger.error("You must specify a file to be run.")
             case file :: Nil =>
                 val reader = new SourceReader(Source.fromFile(file))
-                shell.verbose("Loading and running \"" + file + "\"")
+                logger.verbose("Loading and running \"" + file + "\"")
                 shell.pushReader(reader.readline)
             case _ =>
-                error("Too many parameters to " + CommandName + " command.")
+                logger.error("Too many parameters to " + CommandName + 
+                             " command.")
         }
 
         KeepGoing
@@ -586,7 +637,7 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
                  |    .set var=value  -- change a variable""".stripMargin
 
     val variables = shell.settings.variableNames
-    val completer = new ListCompleter(variables)
+    val varCompleter = new ListCompleter(variables)
 
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
@@ -618,7 +669,7 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
 
             catch
             {
-                case e: UnknownVariableException => shell.warning(e.message)
+                case e: UnknownVariableException => logger.warning(e.message)
             }
         }
 
@@ -628,7 +679,47 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
     override def complete(token: String,
                           allTokens: List[CompletionToken],
                           line: String): List[String] =
-        completer.complete(token, allTokens, line)
+    {
+        def varValues(varName: String): List[String] =
+        {
+            try
+            {
+                shell.settings.legalValuesFor(varName)
+            }
+            catch
+            {
+                case e: UnknownVariableException => Nil
+            }
+        }
+
+        allTokens match
+        {
+            case Nil =>
+                assert(false) // shouldn't happen
+                Nil
+
+            case LineToken(cmd) :: Cursor :: rest =>
+                Nil
+
+            case LineToken(cmd) :: Delim :: Cursor :: rest =>
+                varCompleter.complete(token, allTokens, line)
+
+            case LineToken(cmd) :: Delim :: LineToken(varName) ::
+                Cursor :: rest =>
+                varCompleter.complete(token, allTokens, line)
+
+            case LineToken(cmd) :: Delim :: LineToken(varName) :: Delim ::
+                 Cursor :: rest =>
+                varValues(varName)
+
+            case LineToken(cmd) :: Delim :: LineToken(varName) :: Delim ::
+                 LineToken(partialVal) :: Cursor :: rest =>
+                varValues(varName).filter(_ startsWith partialVal.toLowerCase)
+
+            case _ =>
+                Nil
+        }
+    }
 
     private def stripQuotes(s: String): String =
     {
@@ -1159,7 +1250,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                               rs: ResultSet,
                               statement: String): Unit =
     {
-        shell.verbose("Processing results...")
+        logger.verbose("Processing results...")
 
         val metadata = rs.getMetaData
         val showBinary = shell.settings.intSetting("showbinary")
@@ -1383,7 +1474,7 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
                 installHandler(File.createTempFile("sqlshell", ".csv"))
 
             case "to" :: Nil =>
-                shell.error("Missing path to which to save query data.")
+                logger.error("Missing path to which to save query data.")
 
             case "to" :: path :: Nil =>
                 installHandler(new File(path))
@@ -1408,7 +1499,7 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
                 println("Capturing result sets to: " + path.getPath)
 
             case handler =>
-                shell.error("You're already capturing query results.")
+                logger.error("You're already capturing query results.")
         }
     }
 
@@ -1417,7 +1508,7 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
         selectHandler.removeResultHandler(HandlerKey) match
         {
             case None =>
-                shell.error("You're not currently capturing query results.")
+                logger.error("You're not currently capturing query results.")
 
             case Some(handler) =>
                 handler.closeResultSetHandler
@@ -1426,8 +1517,8 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
     }
 
     private def usage =
-        shell.error("Usage: .capture to /path/to/file\n" +
-                    "   or: .capture off")
+        logger.error("Usage: .capture to /path/to/file\n" +
+                     "   or: .capture off")
 
 }
 
@@ -1514,8 +1605,8 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
         catch
         {
             case e: SQLException =>
-                shell.error("Cannot determine autocommit status: " +
-                            e.getMessage)
+                logger.error("Cannot determine autocommit status: " +
+                             e.getMessage)
                 false
         }
     }
@@ -1526,7 +1617,7 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     def commit(): Unit =
     {
         if (! inTransaction)
-            shell.warning("Not in a transaction. Commit ignored.")
+            logger.warning("Not in a transaction. Commit ignored.")
 
         else
         {
@@ -1541,7 +1632,7 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     def rollback(): Unit =
     {
         if (! inTransaction)
-            shell.warning("Not in a transaction. Rollback ignored.")
+            logger.warning("Not in a transaction. Rollback ignored.")
 
         else
         {
@@ -1560,8 +1651,7 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
         catch
         {
             case e: SQLException =>
-                shell.error("Cannot change autocommit status: " +
-                            e.getMessage)
+                logger.error("Cannot change autocommit status: " + e.getMessage)
         }
     }
 
@@ -1570,8 +1660,8 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
         protected def checkForNoArgs(commandName: String, args: String) =
         {
             if (args.trim != "")
-                shell.warning("Ignoring arguments to " + commandName +
-                              " command.")
+                logger.warning("Ignoring arguments to " + commandName +
+                               " command.")
         }
     }
 
@@ -1591,7 +1681,7 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
         {
             checkForNoArgs(commandName, args)
             if (inTransaction)
-                shell.warning("Already in a transaction. BEGIN ignored.")
+                logger.warning("Already in a transaction. BEGIN ignored.")
             else
                 setAutoCommit(false)
 
@@ -1719,9 +1809,9 @@ class DescribeHandler(val shell: SQLShell,
             case table :: Nil =>
                 describeTable(table, false)
             case Nil =>
-                shell.error("Missing the object to describe.")
+                logger.error("Missing the object to describe.")
             case _ =>
-                shell.error("Bad .desc command: \"" + args + "\"")
+                logger.error("Bad .desc command: \"" + args + "\"")
         }
 
         KeepGoing
@@ -1907,7 +1997,7 @@ class DescribeHandler(val shell: SQLShell,
                 val metadata = rs.getMetaData
                 val descriptions = getColumnDescriptions(metadata, 1)
                 if (descriptions == Nil)
-                    error("Can't get metadata for table \"" + table + "\"")
+                    logger.error("Can't get metadata for table " + table)
                 else
                 {
                     val width = max(descriptions.map(_._1.length): _*)
@@ -1980,12 +2070,12 @@ class DescribeHandler(val shell: SQLShell,
                 Some(tableName)
 
             case tableName :: more =>
-                error("Too many tables match \"" + table + "\": ")
-                error(matching mkString ", ")
+                logger.error("Too many tables match \"" + table + "\": ")
+                logger.error(matching mkString ", ")
                 None
 
             case Nil =>
-                error("No tables match \"" + table + "\"")
+                logger.error("No tables match \"" + table + "\"")
                 None
         }
     }
@@ -2005,8 +2095,8 @@ class DescribeHandler(val shell: SQLShell,
 
         try
         {
-            shell.verbose("Getting primary keys for table " + table + 
-                          ", catalog " + catalog + ", schema " + schema)
+            logger.verbose("Getting primary keys for table " + table + 
+                           ", catalog " + catalog + ", schema " + schema)
             val rs = dmd.getPrimaryKeys(catalog, schema, table)
             withResultSet(rs)
             {
@@ -2019,8 +2109,8 @@ class DescribeHandler(val shell: SQLShell,
         catch
         {
             case e: SQLException =>
-                shell.error("Unable to retrieve primary key information: " +
-                            e.getMessage)
+                logger.error("Unable to retrieve primary key information: " +
+                             e.getMessage)
         }
     }
 
@@ -2110,8 +2200,8 @@ class DescribeHandler(val shell: SQLShell,
             wrapPrintln(buf.toString)
         }
 
-        shell.verbose("Getting index information for table " + table + 
-                      ", catalog " + catalog + ", schema " + schema)
+        logger.verbose("Getting index information for table " + table + 
+                       ", catalog " + catalog + ", schema " + schema)
         try
         {
             val rs = dmd.getIndexInfo(catalog, schema, table, false, true)
@@ -2133,8 +2223,8 @@ class DescribeHandler(val shell: SQLShell,
         catch
         {
             case e: SQLException =>
-                shell.error("Unable to retrieve index information: " +
-                            e.getMessage)
+                logger.error("Unable to retrieve index information: " +
+                             e.getMessage)
         }
     }
 
@@ -2162,8 +2252,9 @@ class DescribeHandler(val shell: SQLShell,
 
         try
         {
-            shell.verbose("Getting constraint information for table " + table + 
-                          ", catalog " + catalog + ", schema " + schema)
+            logger.verbose("Getting constraint information for table " +
+                           table + ", catalog " + catalog + ", schema " +
+                           schema)
             val rs = dmd.getImportedKeys(catalog, schema, table)
             withResultSet(rs)
             {
@@ -2174,8 +2265,8 @@ class DescribeHandler(val shell: SQLShell,
         catch
         {
             case e: SQLException =>
-                shell.error("Unable to retrieve constraint information: " +
-                            e.getMessage)
+                logger.error("Unable to retrieve constraint information: " +
+                             e.getMessage)
         }
     }
 
@@ -2232,9 +2323,9 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
             case ShowSchemas(s) :: Nil =>
                 showSchemas
             case Nil =>
-                shell.error("Missing the things to show.")
+                logger.error("Missing the things to show.")
             case _ =>
-                shell.error("Bad .show command: \"" + args + "\"")
+                logger.error("Bad .show command: \"" + args + "\"")
         }
 
         KeepGoing
