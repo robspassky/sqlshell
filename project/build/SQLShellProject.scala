@@ -117,7 +117,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     // Grizzled comes from local machine for now. This works, though, as long
     // as someone has done a publish-local.
-    val grizzled = "org.clapper" % "grizzled-scala" % "0.2"
+    val grizzled = "org.clapper" % "grizzled-scala" % "0.3"
 
     /* ---------------------------------------------------------------------- *\
                           Private Helper Methods
