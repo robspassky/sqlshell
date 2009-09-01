@@ -191,6 +191,8 @@ class SQLShell(val config: Configuration,
 
     loadSettings(config, connectionInfo)
     aboutHandler.showAbbreviatedInfo
+    wrapPrintln("Type \"" + helpHandler.CommandName + "\" for help. Type \"" +
+                aboutHandler.CommandName + "\" for more information.")
     logger.verbose("Connected to: " + connectionInfo.jdbcURL)
     println()
 
