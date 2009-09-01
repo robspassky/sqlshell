@@ -49,9 +49,11 @@ interface for all supported databases and across all platforms.
 
 SQLShell requires the following:
 
-- [Scala][1], version 2.7.5
 - An installed Java runtime, version 1.5 or better.
 - Appropriate JDBC drivers for the database(s) you want to use.
+
+SQLShell comes bundled with an appropriate version of the [Scala][scala]
+runtime, so you do *not* need to have Scala installed to use SQLShell.
 
 ## Usage
 
@@ -586,6 +588,9 @@ the SQL syntax.
 - `INSERT`
 - `UPDATE`
 
+Within those SQL commands, tab completion completes table names.
+
+
 ### Timings
 
 By default, SQLShell times how long it takes to execute a SQL statement
@@ -649,6 +654,30 @@ from commands that are processed by the connected database engine.
     commit
 
 > For compatibility with SQL scripts, this command does not begin with a ".".
+
+`.capture`
+
+> Captures the results of queries to a CSV file.
+> 
+> To turn capture on:
+
+    .capture to /path/to/file  -- captures to specified file
+    .capture on                -- captures to a temporary file
+
+> To turn capture off:
+
+    .capture off
+
+> Example:
+
+    .capture to /tmp/results.csv
+    SELECT * from foo;
+    SELECT * from bar;
+    .capture off
+
+> SQLShell opens the file for writing (truncating it, if it already exists).
+> Then, SQLShell writes each result set to the file, along with column
+> headers, until it sees ".capture off".
 
 `commit`
 
@@ -755,6 +784,11 @@ from commands that are processed by the connected database engine.
 
     .run path
 
+> A leading ~ character is honored as a substitute for the current user's 
+> home directory.
+>
+> Within the `.run` command, tab completion completes the pathname.
+
 `.set`
 
 > The `.set` command displays or alters internal SQLShell settings. Without
@@ -762,15 +796,15 @@ from commands that are processed by the connected database engine.
 
     ? .set
             ansi: true
-      autocommit: true
+         catalog:
             echo: false
+         logging: info
       maxhistory: 2147483647
-          schema: 
+          schema:
       showbinary: 20
     showrowcount: true
      showtimings: true
       stacktrace: false
-         verbose: false
 
 > The initial value for any setting may be placed in the `[settings]` section
 > of the configuration file.
@@ -799,14 +833,17 @@ from commands that are processed by the connected database engine.
 >   Currently, SQLShell only uses ANSI sequences to display errors and warnings
 >   in color. Sometimes, however, it's useful to disable them. **Default:** on
 >
-> * `autocommit`: Whether or not each SQL statement automatically commits to
->   the database. If `true`, then each SQL statement is automatically
->   committed, and the `commit` and `rollback` commands don't do anything. If
->   `false`, then each SQL statement is part of a transaction that must be
->   either committed or rolled back. **Default:** on
+> * `catalog`: The catalog to use when resolving table names. If omitted,
+>   then SQLShell considers all catalogs that are visible to the connected
+>   user. This  value may also be initialized in the configuration section for 
+>   the database. **Default:** none
 >
 > * `echo`: Whether or not commands are echoed before they are run.
 >   **Default**: off
+>
+> * `logging`: The current log level, which affects the information logged
+>   to the screen. Legal values are, in order of verbosity: `error`, `info`, 
+>   `verbose`, `warning`, `debug`. **Default:** `info`
 >
 > * `maxhistory`: Sets the maximum number of entries in the command history.
 >   **Default:** A really large number (the largest possible signed 32-bit
@@ -832,9 +869,6 @@ from commands that are processed by the connected database engine.
 >
 > * `stacktrace`: Whether or not to display Scala stack traces when internal
 >   exceptions occur. Useful mostly for debugging. **Default:* off
->
-> * `verbose`: Whether or not to display various verbose messages.
->   **Default**: off
 
 `.show`
 
