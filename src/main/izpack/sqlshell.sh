@@ -65,12 +65,6 @@ then
     vm_opts="$vm_opts $SQLSHELL_SCALA_OPTS"
 fi
 
-if [ -z "$SCALA_HOME" ]
-then
-    echo "SCALA_HOME is not set." >&1
-    exit 1
-fi
-
 _CP=
 _sep=
 for i in $INSTALL_PATH/lib/*
