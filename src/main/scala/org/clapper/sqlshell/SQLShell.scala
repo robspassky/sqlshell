@@ -1342,13 +1342,13 @@ class SelectHandler(shell: SQLShell, connection: Connection)
     def processNextRow(rs: ResultSet,
                        handlers: Iterable[ResultSetHandler]): Unit =
     {
-        if (rs.next)
-        {
-            for (h <- handlers)
-                h.handleRow(rs)
+        if (! rs.next)
+            return
 
-            processNextRow(rs, handlers)
-        }
+        for (h <- handlers)
+            h.handleRow(rs)
+
+        processNextRow(rs, handlers)
     }
 }
 

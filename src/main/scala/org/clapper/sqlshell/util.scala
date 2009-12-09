@@ -163,6 +163,13 @@ class AboutInfo
     def name = aboutInfo.getProperty("sqlshell.name")
 
     /**
+     * Convenience method to get the build date and time, as a string
+     *
+     * @return the build date and time
+     */
+    def buildTimestamp = aboutInfo.getProperty("build.timestamp")
+
+    /**
      * Convenience method to get the program version.
      *
      * @return the program name

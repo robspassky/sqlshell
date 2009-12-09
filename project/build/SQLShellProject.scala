@@ -337,7 +337,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         aboutProps.setProperty("sqlshell.name", projectName.value)
         aboutProps.setProperty("sqlshell.version", 
                                projectVersion.value.toString)
-        aboutProps.setProperty("build.date", formatter.format(new Date))
+        aboutProps.setProperty("build.timestamp", formatter.format(new Date))
         aboutProps.setProperty("build.compiler",
                                "Scala " + scalaVersion.value.toString)
 
