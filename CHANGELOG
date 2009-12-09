@@ -1,5 +1,9 @@
 Version 0.3 (...)
 
+- Fixed infinite recursion when receiving results.
+- Fixed handling of --version and --help options.
+- Added build time to --version output.
+
 ---------------------------------------------------------------------------
 Version 0.2 (31 August, 2009)
 
