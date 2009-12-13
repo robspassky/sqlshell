@@ -72,7 +72,6 @@ import scala.collection.mutable.{ArrayBuffer,
                                  Set => MutableSet}
 import scala.io.Source
 import scala.util.matching.Regex
-//import javax.security.auth.login.Configuration
 
 /**
  * Holds information about a table
