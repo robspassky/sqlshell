@@ -52,6 +52,7 @@ import grizzled.readline.Readline.ReadlineType
 import grizzled.readline.Readline.ReadlineType._
 import grizzled.string.implicits._
 import grizzled.string.WordWrapper
+//import grizzled.config.{Configuration => GrizzledConfiguration}
 import grizzled.config.Configuration
 import grizzled.math.util._
 
@@ -71,6 +72,7 @@ import scala.collection.mutable.{ArrayBuffer,
                                  Set => MutableSet}
 import scala.io.Source
 import scala.util.matching.Regex
+//import javax.security.auth.login.Configuration
 
 /**
  * Holds information about a table
