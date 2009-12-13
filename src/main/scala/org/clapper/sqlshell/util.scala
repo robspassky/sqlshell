@@ -150,10 +150,14 @@ class AboutInfo
      * @return the identification string
      */
     def identString: String =
-    {
-        "%s, version %s\n%s" format (name, version,
-                                     "Copyright (c) 2009 Brian M. Clapper")
-    }
+        "%s, version %s (%s)" format (name, version, buildTimestamp)
+
+    /**
+     * Get the copyright string.
+     *
+     * @return the copyright string
+     */
+    val copyright = "Copyright (c) 2009 Brian M. Clapper"
 
     /**
      * Convenience method to get the program name.
@@ -161,6 +165,13 @@ class AboutInfo
      * @return the program name
      */
     def name = aboutInfo.getProperty("sqlshell.name")
+
+    /**
+     * Convenience method to get the build date and time, as a string
+     *
+     * @return the build date and time
+     */
+    def buildTimestamp = aboutInfo.getProperty("build.timestamp")
 
     /**
      * Convenience method to get the program version.

@@ -158,6 +158,19 @@ object Tool
                 else
                     DefaultConfig
 
+            val abort = options.has("?") || options.has("version")
+            if (options.has("version"))
+            {
+                println(aboutInfo.identString)
+                println(aboutInfo.copyright)
+            }
+
+            if (options.has("?"))
+                printHelp(parser)
+
+            if (abort)
+                System.exit(1)
+
             val showStackTraces = options.has("s")
             val verbose = options.has("v")
             val showAnsi = ! options.has("n")
@@ -233,16 +246,6 @@ object Tool
                                     showStackTraces,
                                     verbose,
                                     fileToRun)
-
-            val abort = options.has("?") || options.has("version")
-            if (options.has("version"))
-                aboutInfo.identString
-
-            if (options.has("?"))
-                printHelp(parser)
-
-            if (abort)
-                System.exit(1)
 
             result
         }

@@ -65,12 +65,6 @@ then
     vm_opts="$vm_opts $SQLSHELL_SCALA_OPTS"
 fi
 
-if [ -z "$SCALA_HOME" ]
-then
-    echo "SCALA_HOME is not set." >&1
-    exit 1
-fi
-
 _CP=
 _sep=
 for i in $INSTALL_PATH/lib/*
@@ -84,4 +78,4 @@ then
     _CP="$_CP:$_sep:$CLASSPATH"
 fi
 
-exec java -cp "$_CP" $vmopts org.clapper.sqlshell.tool.Tool "${@}"
+exec java -cp "$_CP" $vm_opts org.clapper.sqlshell.tool.Tool "${@}"
