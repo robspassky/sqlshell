@@ -72,6 +72,8 @@ import scala.collection.mutable.{ArrayBuffer,
 import scala.io.Source
 import scala.util.matching.Regex
 
+import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
+
 /**
  * Holds information about a table
  */
@@ -1054,14 +1056,21 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
                     FileInputStream,
                     FileOutputStream,
                     InputStream,
-                    ObjectInputStream,
-                    ObjectOutputStream,
+                    InputStreamReader,
+                    OutputStreamWriter,
                     Reader}
 
     import scala.collection.mutable.LinkedHashMap
 
     private val columnData = new LinkedHashMap[String, Int]
     private var totalRows = 0
+
+    // Where we serialize the data. NOTE: SQLShell used to use an
+    // ObjectOutputStream, but ran into memory problems doing so.
+    // Since it's all strings anyway, CSV is fine.
+    private val out = new CSVWriter(
+        new OutputStreamWriter(new FileOutputStream(dataFile), "UTF-8")
+    )
 
     // Get the column names and initialize the associated size.
 
@@ -1071,7 +1080,9 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
 
     class ResultIterator extends Iterator[Array[String]]
     {
-        val in = new ObjectInputStream(new FileInputStream(dataFile))
+        val in = new CSVReader(
+            new InputStreamReader(new FileInputStream(dataFile), "UTF-8")
+        )
         val buf = new ArrayBuffer[String]
 
         def hasNext: Boolean =
@@ -1079,8 +1090,18 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
             try
             {
                 buf.clear
-                buf ++= in.readObject.asInstanceOf[Array[String]]
-                true
+                val row = deserializeRow(in)
+                if (row == null)
+                {
+                    buf.clear
+                    in.close
+                    false
+                }
+                else
+                {
+                    buf ++= row
+                    true
+                }
             }
 
             catch
@@ -1115,9 +1136,9 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
      * @param out  the <tt>ObjectOutputStream</tt> to which to save the row
      * @param row  the data, converted to a string
      */
-    def saveMappedRow(out: ObjectOutputStream, row: Array[String])
+    def saveMappedRow(row: Array[String])
     {
-        out.writeObject(row)
+        serializeRow(row)
         totalRows += 1
 
         for {i <- 1 to metadata.getColumnCount
@@ -1129,6 +1150,16 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
             columnData(name) = max
         }
     }
+
+    def flush = out.flush
+
+    private def serializeRow(row: Array[String])
+    {
+        out.writeNext(row)
+    }
+
+    private def deserializeRow(in: CSVReader): Array[String] =
+        in.readNext
 }
 
 /**
@@ -1140,7 +1171,6 @@ private[sqlshell] class ResultSetCacheHandler(tempFile: File,
 {
     import java.io.{FileOutputStream, ObjectOutputStream}
 
-    val tempOut = new ObjectOutputStream(new FileOutputStream(tempFile))
     var results: PreprocessedResults = null
     val rowMap = new ArrayBuffer[String]
 
@@ -1150,10 +1180,10 @@ private[sqlshell] class ResultSetCacheHandler(tempFile: File,
     def handleRow(rs: ResultSet)
     {
         rowMap.clear
-        results.saveMappedRow(tempOut, mapRow(rs, results.metadata, rowMap))
+        results.saveMappedRow(mapRow(rs, results.metadata, rowMap))
     }
 
-    def endResultSet = tempOut.close
+    def endResultSet = results.flush
 }
 
 /**
@@ -1267,11 +1297,16 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                     for (h <- handlers)
                         h.startResultSet(metadata, statement)
 
-                    processNextRow(rs, handlers)
+                    while (rs.next)
+                    {
+                        for (h <- handlers)
+                            h.handleRow(rs)
+                    }
                 }
 
                 finally
                 {
+                    rs.close
                     for (h <- handlers)
                         h.endResultSet
                 }
@@ -1337,18 +1372,6 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 
             println(data mkString ColumnSeparator)
         }
-    }
-
-    def processNextRow(rs: ResultSet,
-                       handlers: Iterable[ResultSetHandler]): Unit =
-    {
-        if (! rs.next)
-            return
-
-        for (h <- handlers)
-            h.handleRow(rs)
-
-        processNextRow(rs, handlers)
     }
 }
 
@@ -1427,7 +1450,6 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
     private class SaveToCSVHandler(path: File)
         extends ResultSetStringifier(showBinary) with ResultSetHandler
     {
-        import au.com.bytecode.opencsv.CSVWriter
         import java.io.{FileOutputStream, OutputStreamWriter}
 
         val writer = new CSVWriter(

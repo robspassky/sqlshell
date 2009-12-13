@@ -78,4 +78,4 @@ then
     _CP="$_CP:$_sep:$CLASSPATH"
 fi
 
-exec java -cp "$_CP" $vmopts org.clapper.sqlshell.tool.Tool "${@}"
+exec java -cp "$_CP" $vm_opts org.clapper.sqlshell.tool.Tool "${@}"

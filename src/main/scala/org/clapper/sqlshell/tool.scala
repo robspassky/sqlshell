@@ -160,7 +160,10 @@ object Tool
 
             val abort = options.has("?") || options.has("version")
             if (options.has("version"))
-                printf("%s (%s)\n", aboutInfo.identString, aboutInfo.buildTimestamp)
+            {
+                println(aboutInfo.identString)
+                println(aboutInfo.copyright)
+            }
 
             if (options.has("?"))
                 printHelp(parser)
