@@ -4,6 +4,8 @@ Version 0.3 (...)
 - Fixed handling of --version and --help options.
 - Added build time to --version output.
 - Fixed OutOfMemoryError problems on large result sets.
+- Changed how retrieval and execution times are displayed, to give slightly
+  better real-time feedback.
 
 ---------------------------------------------------------------------------
 Version 0.2 (31 August, 2009)

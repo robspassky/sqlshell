@@ -1289,6 +1289,9 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         val cacheHandler = new ResultSetCacheHandler(tempFile, showBinary)
         val handlers = cacheHandler :: resultHandlers.values.toList
 
+        if (shell.settings.booleanSettingIsTrue("showtimings"))
+            println("Execution time: " + formatInterval(queryTime))
+
         val retrievalTime =
             time
             {
@@ -1315,6 +1318,9 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         // Now, post-process (i.e., display) the results cached by the
         // cache handler
 
+        if (shell.settings.booleanSettingIsTrue("showtimings"))
+            println("Retrieval time: " + formatInterval(retrievalTime))
+
         val preprocessedResults = cacheHandler.results
         if (shell.settings.booleanSettingIsTrue("showrowcount"))
         {
@@ -1324,12 +1330,6 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                 println("1 row returned.")
             else
                 printf("%d rows returned.\n", preprocessedResults.rowCount)
-        }
-
-        if (shell.settings.booleanSettingIsTrue("showtimings"))
-        {
-            println("Execution time: " + formatInterval(queryTime))
-            println("Retrieval time: " + formatInterval(retrievalTime))
         }
 
         // Note: Scala's format method doesn't left-justify.
