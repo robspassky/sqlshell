@@ -120,6 +120,9 @@
       <singlefile src="@DOCS_DIR@/README.md"
                   target="$INSTALL_PATH/README"/>
 
+      <singlefile src="@DOCS_DIR@/FAQ"
+                  target="$INSTALL_PATH/FAQ"/>
+
       <singlefile src="@JAR_FILE@"
                  target="$INSTALL_PATH/lib/sqlshell.jar"/>
       <fileset dir="@THIRD_PARTY_JAR_DIR@"

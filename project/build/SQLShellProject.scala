@@ -69,9 +69,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         markdown("BUILDING.md", targetDocsDir / "BUILDING.html", false)
         markdown("LICENSE.md", targetDocsDir / "LICENSE.html", false)
         markdown(usersGuide, targetDocsDir / "users-guide.html", true)
-        FileUtilities.copyFile(sourceDocsDir / "toc.js", 
-                               targetDocsDir / "toc.js",
-                               log)
+        copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
+        copyFile("FAQ", targetDocsDir / "FAQ")
         None
     } 
     .dependsOn(makeTargetDocsDir)
@@ -305,6 +304,20 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                      args,
                      log)
         }
+    }
+
+    private def copyFile(source: Path, target: Path)
+    {
+        log.info("Copying \"" + source.toString + "\" to \"" + 
+                 target.toString + "\"")
+        FileUtilities.copyFile(source, target, log)
+    }
+
+    private def copyFile(source: File, target: File)
+    {
+        log.info("Copying \"" + source.getPath.toString + "\" to \"" + 
+                 target.getPath.toString + "\"")
+        FileUtilities.copyFile(source, target, log)
     }
 
     private def transformPaths(targetDir: Path, 
