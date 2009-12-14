@@ -66,11 +66,11 @@ necessary to find it in the configuration file.
 
 ### Command Line
 
-> sqlshell [OPTIONS] *db*
+> sqlshell [OPTIONS] *db* \[*@file*\]
 
 or
 
-> sqlshell [OPTIONS] *driver* *url* \[*user* \[*pw*\]\]
+> sqlshell [OPTIONS] *driver* *url* \[*user* \[*pw*\]\] \[*@file*\]
 
 #### Options
 
@@ -103,6 +103,10 @@ or
 * The *db* parameter identifies an alias for the database in the
   configuration file. The configuration section for the specified database
   is assumed to contain all the parameters necessary to connect to the database.
+
+* The optional *@file* parameter specifies the path to a file containing
+  SQL and SQLShell commands to be executed. If this parameter is specified,
+  SQLShell executes the commands in the file, then exits.
 
 * The *driver* parameter specifies either a fully-qualified JDBC driver
   class name, or an alias defined in the `drivers` section of the
@@ -497,9 +501,9 @@ names:
 
 ## Using SQLShell
 
-When invoked, SQLShell prompts on standard input with a "?" and waits for
-commands to be entered, executing each one as it's entered. It continues to
-prompt for commands until either:
+When invoked, SQLShell prompts on standard input with "sqlshell>" and waits
+for commands to be entered, executing each one as it's entered. It
+continues to prompt for commands until either:
 
 - it encounters an end-of-file condition (Ctrl-D on Unix systems, Ctrl-Z
   on Windows), or
@@ -519,18 +523,19 @@ transcript, to whet your appetite:
 
     Using JLine readline implementation.
     Loading history from "/home/bmc/.sqlshell/mydb.hist"...
-    ? .set
+    sqlshell> .set
             ansi: true
       autocommit: true
             echo: false
+         logging: info
       maxhistory: 2147483647
           schema: 
       showbinary: 20
     showrowcount: true
      showtimings: true
       stacktrace: false
-         verbose: false
-    ? .desc database
+
+    sqlshell> .desc database
     Connected to database: jdbc:postgresql://localhost:5432/bmc
     Connected as user:     moe
     Database vendor:       PostgreSQL
@@ -539,9 +544,11 @@ transcript, to whet your appetite:
     JDBC driver version:   PostgreSQL 8.2 JDBC3 with SSL (build 505)
     Transaction isolation: read committed
     Open transaction?      no
-    ? .show tables;
+
+    sqlshell> .show tables;
     users    customers
-    ? .desc users
+
+    sqlshell> .desc users
     -----------
     Table users
     -----------
@@ -557,9 +564,11 @@ transcript, to whet your appetite:
     Department                    VARCHAR(254) NULL,
     IsEnabled                     CHAR(1) NOT NULL,
     CreationDate                  DATETIME NOT NULL,
-    ? select id, companyid, lastname, firstname, middleinitial, employer from ETUserassignedid from ETUser;
+
+    sqlshell> select id, companyid, lastname, firstname, middleinitial, employer from ETUserassignedid from ETUser;
+    Execution time: 0.1 seconds
+    Retreival time: 0.2 seconds
     2 rows returned.
-    Execution time: 0.1 second
 
     Id  CompanyId  LastName  FirstName  MiddleInitial  EmployerAssignedId
     --  ---------  --------  ---------  -------------  ------------------
@@ -699,7 +708,7 @@ from commands that are processed by the connected database engine.
 > parameter is specified, SQLShell also displays the table's indexes and
 > foreign key constraints (if any). For example:
 
-    ? .desc users
+    sqlshell> .desc users
     -----------
     Table users
     -----------
@@ -757,7 +766,7 @@ from commands that are processed by the connected database engine.
 >
 > For example, consider this history:
 
-    ? history
+    sqlshell> history
     1: .show tables;
     2: select * from foo;
     3: .desc foo;
@@ -765,10 +774,10 @@ from commands that are processed by the connected database engine.
 
 > Here are various `redo` invocations:
 
-    ? r 1  <--- re-runs command 1, ".show tables"
-    ? \!s   <--- re-runs the most recent command that starts with "s", which is "select * from foo"
-    ? r    <--- re-runs the last command, ".desc foobar"
-    ? \!\!   <--- also re-runs the last command, ".desc foobar"
+    sqlshell> r 1  <--- re-runs command 1, ".show tables"
+    sqlshell> \!s   <--- re-runs the most recent command that starts with "s", which is "select * from foo"
+    sqlshell> r    <--- re-runs the last command, ".desc foobar"
+    sqlshell> \!\!   <--- also re-runs the last command, ".desc foobar"
 
 
 `rollback`
@@ -794,7 +803,7 @@ from commands that are processed by the connected database engine.
 > The `.set` command displays or alters internal SQLShell settings. Without
 > any parameters, `.set` displays all internal settings and their values:
 
-    ? .set
+    sqlshell> .set
             ansi: true
          catalog:
             echo: false
@@ -892,16 +901,20 @@ from commands that are processed by the connected database engine.
 >
 > For example:
 
-    ? .show tables
+    sqlshell> .show tables
     all_users  foo     fool
     tb_bar     tb_foo  userlocation
-    ? .show tables ^tb
+
+    sqlshell> .show tables ^tb
     tb_bar  tb_foo
-    ? .show tables tb
+
+    sqlshell> .show tables tb
     tb_bar  tb_foo
-    ? .show tables ^.*foo
+
+    sqlshell> .show tables ^.*foo
     foo  fool  tb_foo
-    ? .show tables foo$
+
+    sqlshell> .show tables foo$
     foo  tb_foo
 
 As you can see from the example, the regular expression is implicitly anchored
@@ -917,7 +930,7 @@ having to support them explicitly. For instance, here's what happens if you've
 connected SQLShell to a SQLite database and you try to use the SQLite
 `EXPLAIN` command:
 
-    ? explain select distinct id from foo;
+    sqlshell> explain select distinct id from foo;
     41 rows returned.
     Execution time: 0.30 seconds
     
@@ -967,7 +980,7 @@ connected SQLShell to a SQLite database and you try to use the SQLite
 
 Here's an example of running `ANALYZE` on a PostgreSQL database:
 
-    ? analyze verbose;
+    sqlshell> analyze verbose;
     Execution time: 0.r4 seconds
     0 rows
 
