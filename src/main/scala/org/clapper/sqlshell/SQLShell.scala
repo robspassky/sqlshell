@@ -157,6 +157,7 @@ class SQLShell(val config: Configuration,
         ("maxhistory",   new MaxHistorySetting(readline)),
         ("schema",       new StringSetting("")),
         ("showbinary",   new IntSetting(0)),
+        ("showresults",  new BooleanSetting(true)),
         ("showrowcount", new BooleanSetting(true)),
         ("showtimings",  new BooleanSetting(true)),
         ("stacktrace",   new BooleanSetting(showStackTraces))
@@ -888,9 +889,10 @@ abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
  */
 trait ResultSetHandler
 {
-    def startResultSet(metadata: ResultSetMetaData, statement: String): Unit
+    def startResultSet(metadata: ResultSetMetaData, statement: String): Unit =
+        return
     def handleRow(rs: ResultSet): Unit
-    def endResultSet: Unit
+    def endResultSet: Unit = return
     def closeResultSetHandler: Unit = return
 }
 
@@ -1162,29 +1164,42 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
         in.readNext
 }
 
+private[sqlshell] trait SelectResultSetHandler extends ResultSetHandler
+{
+    var totalRows = 0
+
+    override def handleRow(rs: ResultSet) = totalRows += 1
+}
+
 /**
  * Used by the select handler to process and cache a result set.
  */
 private[sqlshell] class ResultSetCacheHandler(tempFile: File,
                                               val showBinary: Int)
-    extends ResultSetStringifier(showBinary) with ResultSetHandler
+    extends ResultSetStringifier(showBinary) with SelectResultSetHandler
 {
     import java.io.{FileOutputStream, ObjectOutputStream}
 
     var results: PreprocessedResults = null
     val rowMap = new ArrayBuffer[String]
 
-    def startResultSet(metadata: ResultSetMetaData, statement: String): Unit =
-        results = new PreprocessedResults(metadata, tempFile)
-
-    def handleRow(rs: ResultSet)
+    override def startResultSet(metadata: ResultSetMetaData, 
+                                statement: String): Unit =
     {
+        results = new PreprocessedResults(metadata, tempFile)
+    }
+
+    override def handleRow(rs: ResultSet)
+    {
+        super.handleRow(rs)
         rowMap.clear
         results.saveMappedRow(mapRow(rs, results.metadata, rowMap))
     }
 
-    def endResultSet = results.flush
+    override def endResultSet = results.flush
 }
+
+private [sqlshell] class ResultSetNoCacheHandler extends SelectResultSetHandler
 
 /**
  * Handles SQL "SELECT" statements.
@@ -1287,7 +1302,13 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         val metadata = rs.getMetaData
         val showBinary = shell.settings.intSetting("showbinary")
         val cacheHandler = new ResultSetCacheHandler(tempFile, showBinary)
-        val handlers = cacheHandler :: resultHandlers.values.toList
+        val noCacheHandler = new ResultSetNoCacheHandler
+        val resultHandler = 
+            if (shell.settings.booleanSettingIsTrue("showresults"))
+                cacheHandler
+            else
+                noCacheHandler
+        val handlers = resultHandler :: resultHandlers.values.toList
 
         if (shell.settings.booleanSettingIsTrue("showtimings"))
             println("Execution time: " + formatInterval(queryTime))
@@ -1321,56 +1342,60 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         if (shell.settings.booleanSettingIsTrue("showtimings"))
             println("Retrieval time: " + formatInterval(retrievalTime))
 
-        val preprocessedResults = cacheHandler.results
         if (shell.settings.booleanSettingIsTrue("showrowcount"))
         {
-            if (preprocessedResults.rowCount == 0)
+            if (resultHandler.totalRows == 0)
                 println("No rows returned.")
-            else if (preprocessedResults.rowCount == 1)
+            else if (resultHandler.totalRows == 1)
                 println("1 row returned.")
             else
-                printf("%d rows returned.\n", preprocessedResults.rowCount)
+                printf("%d rows returned.\n", resultHandler.totalRows)
         }
 
-        // Note: Scala's format method doesn't left-justify.
-        def formatter = new java.util.Formatter
-
-        // Print column names...
-        val colNamesAndSizes = preprocessedResults.columnNamesAndSizes
-        val columnNames = colNamesAndSizes.keys.toList
-        val columnFormats =
-            Map.empty[String, String] ++
-            (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
-
-        println()
-        println(
-            {for (col <- columnNames)
-                 yield formatter.format(columnFormats(col), col)}
-            .toList
-            .mkString(ColumnSeparator)
-        )
-
-        // ...and a separator.
-        println(
-            {for {col <- columnNames
-                  size = colNamesAndSizes(col)}
-                 yield formatter.format(columnFormats(col), "-" * size)}
-            .toList
-            .mkString(ColumnSeparator)
-        )
-
-        // Now, load the serialized results and dump them.
-
-        for (resultRow <- preprocessedResults)
+        if (shell.settings.booleanSettingIsTrue("showresults"))
         {
-            val data =
-                {for {i <- 1 to metadata.getColumnCount
-                      name = metadata.getColumnName(i)
-                      size = colNamesAndSizes(name)
-                      fmt = columnFormats(name)}
+            val preprocessedResults = cacheHandler.results
+
+            // Note: Scala's format method doesn't left-justify.
+            def formatter = new java.util.Formatter
+
+            // Print column names...
+            val colNamesAndSizes = preprocessedResults.columnNamesAndSizes
+            val columnNames = colNamesAndSizes.keys.toList
+            val columnFormats =
+                Map.empty[String, String] ++
+                (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
+
+            println()
+            println(
+                {for (col <- columnNames)
+                     yield formatter.format(columnFormats(col), col)}
+                .toList
+                .mkString(ColumnSeparator)
+            )
+
+            // ...and a separator.
+            println(
+                {for {col <- columnNames
+                      size = colNamesAndSizes(col)}
+                     yield formatter.format(columnFormats(col), "-" * size)}
+                .toList
+                .mkString(ColumnSeparator)
+            )
+
+            // Now, load the serialized results and dump them.
+
+            for (resultRow <- preprocessedResults)
+            {
+                val data =
+                    {for {i <- 1 to metadata.getColumnCount
+                          name = metadata.getColumnName(i)
+                          size = colNamesAndSizes(name)
+                          fmt = columnFormats(name)}
                      yield formatter.format(fmt, resultRow(i - 1))}.toList
 
-            println(data mkString ColumnSeparator)
+                println(data mkString ColumnSeparator)
+            }
         }
     }
 }
@@ -1458,8 +1483,8 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
         private var metadata: ResultSetMetaData = null
         private val rowMap = new ArrayBuffer[String]
 
-        def startResultSet(metadata: ResultSetMetaData,
-                           statement: String): Unit =
+        override def startResultSet(metadata: ResultSetMetaData,
+                                    statement: String): Unit =
         {
             this.metadata = metadata
 
@@ -1478,7 +1503,7 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
             rowMap.clear
         }
 
-        def endResultSet: Unit =
+        override def endResultSet: Unit =
         {
             this.metadata = null
             writer.flush
