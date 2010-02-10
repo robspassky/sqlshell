@@ -10,7 +10,10 @@ import grizzled.string.implicits._
  */
 trait Sorter
 {
-    def nameSorter(a: String, b: String) = a.toLowerCase < b.toLowerCase
+    def sortByName(list: List[String]): List[String] =
+        list.sortWith {_.toLowerCase < _.toLowerCase}
+
+    def sortByName(it: Iterator[String]): List[String] = sortByName(it.toList)
 }
 
 /**
@@ -108,7 +111,7 @@ trait Timer
 class SourceReader(source: Source)
 {
     // lines iterator
-    private val itLines = source.getLines
+    private val itLines = source.getLines()
 
     /**
      * Read the next line of input.

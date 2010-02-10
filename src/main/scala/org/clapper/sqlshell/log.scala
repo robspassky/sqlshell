@@ -37,6 +37,7 @@
 
 package org.clapper.sqlshell.log
 
+import org.clapper.sqlshell._
 import grizzled.string.WordWrapper
 
 abstract sealed class LogLevel(val value: Int)

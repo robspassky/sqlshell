@@ -11,6 +11,8 @@ import grizzled.file.implicits._
  */
 class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 {
+    println(defaultRunner)
+
     /* ---------------------------------------------------------------------- *\
                          Compiler and SBT Options
     \* ---------------------------------------------------------------------- */
@@ -97,6 +99,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // name.
     lazy val projectConsole = task {Run.projectConsole(this)}
 
+    override def disableCrossPaths = true
+
     /* ---------------------------------------------------------------------- *\
                        Managed External Dependencies
 
@@ -108,7 +112,11 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val scalaToolsRepo = "Scala-Tools Maven Repository" at 
         "http://scala-tools.org/repo-releases/"
 
-    val scalatest = "org.scala-tools.testing" % "scalatest" % "0.9.5"
+    val newReleaseToolsRepository = "Scala Tools Repository" at
+        "http://nexus.scala-tools.org/content/repositories/snapshots/"
+    val scalatest = "org.scalatest" % "scalatest" %
+        "1.0.1-for-scala-2.8.0.Beta1-with-test-interfaces-0.3-SNAPSHOT"
+
     val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val izPack = "org.codehaus.izpack" % "izpack-standalone-compiler" % "4.3.1"
@@ -116,6 +124,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     // Grizzled comes from local machine for now. This works, though, as long
     // as someone has done a publish-local.
+
     val grizzled = "org.clapper" % "grizzled-scala" % "0.3"
 
     /* ---------------------------------------------------------------------- *\
@@ -176,37 +185,71 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     /**
      * Run Markdown to convert a source (Markdown) file to HTML.
      *
-     * @param source  the path to the source file
-     * @param target  the path to the output file
-     * @param useToc  whether or not to include the table of contents
+     * @param markdownSource  the path to the source file
+     * @param targetHTML      the path to the output file
+     * @param useToc          whether or not to include the table of contents
      */
-    private def markdown(source: Path, target: Path, useToc: Boolean): Unit =
+    private def markdown(markdownSource: Path,
+                         targetHTML: Path,
+                         useToc: Boolean): Unit =
     {
-        val javaVersion = system[String]("java.version").get.get
-        if (javaVersion startsWith "1.6")
-            throw new Exception("Java Markdown parser currently fails with " +
-                                "1.6 Java")
+        // Use Rhino to run the Showdown (Javascript) Markdown converter.
+        // MarkdownJ has issues and appears to be unmaintained.
 
-        import java.io.{FileOutputStream, OutputStreamWriter, PrintWriter}
+        import org.mozilla.javascript.{Context, Function}
+        import java.io.{FileOutputStream, FileReader, OutputStreamWriter}
+        import java.text.SimpleDateFormat
+        import java.util.Date
         import scala.xml.parsing.XhtmlParser
 
-        val classpath = "lib_managed" / "compile" * "*.jar"
         val Encoding = "ISO-8859-1"
 
-        import com.petebevin.markdown.MarkdownProcessor
+        log.info("Generating \"" + targetHTML + "\" from \"" +
+                 markdownSource + "\"")
 
-        val md = new MarkdownProcessor
-        log.info("Generating \"" + target + "\" from \"" + source + "\"")
+        // Initialize the Javascript environment
+        val context = Context.enter
+        val scope = context.initStandardObjects
+
+        // Open the Showdown script and evaluate it in the Javascript context.
+
+        val scriptPath = "lib" / "showdown.js"
+        val showdownSource = Source.fromFile(new File(scriptPath.absolutePath))
+        val showdownScript = loadFile(scriptPath)
+        context.evaluateString(scope, showdownScript, "showdown", 1, null)
+
+        // Instantiate a new Showdown converter.
+
+        val converterCtor = context.evaluateString(scope, "Showdown.converter",
+                                                   "converter", 1, null)
+        val converter = converterCtor.asInstanceOf[Function].construct(context,
+                                                                       scope,
+                                                                       null)
+
+        // Get the function to call.
+
+        val makeHTML = converter.get("makeHtml", 
+                                     converter).asInstanceOf[Function]
+
+        // Load the markdown source into a string, and convert it to HTML.
+
+        val markdownSourceLines = fileLines(markdownSource).toList
+        val markdownSourceString = markdownSourceLines mkString ""
+        val htmlBody = makeHTML.call(context, scope, converter,
+                                     Array[Object](markdownSourceString))
+
+        // Prepare the final HTML.
+
         val cssLines = fileLines(sourceDocsDir / "markdown.css")
-        val sourceLines = fileLines(source).toList
         val tocJavascriptSrc = if (useToc) "toc.js" else ""
         // Title is first line.
-        val title = sourceLines.head
-        val sHTML = "<body>" + md.markdown(sourceLines mkString "") + "</body>"
+        val title = markdownSourceLines.head
+        val sHTML = "<body>" + htmlBody + "</body>"
         val body = XhtmlParser(Source.fromString(sHTML))
         val out = new PrintWriter(
                       new OutputStreamWriter(
-                          new FileOutputStream(target.absolutePath), Encoding))
+                          new FileOutputStream(targetHTML.absolutePath), 
+                          Encoding))
         val contentType = "text/html; charset=" + Encoding
         val html = 
 <html>
@@ -220,6 +263,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 </head>
 <div id="body">
 {body}
+<hr/>
+<i>Generated {new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date)}</i>
 </div>
 </html>
         out.println(html.toString)
@@ -292,6 +337,19 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             // apparently.
 
             log.info("Creating installer jar.")
+            val izPath = "lib_managed" / "compile" * "*.jar"
+            val args = List(temp.getPath,
+                            "-h", izPackHome,
+                            "-b", ".",
+                            "-o", ("target"/"install.jar").absolutePath,
+                            "-k", "standard")
+            defaultRunner.run("com.izforge.izpack.compiler.Compiler", 
+                              izPath.get,
+                              args,
+                              log)
+
+/*
+ForkRun?
             import sbt.Run.{run => runClass}
             val izPath = "lib_managed" / "compile" * "*.jar"
             val args = List(temp.getPath,
@@ -303,6 +361,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                      izPath.get,
                      args,
                      log)
+*/
         }
     }
 
@@ -330,7 +389,10 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     }
 
     private def fileLines(path: Path): Iterator[String] =
-        Source.fromFile(path.absolutePath).getLines
+        Source.fromFile(new File(path.absolutePath)).getLines
+
+    private def loadFile(path: Path): String =
+        fileLines(path) mkString "\n"
 
     private def createAboutInfo: Unit =
     {
@@ -352,7 +414,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                                projectVersion.value.toString)
         aboutProps.setProperty("build.timestamp", formatter.format(new Date))
         aboutProps.setProperty("build.compiler",
-                               "Scala " + scalaVersion.value.toString)
+                               "Scala " + buildScalaVersions.value.toString)
 
         val osName = system[String]("os.name").get
         val osVersion = system[String]("os.version").get

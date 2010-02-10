@@ -223,7 +223,7 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      *
      * @return the variable names, sorted alphabetically
      */
-    def variableNames = settingsMap.keys.toList.sort(nameSorter)
+    def variableNames = sortByName(settingsMap.keysIterator)
 
     /**
      * Get list of legal values, if any, for a variable.

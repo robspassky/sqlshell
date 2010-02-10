@@ -37,7 +37,7 @@
 
 package org.clapper.sqlshell.tool
 
-import org.clapper.sqlshell.SQLShell
+import org.clapper.sqlshell._
 
 import grizzled.config.{Configuration, ConfigException}
 import grizzled.readline.Readline.ReadlineType._
@@ -91,7 +91,8 @@ object Tool
 
         try
         {
-            val config = Configuration(Source.fromFile(params.configFile))
+            val source = Source.fromFile(new File(params.configFile))
+            val config = Configuration(source)
             val shell = new SQLShell(config, 
                                      params.dbInfo, 
                                      params.readlineLibs,

@@ -1029,49 +1029,49 @@ The history file for the `employees` database is
 ## Command Completion
 
 SQLShell supports TAB-completion in various places, in the manner of the GNU
-`bash`_ shell. TAB-completion is (mostly) context sensitive. For example:
+`bash` shell. TAB-completion is (mostly) context sensitive. For example:
 
-`.<TAB>`
+`.{TAB}`
     Displays a list of all the "." commands
 
-`.set <TAB>`
+`.set {TAB}`
     Displays the variables you can set.
 
-`.set v<TAB>`
+`.set v{TAB}`
     Completes the variable name that starts with "v". If multiple variables
     start with "v", then the common characters are completed, and a second
     TAB will display all the matching variables.
 
-`.connect <TAB>`
+`.connect {TAB}`
     shows all the database names and aliases in the config file
 
-`.connect a<TAB>`
+`.connect a{TAB}`
     Completes the database name or alias that starts with "a". If multiple
     names start with "a", then the common characters are completed, and a second
     TAB will display all the matching names.
 
-`select * from <TAB>`
-    Shows the tables in the current database. (So does `select `\ *<TAB>*,
+`select * from {TAB}`
+    Shows the tables in the current database. (So does `select `\ *{TAB}*,
     actually.) This works for `insert`, `update`, `delete`, `drop`,
     and `.desc`, as well. The completion in SQL commands *only* completes
     table names; it is not currently sensitive to SQL syntax.
 
-`.history <TAB>`
+`.history {TAB}`
     Shows the commands in the history.
 
-`.history s<TAB>`
+`.history s{TAB}`
     Shows the names of all commands in the history beginning with "s".
 
-`.run <TAB>`
+`.run {TAB}`
     Lists all the files in the current directory
 
-`.run f<TAB>`
+`.run f{TAB}`
     Lists all the files in the current directory that start with "s"
 
-`.run ~/<TAB>`
+`.run ~/{TAB}`
     Lists all the files in your home directory
 
-`.run ~/d<TAB>`
+`.run ~/d{TAB}`
     Lists all the files in your home directory that start with "d"
 
 etc.

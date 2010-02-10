@@ -461,7 +461,7 @@ class SQLShell(val config: Configuration,
     {
         val tableData = getTables(schema)
         val tableNames = tableData.filter(_.name != None).map(_.name.get)
-        tableNames.sort(nameSorter)
+        sortByName(tableNames)
     }
 
     /**
@@ -612,7 +612,7 @@ class RunFileHandler(val shell: SQLShell) extends SQLShellCommandHandler
             case Nil =>
                 logger.error("You must specify a file to be run.")
             case file :: Nil =>
-                val reader = new SourceReader(Source.fromFile(file))
+                val reader = new SourceReader(Source.fromFile(new File(file)))
                 logger.verbose("Loading and running \"" + file + "\"")
                 shell.pushReader(reader.readline)
             case _ =>
@@ -1122,7 +1122,8 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
         }
     }
 
-    def elements: Iterator[Array[String]] = new ResultIterator
+    override def elements: Iterator[Array[String]] = iterator
+    override def iterator = new ResultIterator
 
     def rowCount = totalRows
 
@@ -1130,7 +1131,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
      * Return the stored column names, in the order they appeared in
      * the result set.
      */
-    def columnNamesAndSizes = columnData.readOnly
+    def columnNamesAndSizes = columnData.toMap
 
     /**
      * Save a mapped row to the specified object stream.
@@ -1308,7 +1309,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                 cacheHandler
             else
                 noCacheHandler
-        val handlers = resultHandler :: resultHandlers.values.toList
+        val handlers = resultHandler :: resultHandlers.valuesIterator.toList
 
         if (shell.settings.booleanSettingIsTrue("showtimings"))
             println("Execution time: " + formatInterval(queryTime))
@@ -1361,7 +1362,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 
             // Print column names...
             val colNamesAndSizes = preprocessedResults.columnNamesAndSizes
-            val columnNames = colNamesAndSizes.keys.toList
+            val columnNames = colNamesAndSizes.keysIterator.toList
             val columnFormats =
                 Map.empty[String, String] ++
                 (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
@@ -2262,9 +2263,9 @@ class DescribeHandler(val shell: SQLShell,
             if ((uniqueIndexes.size + nonUniqueIndexes.size) > 0)
             {
                 println()
-                for (indexName <- uniqueIndexes.keys.toList.sort(nameSorter))
+                for (indexName <- sortByName(uniqueIndexes.keysIterator))
                     printIndex(indexName, uniqueIndexes(indexName).toList)
-                for (indexName <- nonUniqueIndexes.keys.toList.sort(nameSorter))
+                for (indexName <- sortByName(nonUniqueIndexes.keysIterator))
                     printIndex(indexName, nonUniqueIndexes(indexName).toList)
             }
         }
@@ -2450,7 +2451,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
 
         val tables: List[TableSpec] = shell.getTables(schemaOption, nameFilter)
         val tableNames = tables.filter(_.name != None).map(_.name.get)
-        val sorted = tableNames sort (nameSorter)
+        val sorted = sortByName(tableNames)
         print(shell.columnarize(sorted, shell.OutputWidth))
 
         KeepGoing
@@ -2459,7 +2460,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
     private def showSchemas =
     {
         val schemas = shell.getSchemas
-        val sorted = schemas.sort((a, b) => a.toLowerCase < b.toLowerCase)
+        val sorted = sortByName(schemas)
         print(shell.columnarize(sorted, shell.OutputWidth))
     }
 }
