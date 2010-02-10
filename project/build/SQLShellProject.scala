@@ -11,14 +11,11 @@ import grizzled.file.implicits._
  */
 class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 {
-    println(defaultRunner)
-
     /* ---------------------------------------------------------------------- *\
                          Compiler and SBT Options
     \* ---------------------------------------------------------------------- */
 
     override def compileOptions = Unchecked :: super.compileOptions.toList
-
     override def parallelExecution = true // why not?
 
     /* ---------------------------------------------------------------------- *\
@@ -48,6 +45,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     // Add the "about" info file to the resources to be included in the jar
     override def mainResources = super.mainResources +++ aboutInfoPath
+
+    val scalaVersionDir = "scala-" + buildScalaVersion
 
     /* ---------------------------------------------------------------------- *\
                                Custom tasks
@@ -195,6 +194,11 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     {
         // Use Rhino to run the Showdown (Javascript) Markdown converter.
         // MarkdownJ has issues and appears to be unmaintained.
+        //
+        // Showdown is here: http://attacklab.net/showdown/
+        //
+        // This code was adapted from various examples, including the one
+        // at http://blog.notdot.net/2009/10/Server-side-JavaScript-with-Rhino
 
         import org.mozilla.javascript.{Context, Function}
         import java.io.{FileOutputStream, FileReader, OutputStreamWriter}
@@ -208,50 +212,51 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                  markdownSource + "\"")
 
         // Initialize the Javascript environment
-        val context = Context.enter
-        val scope = context.initStandardObjects
+        val ctx = Context.enter
+        try
+        {
+            val scope = ctx.initStandardObjects
 
-        // Open the Showdown script and evaluate it in the Javascript context.
+            // Open the Showdown script and evaluate it in the Javascript
+            // context.
 
-        val scriptPath = "lib" / "showdown.js"
-        val showdownSource = Source.fromFile(new File(scriptPath.absolutePath))
-        val showdownScript = loadFile(scriptPath)
-        context.evaluateString(scope, showdownScript, "showdown", 1, null)
+            val scriptPath = "lib" / "showdown.js"
+            val showdownScript = loadFile(scriptPath)
+            ctx.evaluateString(scope, showdownScript, "showdown", 1, null)
 
-        // Instantiate a new Showdown converter.
+            // Instantiate a new Showdown converter.
 
-        val converterCtor = context.evaluateString(scope, "Showdown.converter",
-                                                   "converter", 1, null)
-        val converter = converterCtor.asInstanceOf[Function].construct(context,
-                                                                       scope,
-                                                                       null)
+            val converterCtor = ctx.evaluateString(scope, "Showdown.converter",
+                                                       "converter", 1, null)
+                                .asInstanceOf[Function]
+            val converter = converterCtor.construct(ctx, scope, null)
 
-        // Get the function to call.
+            // Get the function to call.
 
-        val makeHTML = converter.get("makeHtml", 
-                                     converter).asInstanceOf[Function]
+            val makeHTML = converter.get("makeHtml", 
+                                         converter).asInstanceOf[Function]
 
-        // Load the markdown source into a string, and convert it to HTML.
+            // Load the markdown source into a string, and convert it to HTML.
 
-        val markdownSourceLines = fileLines(markdownSource).toList
-        val markdownSourceString = markdownSourceLines mkString ""
-        val htmlBody = makeHTML.call(context, scope, converter,
-                                     Array[Object](markdownSourceString))
+            val markdownSourceLines = fileLines(markdownSource).toList
+            val markdownSourceString = markdownSourceLines mkString ""
+            val htmlBody = makeHTML.call(ctx, scope, converter,
+                                         Array[Object](markdownSourceString))
 
-        // Prepare the final HTML.
+            // Prepare the final HTML.
 
-        val cssLines = fileLines(sourceDocsDir / "markdown.css")
-        val tocJavascriptSrc = if (useToc) "toc.js" else ""
-        // Title is first line.
-        val title = markdownSourceLines.head
-        val sHTML = "<body>" + htmlBody + "</body>"
-        val body = XhtmlParser(Source.fromString(sHTML))
-        val out = new PrintWriter(
-                      new OutputStreamWriter(
-                          new FileOutputStream(targetHTML.absolutePath), 
-                          Encoding))
-        val contentType = "text/html; charset=" + Encoding
-        val html = 
+            val cssLines = fileLines(sourceDocsDir / "markdown.css")
+            val tocJavascriptSrc = if (useToc) "toc.js" else ""
+            // Title is first line.
+            val title = markdownSourceLines.head
+            val sHTML = "<body>" + htmlBody + "</body>"
+            val body = XhtmlParser(Source.fromString(sHTML))
+            val out = new PrintWriter(
+                          new OutputStreamWriter(
+                              new FileOutputStream(targetHTML.absolutePath), 
+                              Encoding))
+            val contentType = "text/html; charset=" + Encoding
+            val html = 
 <html>
 <head>
 <title>{title}</title>
@@ -267,8 +272,14 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 <i>Generated {new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date)}</i>
 </div>
 </html>
-        out.println(html.toString)
-        out.close
+            out.println(html.toString)
+            out.close
+        }
+
+        finally
+        {
+            Context.exit
+        }
     }
 
     /**
@@ -296,11 +307,14 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             // jar. Note to self: "**" means "recursive drill down". "*"
             // means "immediate descendent".
 
-            val jars = (("lib" +++ "lib_managed") **
-                        ("*.jar" - "izpack*.jar" - "scalatest*.jar" -
-                         "ocutil*.jar")) +++
-                       ("project" / "boot"  ** "scala-library.jar")
-            println(jars.get)
+            val jars = 
+                (("lib" +++ "lib_managed") **
+                 ("*.jar" - "izpack*.jar"
+                          - "scalatest*.jar"
+                          - "scala-library*.jar"
+                          - "scala-compiler.jar")) +++
+                 ("project" / "boot" / scalaVersionDir ** "scala-library.jar")
+
             val jarDirPath = Path.fromFile(jarDir)
             log.info("Copying jars to \"" + jarDir + "\"")
             FileUtilities.copyFlat(jars.get, jarDirPath, log)
@@ -318,7 +332,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                 "SQLSHELL_VERSION" -> projectVersion.value.toString,
                 "SRC_INSTALL" -> installDir.absolutePath,
                 "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
-                "TOP_DIR" -> path(".").absolutePath
+                "TOP_DIR" -> path(".").absolutePath,
+                "SCALA_VERSION" -> buildScalaVersion
             )
 
             val out = new PrintWriter(new FileWriter(temp))
