@@ -49,7 +49,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val scalaVersionDir = "scala-" + buildScalaVersion
 
     /* ---------------------------------------------------------------------- *\
-                               Custom tasks
+                         Custom tasks and actions
     \* ---------------------------------------------------------------------- */
 
     // Build the installer jar. Delegates to installerAction() 
@@ -100,6 +100,11 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     override def disableCrossPaths = true
 
+    override def updateAction = task {doManualDownloads} 
+        .named("update")
+        .describedAs("Update managed dependencies")
+        .dependsOn(super.updateAction)
+
     /* ---------------------------------------------------------------------- *\
                        Managed External Dependencies
 
@@ -125,6 +130,9 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // as someone has done a publish-local.
 
     val grizzled = "org.clapper" % "grizzled-scala" % "0.3"
+
+    val ShowdownURL = "http://attacklab.net/showdown/showdown-v0.9.zip"
+    val ShowdownLocal = "lib_managed" / "showdown.js"
 
     /* ---------------------------------------------------------------------- *\
                           Private Helper Methods
@@ -220,7 +228,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             // Open the Showdown script and evaluate it in the Javascript
             // context.
 
-            val scriptPath = "lib" / "showdown.js"
+            val scriptPath = "lib_managed" / "showdown.js"
             val showdownScript = loadFile(scriptPath)
             ctx.evaluateString(scope, showdownScript, "showdown", 1, null)
 
@@ -445,5 +453,34 @@ ForkRun?
 
         aboutProps.store(new FileOutputStream(fullPath),
                          "Automatically generated SQLShell build information")
+    }
+
+    private def doManualDownloads: Option[String] =
+    {
+        // Download, unpack, and save the Showdown package.
+
+        import java.net.URL
+
+        if (! ShowdownLocal.exists)
+        {
+            FileUtilities.doInTemporaryDirectory[String](log)
+            {
+                tempDir: File =>
+
+                log.info("Downloading and unpacking: " + ShowdownURL)
+                FileUtilities.unzip(new URL(ShowdownURL),
+                                    Path.fromFile(tempDir),
+                                    log)
+
+                val dest = "lib_managed" / "showdown.js"
+                val js = Path.fromFile(tempDir) / "src" / "showdown.js"
+                log.info("Copying " + js + " to " + dest)
+                FileUtilities.copyFile(js, dest, log)
+
+                Right("")
+            }
+        }
+
+        None
     }
 }
