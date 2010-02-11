@@ -67,6 +67,7 @@ import java.util.Date
 import java.text.SimpleDateFormat
 
 import scala.collection.mutable.{ArrayBuffer,
+                                 ListBuffer,
                                  Map => MutableMap,
                                  Set => MutableSet}
 import scala.io.Source
@@ -379,7 +380,6 @@ class SQLShell(val config: Configuration,
         def getTableData(rs: ResultSet, 
                          keep: TableSpec => Boolean): List[TableSpec] =
         {
-            import scala.collection.mutable.ListBuffer
             val result = new ListBuffer[TableSpec]
 
             while (rs.next)
@@ -1994,8 +1994,7 @@ class DescribeHandler(val shell: SQLShell,
                 if (size > 0) "(" + size.toString + ")" else ""
             }
 
-            val colMap = MutableMap.empty[String,String]
-            for (i <- 1 to md.getColumnCount)
+            def getColumnInfo(i: Int): (String, String) =
             {
                 val name = md.getColumnLabel(i) match
                 {
@@ -2037,7 +2036,14 @@ class DescribeHandler(val shell: SQLShell,
                     case ResultSetMetaData.columnNullableUnknown => "NULL?"
                 }
 
-                colMap += (name -> (fullTypeName + " " + nullable))
+                (name, (fullTypeName + " " + nullable))
+            }
+
+            val colMap = MutableMap.empty[String,String]
+            for (i <- 1 to md.getColumnCount)
+            {
+                val (name, info) = getColumnInfo(i)
+                colMap += (name -> info)
             }
 
             val keys =
@@ -2150,10 +2156,10 @@ class DescribeHandler(val shell: SQLShell,
     {
         def getPrimaryKeyColumns(rs: ResultSet): List[String]  =
         {
-            if (! rs.next)
-                Nil
-            else
-                rs.getString("COLUMN_NAME") :: getPrimaryKeyColumns(rs)
+            val result = new ListBuffer[String]
+            while (rs.next)
+                result += rs.getString("COLUMN_NAME")
+            result.toList
         }
 
         try
@@ -2191,7 +2197,7 @@ class DescribeHandler(val shell: SQLShell,
         val nonUniqueIndexes = MutableMap.empty[String,
                                                 ArrayBuffer[IndexColumn]]
 
-        def gatherIndexInfo(rs: ResultSet): Unit =
+        @tailrec def gatherIndexInfo(rs: ResultSet): Unit =
         {
             if (rs.next)
             {
@@ -2298,7 +2304,7 @@ class DescribeHandler(val shell: SQLShell,
     {
         def checkForNull(s: String): String = if (s == null) "?" else s
 
-        def printOne(rs: ResultSet): Unit =
+        @tailrec def printOne(rs: ResultSet): Unit =
         {
             if (rs.next)
             {
