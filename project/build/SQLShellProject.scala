@@ -70,8 +70,9 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         markdown("BUILDING.md", targetDocsDir / "BUILDING.html", false)
         markdown("LICENSE.md", targetDocsDir / "LICENSE.html", false)
         markdown(usersGuide, targetDocsDir / "users-guide.html", true)
-        copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
         copyFile("FAQ", targetDocsDir / "FAQ")
+        copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
+        copyFile(sourceDocsDir / "no-toc.js", targetDocsDir / "no-toc.js")
         None
     } 
     .dependsOn(makeTargetDocsDir)
@@ -100,10 +101,17 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     override def disableCrossPaths = true
 
-    override def updateAction = task {doManualDownloads} 
-        .named("update")
-        .describedAs("Update managed dependencies")
-        .dependsOn(super.updateAction)
+    override def updateAction = task
+    {
+        // updateAction invokes customUpdate directly, instead of depending
+        // on it, because customUpdate must run second. If it runs first,
+        // anything it copies into lib_managed gets wiped by super.updateAction.
+
+        super.updateAction
+        customUpdate.run
+    }
+
+    lazy val customUpdate = task { doManualDownloads }
 
     /* ---------------------------------------------------------------------- *\
                        Managed External Dependencies
@@ -196,9 +204,9 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
      * @param targetHTML      the path to the output file
      * @param useToc          whether or not to include the table of contents
      */
-    private def markdown(markdownSource: Path,
-                         targetHTML: Path,
-                         useToc: Boolean): Unit =
+    private def markdown(markdownSource: Path, 
+                         targetHTML: Path, 
+                         useToc: Boolean) =
     {
         // Use Rhino to run the Showdown (Javascript) Markdown converter.
         // MarkdownJ has issues and appears to be unmaintained.
@@ -235,7 +243,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             // Instantiate a new Showdown converter.
 
             val converterCtor = ctx.evaluateString(scope, "Showdown.converter",
-                                                       "converter", 1, null)
+                                                   "converter", 1, null)
                                 .asInstanceOf[Function]
             val converter = converterCtor.construct(ctx, scope, null)
 
@@ -254,10 +262,17 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             // Prepare the final HTML.
 
             val cssLines = fileLines(sourceDocsDir / "markdown.css")
-            val tocJavascriptSrc = if (useToc) "toc.js" else ""
+            val css = cssLines mkString ""
+            val tocFile = if (useToc) "toc.js" else "no-toc.js"
+
             // Title is first line.
             val title = markdownSourceLines.head
-            val sHTML = "<body>" + htmlBody + "</body>"
+
+            // Can't parse the body into something that can be interpolated
+            // unless it's inside a single element. So, stuff it inside a
+            // <div>. Use the id "body", which is necessary for the table
+            // of contents stuff to work.
+            val sHTML = "<div id=\"body\">" + htmlBody.toString + "</div>"
             val body = XhtmlParser(Source.fromString(sHTML))
             val out = new PrintWriter(
                           new OutputStreamWriter(
@@ -269,16 +284,16 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 <head>
 <title>{title}</title>
 <style type="text/css">
-{cssLines mkString ""}
+{css}
 </style>
-<script type="text/javascript" src={tocJavascriptSrc}/>
+<script type="text/javascript" src={tocFile}/>
 <meta http-equiv="content-type" content={contentType}/>
 </head>
-<div id="body">
+<body onLoad="createTOC()">
 {body}
 <hr/>
 <i>Generated {new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date)}</i>
-</div>
+</body>
 </html>
             out.println(html.toString)
             out.close
@@ -370,21 +385,6 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                               izPath.get,
                               args,
                               log)
-
-/*
-ForkRun?
-            import sbt.Run.{run => runClass}
-            val izPath = "lib_managed" / "compile" * "*.jar"
-            val args = List(temp.getPath,
-                            "-h", izPackHome,
-                            "-b", ".",
-                            "-o", ("target"/"install.jar").absolutePath,
-                            "-k", "standard")
-            runClass("com.izforge.izpack.compiler.Compiler", 
-                     izPath.get,
-                     args,
-                     log)
-*/
         }
     }
 
@@ -463,7 +463,18 @@ ForkRun?
 
         if (! ShowdownLocal.exists)
         {
-            FileUtilities.doInTemporaryDirectory[String](log)
+            val destFullPath = Path.fromFile(new File(ShowdownLocal.absolutePath))
+            def doInDirectory(dir: String)
+                             (action: File => Either[String,String]):
+                Either[String,String] =
+            {
+                val fDir = new File(dir)
+                assert (fDir.exists && fDir.isDirectory)
+                action(fDir)
+            }
+
+            //FileUtilities.doInTemporaryDirectory[String](log)
+            doInDirectory("/tmp/bmc")
             {
                 tempDir: File =>
 
@@ -472,10 +483,13 @@ ForkRun?
                                     Path.fromFile(tempDir),
                                     log)
 
-                val dest = "lib_managed" / "showdown.js"
                 val js = Path.fromFile(tempDir) / "src" / "showdown.js"
-                log.info("Copying " + js + " to " + dest)
-                FileUtilities.copyFile(js, dest, log)
+                assert (js.exists)
+                log.info("Copying " + js + " to " + destFullPath)
+                FileUtilities.copyFile(js, destFullPath, log)
+                log.info("Ensuring that " + destFullPath + " exists.")
+                assert(destFullPath.asFile.exists)
+                log.info("Yep.")
 
                 Right("")
             }

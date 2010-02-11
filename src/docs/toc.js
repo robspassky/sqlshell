@@ -3,11 +3,9 @@
 // Ensure all headings are added to the page table of contents. Adapted from 
 // http://www.bright-green.com/blog/2004_06_02/javascript_table_of_contents.html
 
-window.onload = createTOC;
-
 function createTOC()
 {
-  // find the nodes to be added to the Page TOC
+    // find the nodes to be added to the Page TOC
 
   var tocTargets = new Array()
   nodes = document.getElementById('body').childNodes
@@ -34,7 +32,7 @@ function createTOC()
   tocDiv = document.getElementById('toc')
   //tocDiv.innerHTML= "<h2>Page Contents </h2>"
   tocList = document.createElement('ul')
-  tocList.className = "toc"
+  tocList.className = 'toc'
   tocDiv.appendChild(tocList)
   // Insert elements into our table of contents
   for (var i = 0; i < tocTargets.length; i++)
@@ -46,7 +44,7 @@ function createTOC()
     }
 
     newItem = document.createElement('li')
-    newItem.className = "toc" + tocTarget.nodeName
+    newItem.className = 'toc' + tocTarget.nodeName
     newLink = document.createElement('a')
     newLink.href = '#' + tocTarget.id
     newLink.innerHTML = tocTarget.innerHTML
