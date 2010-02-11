@@ -71,6 +71,7 @@ import scala.collection.mutable.{ArrayBuffer,
                                  Set => MutableSet}
 import scala.io.Source
 import scala.util.matching.Regex
+import scala.annotation.tailrec
 
 import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
 
@@ -160,6 +161,7 @@ class SQLShell(val config: Configuration,
         ("showresults",  new BooleanSetting(true)),
         ("showrowcount", new BooleanSetting(true)),
         ("showtimings",  new BooleanSetting(true)),
+        ("sortcolnames", new BooleanSetting(false)),
         ("stacktrace",   new BooleanSetting(showStackTraces))
     )
 
@@ -374,16 +376,22 @@ class SQLShell(val config: Configuration,
         def toOption(s: String): Option[String] =
             if (s == null) None else Some(s)
 
-        def getTableData(rs: ResultSet): List[TableSpec] =
+        def getTableData(rs: ResultSet, 
+                         keep: TableSpec => Boolean): List[TableSpec] =
         {
-            if (! rs.next)
-                Nil
+            import scala.collection.mutable.ListBuffer
+            val result = new ListBuffer[TableSpec]
 
-            else
-                new TableSpec(toOption(rs.getString("TABLE_NAME")),
-                              toOption(rs.getString("TABLE_SCHEM")),
-                              toOption(rs.getString("TABLE_TYPE"))) ::
-                getTableData(rs)
+            while (rs.next)
+            {
+                val ts = new TableSpec(toOption(rs.getString("TABLE_NAME")),
+                                       toOption(rs.getString("TABLE_SCHEM")),
+                                       toOption(rs.getString("TABLE_TYPE")))
+                if (keep(ts))
+                    result += ts
+            }
+
+            result.toList
         }
 
         // Note that it's possible for the retrieval of metadata to fail.
@@ -409,7 +417,7 @@ class SQLShell(val config: Configuration,
                     (ts != None) &&
                     (nameFilter.findFirstIn(ts.name.get) != None)
 
-                getTableData(rs).filter(matches(_))
+                getTableData(rs, matches)
             }
 
             finally
@@ -1958,10 +1966,10 @@ class DescribeHandler(val shell: SQLShell,
 
     private def describeTable(table: String, full: Boolean) =
     {
-        def getColumnDescriptions(md: ResultSetMetaData,
-                                  i: Int): List[(String, String)] =
+        def getColumnDescriptions(md: ResultSetMetaData):
+            List[(String, String)] =
         {
-            def precisionAndScale =
+            def precisionAndScale(i: Int) =
             {
                 val precision = md.getPrecision(i)
                 val scale = md.getScale(i)
@@ -1980,16 +1988,14 @@ class DescribeHandler(val shell: SQLShell,
                 }
             }
 
-            def charSize =
+            def charSize(i: Int) =
             {
                 val size = md.getColumnDisplaySize(i)
                 if (size > 0) "(" + size.toString + ")" else ""
             }
 
-            if (i > md.getColumnCount)
-                Nil
-
-            else
+            val colMap = MutableMap.empty[String,String]
+            for (i <- 1 to md.getColumnCount)
             {
                 val name = md.getColumnLabel(i) match
                 {
@@ -2011,15 +2017,15 @@ class DescribeHandler(val shell: SQLShell,
 
                 val typeQualifier = jdbcType match
                 {
-                    case SQLTypes.CHAR          => charSize
-                    case SQLTypes.CLOB          => charSize
-                    case SQLTypes.DECIMAL       => precisionAndScale
-                    case SQLTypes.DOUBLE        => precisionAndScale
-                    case SQLTypes.FLOAT         => precisionAndScale
-                    case SQLTypes.LONGVARCHAR   => charSize
-                    case SQLTypes.NUMERIC       => precisionAndScale
-                    case SQLTypes.REAL          => precisionAndScale
-                    case SQLTypes.VARCHAR       => charSize
+                    case SQLTypes.CHAR          => charSize(i)
+                    case SQLTypes.CLOB          => charSize(i)
+                    case SQLTypes.DECIMAL       => precisionAndScale(i)
+                    case SQLTypes.DOUBLE        => precisionAndScale(i)
+                    case SQLTypes.FLOAT         => precisionAndScale(i)
+                    case SQLTypes.LONGVARCHAR   => charSize(i)
+                    case SQLTypes.NUMERIC       => precisionAndScale(i)
+                    case SQLTypes.REAL          => precisionAndScale(i)
+                    case SQLTypes.VARCHAR       => charSize(i)
                     case _                   => ""
                 }
 
@@ -2031,9 +2037,16 @@ class DescribeHandler(val shell: SQLShell,
                     case ResultSetMetaData.columnNullableUnknown => "NULL?"
                 }
 
-                (name, fullTypeName + " " + nullable) ::
-                getColumnDescriptions(md, i + 1)
+                colMap += (name -> (fullTypeName + " " + nullable))
             }
+
+            val keys =
+                if (shell.settings.booleanSettingIsTrue("sortcolnames"))
+                    sortByName(colMap.keysIterator)
+                else
+                    colMap.keysIterator.toList
+
+            (for (key <- keys) yield (key, colMap(key))).toList
         }
 
         withSQLStatement(connection)
@@ -2045,7 +2058,7 @@ class DescribeHandler(val shell: SQLShell,
             withResultSet(rs)
             {
                 val metadata = rs.getMetaData
-                val descriptions = getColumnDescriptions(metadata, 1)
+                val descriptions = getColumnDescriptions(metadata)
                 if (descriptions == Nil)
                     logger.error("Can't get metadata for table " + table)
                 else

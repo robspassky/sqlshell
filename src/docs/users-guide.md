@@ -533,6 +533,7 @@ transcript, to whet your appetite:
       showbinary: 20
     showrowcount: true
      showtimings: true
+    sortcolnames: false
       stacktrace: false
 
     sqlshell> .desc database
@@ -813,6 +814,7 @@ from commands that are processed by the connected database engine.
       showbinary: 20
     showrowcount: true
      showtimings: true
+    sortcolnames: false
       stacktrace: false
 
 > The initial value for any setting may be placed in the `[settings]` section
@@ -875,6 +877,11 @@ from commands that are processed by the connected database engine.
 >
 > * `showtimings`: Whether or not to display how long each SQL statement takes
 >   to run. **Default:** on
+>
+> * `sortcolnames`: Whether or not to sort the names of the columns when
+>   describing a table (via the `.desc` command). If this variable is off,
+>   then columns are shown in the order the RDBMS returns them.
+>   **Default:**: off
 >
 > * `stacktrace`: Whether or not to display Scala stack traces when internal
 >   exceptions occur. Useful mostly for debugging. **Default:* off
