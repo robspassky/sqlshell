@@ -67,6 +67,7 @@ import java.util.Date
 import java.text.SimpleDateFormat
 
 import scala.collection.mutable.{ArrayBuffer,
+                                 LinkedHashMap,
                                  ListBuffer,
                                  Map => MutableMap,
                                  Set => MutableSet}
@@ -1070,8 +1071,6 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
                     OutputStreamWriter,
                     Reader}
 
-    import scala.collection.mutable.LinkedHashMap
-
     private val columnData = new LinkedHashMap[String, Int]
     private var totalRows = 0
 
@@ -1139,7 +1138,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
      * Return the stored column names, in the order they appeared in
      * the result set.
      */
-    def columnNamesAndSizes = columnData.toMap
+    def columnNamesAndSizes = columnData.clone
 
     /**
      * Save a mapped row to the specified object stream.
@@ -1371,8 +1370,8 @@ class SelectHandler(shell: SQLShell, connection: Connection)
             // Print column names...
             val colNamesAndSizes = preprocessedResults.columnNamesAndSizes
             val columnNames = colNamesAndSizes.keysIterator.toList
-            val columnFormats =
-                Map.empty[String, String] ++
+            val columnFormats = 
+                LinkedHashMap.empty[String,String].clone() ++=
                 (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
 
             println()
@@ -2039,7 +2038,7 @@ class DescribeHandler(val shell: SQLShell,
                 (name, (fullTypeName + " " + nullable))
             }
 
-            val colMap = MutableMap.empty[String,String]
+            val colMap = new LinkedHashMap[String,String]
             for (i <- 1 to md.getColumnCount)
             {
                 val (name, info) = getColumnInfo(i)
