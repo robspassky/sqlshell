@@ -10,9 +10,9 @@ MySQL's `mysql` tool.
 
   [sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html
 
-SQLShell is a [Scala][1] rewrite of my Python *sqlcmd* tool (rewritten because,
-as it turns out, I think JDBC is more consistent and portable than Python's
-DB API).
+SQLShell is a [Scala][1] rewrite of my Python *sqlcmd* tool (rewritten
+because, as it turns out, JDBC is more consistent and portable than
+Python's DB API).
 
 Some Features at a Glance
 -------------------------
@@ -23,7 +23,8 @@ Some Features at a Glance
   logical names are permitted for each database.)
 
 * SQLShell has command history management, with GNU Readline-like
-  support. Each database has its own history file.
+  support. Each database can have its own history file; you can also share
+  history files across two or more databases.
 
 * SQLShell supports retrieving and displaying database metadata (e.g.,
   getting a list of tables, querying the table's columns and their
@@ -43,4 +44,4 @@ Some Features at a Glance
 [1]: http://www.scala-lang.org/
 
 ---
-Copyright &copy; 2009 Brian M. Clapper, *bmc@clapper.org*
+Copyright &copy; 2009-2010 Brian M. Clapper, *bmc@clapper.org*
