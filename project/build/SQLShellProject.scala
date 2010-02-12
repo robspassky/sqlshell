@@ -107,7 +107,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
         // on it, because customUpdate must run second. If it runs first,
         // anything it copies into lib_managed gets wiped by super.updateAction.
 
-        super.updateAction
+        super.updateAction.run
         customUpdate.run
     }
 
@@ -473,8 +473,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                 action(fDir)
             }
 
-            //FileUtilities.doInTemporaryDirectory[String](log)
-            doInDirectory("/tmp/bmc")
+            FileUtilities.doInTemporaryDirectory[String](log)
             {
                 tempDir: File =>
 
@@ -487,9 +486,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                 assert (js.exists)
                 log.info("Copying " + js + " to " + destFullPath)
                 FileUtilities.copyFile(js, destFullPath, log)
-                log.info("Ensuring that " + destFullPath + " exists.")
                 assert(destFullPath.asFile.exists)
-                log.info("Yep.")
 
                 Right("")
             }
