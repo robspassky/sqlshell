@@ -6,8 +6,9 @@ Version 0.4 (...)
 - Converted to Scala 2.8.0.
 - Now must be compiled with xsbt (sbt version 0.6.x)
 - Got rid of MarkdownJ as the Markdown processor; it's buggy and not maintained
-  any more. Markdown is now processed with the Showdown Javascript Markdown parser,
-  invoked via Mozilla Rhino.
+  any more. Markdown is now processed with the Showdown Javascript Markdown
+  parser, invoked via Mozilla Rhino.
+- Simplified internal JDBCHelper class.
 
 ---------------------------------------------------------------------------
 Version 0.3 (14 December, 2009)

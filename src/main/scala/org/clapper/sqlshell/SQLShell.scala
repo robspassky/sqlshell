@@ -823,32 +823,25 @@ class AboutHandler(val shell: SQLShell)
  */
 trait JDBCHelper
 {
-    protected def withSQLStatement(connection: Connection)
-                                  (code: (Statement) => Unit) =
+    protected def withCloseable[T <: {def close(): Unit}, B](thing: T)
+                                                            (code: T => B) =
     {
-        val statement = connection.createStatement
         try
         {
-            code(statement)
+            code(thing)
         }
 
         finally
         {
-            statement.close
+            thing.close
         }
     }
 
-    protected def withResultSet(rs: ResultSet)(code: => Unit) =
+    protected def withSQLStatement(connection: Connection)
+                                  (code: Statement => Unit) =
     {
-        try
-        {
-            code
-        }
-
-        finally
-        {
-            rs.close
-        }
+        val statement = connection.createStatement
+        withCloseable(statement)(code)
     }
 }
 
@@ -1247,8 +1240,9 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                     statement.executeQuery(fullStatement)
                 }
 
-            withResultSet(rs)
+            withCloseable(rs)
             {
+                rs =>
                 dumpResults(elapsed, rs, fullStatement)
             }
         }
@@ -2060,8 +2054,10 @@ class DescribeHandler(val shell: SQLShell,
 
             val rs = statement.executeQuery("SELECT * FROM " +
                                             table + " WHERE 1 = 0")
-            withResultSet(rs)
+            withCloseable(rs)
             {
+                rs =>
+
                 val metadata = rs.getMetaData
                 val descriptions = getColumnDescriptions(metadata)
                 if (descriptions == Nil)
@@ -2166,8 +2162,10 @@ class DescribeHandler(val shell: SQLShell,
             logger.verbose("Getting primary keys for table " + table + 
                            ", catalog " + catalog + ", schema " + schema)
             val rs = dmd.getPrimaryKeys(catalog, schema, table)
-            withResultSet(rs)
+            withCloseable(rs)
             {
+                rs =>
+
                 val columns = getPrimaryKeyColumns(rs)
                 if (columns != Nil)
                     println("\nPrimary key columns: " + columns.mkString(", "))
@@ -2273,8 +2271,9 @@ class DescribeHandler(val shell: SQLShell,
         try
         {
             val rs = dmd.getIndexInfo(catalog, schema, table, false, true)
-            withResultSet(rs)
+            withCloseable(rs)
             {
+                rs =>
                 gatherIndexInfo(rs)
             }
 
@@ -2324,8 +2323,9 @@ class DescribeHandler(val shell: SQLShell,
                            table + ", catalog " + catalog + ", schema " +
                            schema)
             val rs = dmd.getImportedKeys(catalog, schema, table)
-            withResultSet(rs)
+            withCloseable(rs)
             {
+                rs =>
                 printOne(rs)
             }
         }
