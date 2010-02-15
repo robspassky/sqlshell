@@ -4,3 +4,6 @@
   + Implement a custom interface to EditLine (and, perhaps, Readline).
     JavaReadline doesn't expose enough of the underlying API.
 
+- Support this kind of syntax: .desc ?
+  Identical to: ? .desc
+
