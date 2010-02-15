@@ -7,3 +7,5 @@
 - Support this kind of syntax: .desc ?
   Identical to: ? .desc
 
+- Add ability to do ".history regex" to show only commands matching the
+  regex.

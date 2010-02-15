@@ -830,6 +830,26 @@ trait JDBCHelper
         val statement = connection.createStatement
         withCloseable(statement)(code)
     }
+
+    // Necessary until a Scala reflection bug is fixed. Using
+    // withCloseable directly with a ResultSet fails with a reflection
+    // error, for JDBC drivers that override the public ResultSet.close()
+    // method with one that's different (e.g., has a "synchronized" modifier,
+    // or a "protected" modifier).
+    //
+    // See Scala bug #2136: http://lampsvn.epfl.ch/trac/scala/ticket/2318
+    protected def withResultSet(rs: ResultSet)(code: ResultSet => Unit) =
+    {
+        try
+        {
+            code(rs)
+        }
+
+        finally
+        {
+            rs.close
+        }
+    }
 }
 
 abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
@@ -1227,7 +1247,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                     statement.executeQuery(fullStatement)
                 }
 
-            withCloseable(rs)
+            withResultSet(rs)
             {
                 rs =>
                 dumpResults(elapsed, rs, fullStatement)
@@ -2039,9 +2059,8 @@ class DescribeHandler(val shell: SQLShell,
         {
             statement =>
 
-            val rs = statement.executeQuery("SELECT * FROM " +
-                                            table + " WHERE 1 = 0")
-            withCloseable(rs)
+            withResultSet(statement.executeQuery("SELECT * FROM " +
+                                                 table + " WHERE 1 = 0"))
             {
                 rs =>
 
@@ -2148,8 +2167,7 @@ class DescribeHandler(val shell: SQLShell,
         {
             logger.verbose("Getting primary keys for table " + table + 
                            ", catalog " + catalog + ", schema " + schema)
-            val rs = dmd.getPrimaryKeys(catalog, schema, table)
-            withCloseable(rs)
+            withResultSet(dmd.getPrimaryKeys(catalog, schema, table))
             {
                 rs =>
 
@@ -2257,8 +2275,7 @@ class DescribeHandler(val shell: SQLShell,
                        ", catalog " + catalog + ", schema " + schema)
         try
         {
-            val rs = dmd.getIndexInfo(catalog, schema, table, false, true)
-            withCloseable(rs)
+            withResultSet(dmd.getIndexInfo(catalog, schema, table, false, true))
             {
                 rs =>
                 gatherIndexInfo(rs)
@@ -2309,8 +2326,7 @@ class DescribeHandler(val shell: SQLShell,
             logger.verbose("Getting constraint information for table " +
                            table + ", catalog " + catalog + ", schema " +
                            schema)
-            val rs = dmd.getImportedKeys(catalog, schema, table)
-            withCloseable(rs)
+            withResultSet(dmd.getImportedKeys(catalog, schema, table))
             {
                 rs =>
                 printOne(rs)
