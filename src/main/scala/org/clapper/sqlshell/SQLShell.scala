@@ -54,6 +54,7 @@ import grizzled.string.implicits._
 import grizzled.string.WordWrapper
 import grizzled.config.Configuration
 import grizzled.math.util._
+import grizzled.util.withCloseable
 
 import java.sql.{Connection,
                  DatabaseMetaData,
@@ -823,20 +824,6 @@ class AboutHandler(val shell: SQLShell)
  */
 trait JDBCHelper
 {
-    protected def withCloseable[T <: {def close(): Unit}, B](thing: T)
-                                                            (code: T => B) =
-    {
-        try
-        {
-            code(thing)
-        }
-
-        finally
-        {
-            thing.close
-        }
-    }
-
     protected def withSQLStatement(connection: Connection)
                                   (code: Statement => Unit) =
     {
