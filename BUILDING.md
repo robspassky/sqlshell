@@ -36,5 +36,5 @@ directory. Once that's in place, you can build the installer with
 [sbt-setup]: http://code.google.com/p/simple-build-tool/wiki/Setup
 
 ---
-Copyright &copy; 2009 Brian M. Clapper, <i>bmc@clapper.org</i>
+Copyright &copy; 2009-2010 Brian M. Clapper, <i>bmc@clapper.org</i>
 
