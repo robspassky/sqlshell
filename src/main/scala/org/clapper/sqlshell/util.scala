@@ -143,9 +143,10 @@ class AboutInfo
      *
      * @param key  the key
      *
-     * @return the associated value, or null if not found
+     * @return the associated value wrapped in <tt>Some</tt>, or
+     *         <tt>None</tt> if not found.
      */
-    def apply(key: String): String = aboutInfo.getProperty(key)
+    def apply(key: String): Option[String] = get(key)
 
     /**
      * Convenience method to get the identification string for the program.
@@ -160,28 +161,71 @@ class AboutInfo
      *
      * @return the copyright string
      */
-    val copyright = "Copyright (c) 2009 Brian M. Clapper"
+    val copyright = "Copyright (c) 2009-2010 Brian M. Clapper"
 
     /**
      * Convenience method to get the program name.
      *
      * @return the program name
      */
-    def name = aboutInfo.getProperty("sqlshell.name")
+    def name = get("sqlshell.name").get
 
     /**
      * Convenience method to get the build date and time, as a string
      *
      * @return the build date and time
      */
-    def buildTimestamp = aboutInfo.getProperty("build.timestamp")
+    def buildTimestamp = get("build.timestamp").get
 
     /**
      * Convenience method to get the program version.
      *
      * @return the program name
      */
-    def version = aboutInfo.getProperty("sqlshell.version")
+    def version = get("sqlshell.version").get
+
+    /**
+     * Retrieves the current Java VM.
+     *
+     * @return the Java VM identification string
+     */
+    def javaVirtualMachine = get("java.vm")
+
+    private def get(key: String): Option[String] =
+    {
+        val s = 
+            key match
+            {
+                case "java.vm" => getJavaVM
+                case _         => aboutInfo.getProperty(key)
+            }
+
+        if (s == null)
+            None
+        else
+            Some(s)
+    }
+
+    private def getJavaVM =
+    {
+        val javaVM = System.getProperty("java.vm.name")
+        if (javaVM != null)
+        {
+            val buf = new StringBuilder
+            buf.append(javaVM)
+            val vmVersion = System.getProperty("java.vm.version")
+            if (vmVersion != null)
+                buf.append(" " + vmVersion)
+            val vmVendor = System.getProperty("java.vm.vendor")
+            if (vmVendor != null)
+                buf.append(" from " + vmVendor)
+            buf.toString
+        }
+        else
+        {
+            null
+        }
+    }
 
     private def loadAboutInfo =
     {

@@ -780,6 +780,17 @@ class AboutHandler(val shell: SQLShell)
 
     val aboutInfo = new AboutInfo
 
+    private def getReadline(ignored: String): Option[String] =
+        Some(shell.readline.toString)
+
+    private val Keys = List[(String, String => Option[String], String)] (
+        ("Build date", aboutInfo.apply, "build.date"),
+        ("Built with", aboutInfo.apply, "build.compiler"),
+        ("Build OS",   aboutInfo.apply, "build.os"),
+        ("Running on", aboutInfo.apply, "java.vm"),
+        ("Readline",   getReadline,     "")
+    )
+
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
         showFullInfo
@@ -791,39 +802,40 @@ class AboutHandler(val shell: SQLShell)
     def showFullInfo =
     {
         showAbbreviatedInfo
-        val buildDate = aboutInfo("build.date")
-        val compiler = aboutInfo("build.compiler")
-        val buildOS = aboutInfo("build.os")
-        if (buildDate != null)
-            println("Build date: " + buildDate);
-        if (compiler != null)
-            println("Built with: " + compiler);
-        if (buildOS != null)
-            println("Build OS:   " + buildOS);
+        println
 
-        val javaVM = System.getProperty("java.vm.name")
-        if (javaVM != null)
+        // Allow for trailing ":" and space.
+        val maxLabelLength = 2 + Keys.foldLeft(0)
         {
-            val buf = new StringBuilder
-            buf.append(javaVM)
-            val vmVersion = System.getProperty("java.vm.version")
-            if (vmVersion != null)
-                buf.append(" " + vmVersion)
-            val vmVendor = System.getProperty("java.vm.vendor")
-            if (vmVendor != null)
-                buf.append(" from " + vmVendor)
-            println("Running on: " + buf.toString);
+            (sum, entry) => Math.max(sum, entry._1.length)
         }
 
-        println("Using " + shell.readline + " readline implementation.")
+        for ((label, func, key) <- Keys)
+        {
+            func(key) match
+            {
+                case None        => 
+                case Some(value) => 
+                    println((label + ":").padTo(maxLabelLength, ' ') + value)
+            }
+        }
     }
 }
 
 /**
- * Helpful JDBC routines.
+ * JDBC helper routines.
  */
 trait JDBCHelper
 {
+    /**
+     * With a given JDBC connection, open a new statement (via
+     * <tt>Connection.createStatement()</tt>), and execute a block of
+     * code with the statement, ensuring that the statement is closed when
+     * the block completes.
+     *
+     * @param connection  the JDBC connection
+     * @param code        the block to execute with the created statement
+     */
     protected def withSQLStatement(connection: Connection)
                                   (code: Statement => Unit) =
     {
@@ -831,13 +843,20 @@ trait JDBCHelper
         withCloseable(statement)(code)
     }
 
-    // Necessary until a Scala reflection bug is fixed. Using
-    // withCloseable directly with a ResultSet fails with a reflection
-    // error, for JDBC drivers that override the public ResultSet.close()
-    // method with one that's different (e.g., has a "synchronized" modifier,
-    // or a "protected" modifier).
-    //
-    // See Scala bug #2136: http://lampsvn.epfl.ch/trac/scala/ticket/2318
+    /**
+     * Run a block of code on a <tt>ResultSet</tt>, ensuring that the
+     * <tt>ResultSet</tt> is closed. Use this method, instead of
+     * <tt>grizzled.util.withCloseable()</tt>, until a Scala reflection bug
+     * is fixed. Using <tt>withCloseable()</tt> directly with a ResultSet
+     * fails with a reflection error, for JDBC drivers that override the
+     * public <tt>ResultSet.close()</tt> method with one that's different
+     * (e.g., has a <tt>synchronized</tt> modifier, or a <tt>protected</tt>
+     * modifier). See Scala bug #2136:
+     * http://lampsvn.epfl.ch/trac/scala/ticket/2318
+     *
+     * @param rs    the <tt>ResultSet</tt>
+     * @param code  the code to run with the result set
+     */
     protected def withResultSet(rs: ResultSet)(code: ResultSet => Unit) =
     {
         try
