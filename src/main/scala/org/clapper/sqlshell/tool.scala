@@ -205,6 +205,9 @@ object Tool
                     Some(f)
                 }
 
+            // If specific readline implementations are indicated, try them.
+            // Otherwise, let the library choose its own default.
+
             val readlineLibNames =
                 if (options.has("r"))
                     {for (v <- options.valuesOf("r")

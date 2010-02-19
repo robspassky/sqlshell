@@ -9,6 +9,7 @@ Version 0.4 (...)
   any more. Markdown is now processed with the Showdown Javascript Markdown
   parser, invoked via Mozilla Rhino.
 - Simplified internal JDBCHelper class.
+- Now bundles javaeditline.jar (but not the accompanying JNI library).
 
 ---------------------------------------------------------------------------
 Version 0.3 (14 December, 2009)
