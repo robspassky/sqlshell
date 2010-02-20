@@ -780,7 +780,7 @@ class AboutHandler(val shell: SQLShell)
 
     val aboutInfo = new AboutInfo
 
-    private def getReadline(ignored: String): Option[String] =
+    private def getReadline(ignored: String = ""): Option[String] =
         Some(shell.readline.toString)
 
     private val Keys = List[(String, String => Option[String], String)] (
@@ -797,11 +797,15 @@ class AboutHandler(val shell: SQLShell)
         KeepGoing
     }
 
-    def showAbbreviatedInfo = println(aboutInfo.identString)
+    def showAbbreviatedInfo =
+    {
+        println(aboutInfo.identString)
+        println("Using " + getReadline().get);
+    }
 
     def showFullInfo =
     {
-        showAbbreviatedInfo
+        println(aboutInfo.identString)
         println
 
         // Allow for trailing ":" and space.
@@ -1914,8 +1918,16 @@ class DescribeHandler(val shell: SQLShell,
                 Nil
 
             case LineToken(cmd) :: Delim ::
-                 LineToken(arg) :: Delim :: Cursor :: Nil =>
+                 LineToken(table) :: Delim :: Cursor :: Nil =>
                 List("full")
+
+            case LineToken(cmd) :: Delim ::
+                 LineToken(table) :: Delim :: LineToken(arg) ::
+                 Cursor :: Nil =>
+                if ("full".startsWith(arg))
+                    List("full")
+                else
+                    Nil
 
             case LineToken(cmd) :: Delim ::
                  LineToken(arg) :: Cursor :: Nil =>
