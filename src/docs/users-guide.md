@@ -86,7 +86,7 @@ or
 
     -r, --readline <lib_name>     Specify readline libraries to try to use.
                                   Legal values: editline, getline, gnu, jline, 
-                                                 simple
+                                                simple
                                   May be specified more than once.
 
     -s, --stack                   Show all exception stack traces.
@@ -518,19 +518,19 @@ Before going into each specific type of command, here's a brief SQLShell
 transcript, to whet your appetite:
 
     $ sqlshell mydb
-    sqlshell, version 0.1
-    Copyright (c) 2009 Brian M. Clapper. All rights reserved.
+    SQLShell, version 0.4 (2010/02/20 16:13:25)
+    Using Java EditLine
+    Type "help" for help. Type ".about" for more information.
 
-    Using JLine readline implementation.
-    Loading history from "/home/bmc/.sqlshell/mydb.hist"...
     sqlshell> .set
             ansi: true
-      autocommit: true
+         catalog: 
             echo: false
          logging: info
       maxhistory: 2147483647
-          schema: 
+          schema: public
       showbinary: 20
+     showresults: true
     showrowcount: true
      showtimings: true
     sortcolnames: false
@@ -553,20 +553,20 @@ transcript, to whet your appetite:
     -----------
     Table users
     -----------
-    Id                            BIGINT NOT NULL,
-    CompanyId                     BIGINT NOT NULL,
-    EmployerAssignedId            VARCHAR(100) NULL,
-    LastName                      VARCHAR(254) NOT NULL,
-    FirstName                     VARCHAR(254) NOT NULL,
-    MiddleInitial                 CHAR(1) NULL,
-    AddressId                     BIGINT NULL,
-    Email                         VARCHAR(254) NOT NULL,
-    Telephone                     VARCHAR(30) NULL,
-    Department                    VARCHAR(254) NULL,
-    IsEnabled                     CHAR(1) NOT NULL,
-    CreationDate                  DATETIME NOT NULL,
+    Id                  int4 NOT NULL,
+    CompanyId           int4 NOT NULL,
+    EmployerAssignedId  varchar(100) NULL,
+    LastName            varchar(254) NOT NULL,
+    FirstName           varchar(254) NOT NULL,
+    MiddleInitial       bpchar(1) NULL,
+    AddressId           int4 NULL,
+    Email               varchar(254) NOT NULL,
+    Telephone           varchar(30) NULL,
+    Department          varchar(254) NULL,
+    IsEnabled           bpchar(1) NOT NULL,
+    CreationDate        timestamp NOT NULL
 
-    sqlshell> select id, companyid, lastname, firstname, middleinitial, employer from ETUserassignedid from ETUser;
+    sqlshell> select id, companyid, lastname, firstname, middleinitial, employer from users;
     Execution time: 0.1 seconds
     Retreival time: 0.2 seconds
     2 rows returned.
@@ -713,24 +713,24 @@ from commands that are processed by the connected database engine.
     -----------
     Table users
     -----------
-    Id                            BIGINT NOT NULL,
-    CompanyId                     BIGINT NOT NULL,
-    EmployerAssignedId            VARCHAR(100) NULL,
-    LastName                      VARCHAR(254) NOT NULL,
-    FirstName                     VARCHAR(254) NOT NULL,
-    MiddleInitial                 CHAR(1) NULL,
-    AddressId                     BIGINT NULL,
-    Email                         VARCHAR(254) NOT NULL,
-    Telephone                     VARCHAR(30) NULL,
-    Department                    VARCHAR(254) NULL,
-    IsEnabled                     CHAR(1) NOT NULL,
-    CreationDate                  DATETIME NOT NULL,
+    Id                  int4 NOT NULL,
+    CompanyId           int4 NOT NULL,
+    EmployerAssignedId  varchar(100) NULL,
+    LastName            varchar(254) NOT NULL,
+    FirstName           varchar(254) NOT NULL,
+    MiddleInitial       bpchar(1) NULL,
+    AddressId           int4 NULL,
+    Email               varchar(254) NOT NULL,
+    Telephone           varchar(30) NULL,
+    Department          varchar(254) NULL,
+    IsEnabled           bpchar(1) NOT NULL,
+    CreationDate        timestamp NOT NULL
 
     Primary key columns: Id
 
-    Unique index UserAK1 on: CompanyId, EmployerAssignedId
-    Unique index PRIMARY on: Id
-    Non-unique index UsersFK1 on: AddressId
+    names_pkey: Unique index on (id)
+    namesfirstix: Non-unique index on (firstname)
+    nameslastix: Non-unique index on (lastname)
 
 `.echo`
 
@@ -1007,10 +1007,15 @@ buffer, accessible via the `history` command.
 
 [bash]: http://www.gnu.org/software/bash/manual/
 
-SQLShell also supports a variety of readline-like libraries, including GNU
-Readline and JLine. (JLine is shipped with SQLShell.) This means you can
-use the usual key bindings (the arrow keys, Emacs keys, etc.) to scroll
-through your history list, edit previous commands, and re-issue them.
+SQLShell also supports a variety of readline-like libraries, including
+[EditLine][editline], [GNU Readline][gnu-readline] and [JLine][jline].
+(JLine is shipped with SQLShell.) This means you can use the usual key
+bindings (the arrow keys, Emacs keys, etc.) to scroll through your history
+list, edit previous commands, and re-issue them.
+
+[gnu-readline]: http://tiswww.case.edu/php/chet/readline/rltop.html
+[editline]: http://www.thrysoee.dk/editline/
+[jline]: http://jline.sourceforge.net/
 
 Upon exit, SQLShell saves its internal history buffer to a database-specific
 file, as long as the database's configuration section specifies a history file
@@ -1087,6 +1092,14 @@ etc.
 
 SQLShell supports the following readline libraries:
 
+* [Editline][editline], via the [Java EditLine][javaeditline] JNI library.
+  Editline has a more liberal BSD license. However, SQLShell cannot ship
+  with built-in Editline support, because the process of enabling Editline
+  differs on each platform. See below for instructions on getting Editline
+  to work.
+
+  On Unix-like systems, SQLShell works best with EditLine.
+
 * [JLine][jline]. JLine supports some of the "standard" Readline capabilities,
   and it's the readline library used by the [Scala][scala] REPL. It's
   self-contained, requiring the installation of no third-party libraries.
@@ -1096,18 +1109,20 @@ SQLShell supports the following readline libraries:
   instance, it lacks support for non-arrow key escape sequences and an
   incremental reverse history search.
 
-* [GNU Readline][gnureadline], via [Java-Readline][javareadline]. GNU
-  Readline is licensed using the GNU Public License (GPL). If SQLShell were
-  to link with GNU Readline, it, too, would have to be GPL-licensed. In
-  addition, GNU Readline requires the presence of platform-specific C
-  libraries. For those reasons, SQLShell does not ship with GNU Readline.
-  However, if you install the right pieces, SQLShell *will* work with GNU
-  Readline. See below.
+  On Windows systems, JLine is really your only option (aside from "simple",
+  below).
 
-* [Editline][editline], via [Java-Readline][javareadline]. Editline has a
-  more liberal BSD license. However, SQLShell cannot ship with built-in
-  Editline support, because the process of enabling Editline differs on
-  each platform. See below for instructions on getting Editline to work.
+* [GNU Readline][gnu-readline], via the JNI [Java-Readline][javareadline]
+  library. GNU Readline is licensed using the GNU Public License (GPL). If
+  SQLShell were to link with GNU Readline, it, too, would have to be
+  GPL-licensed. In addition, GNU Readline requires the presence of
+  platform-specific C libraries. For those reasons, SQLShell does not ship
+  with GNU Readline. However, if you install the right pieces, SQLShell
+  *will* work with GNU Readline. See below.
+
+  *Note*: The [Java-Readline][javareadline] provides limited completion
+  information. If you use GNU Readline with SQLShell, completion will not
+  always work as expected.
 
 * "Simple", a simple Java-only library. "Simple" doesn't support keybindings,
   but it does support a command history. If you have the option of using
@@ -1115,16 +1130,61 @@ SQLShell supports the following readline libraries:
   "Simple" library; it's included solely as a fallback.
 
 [javareadline]: http://java-readline.sourceforge.net/
-[jline]: http://jline.sourceforge.net/
-[editline]: http://www.thrysoee.dk/editline/
-[gnureadline]: http://tiswww.case.edu/php/chet/readline/rltop.html
+[javaeditline]: http://www.clapper.org/software/java/javaeditline/
 
 By default, SQLShell looks for the following readline libraries, in order:
 
-* GNU Readline (which, on Mac OS X, is really Editline)
 * Editline
+* GNU Readline
 * JLine
 * Simple
+
+### Getting Editline to work
+
+Editline keyboard bindings aren't always "correct" out of the box. For instance,
+tab completion didn't work for me on Ubuntu or Mac OS X. The underlying
+[Java EditLine][javaeditline]
+problem, I put the following line in my `$HOME/.editrc` file:
+
+    bind \\t ed-complete
+
+Since I am also a long-time Emacs user, I want an incremental reverse-search
+capability. To do that with Editline requires an additional line in `.editrc`:
+
+    bind '^R' em-inc-search-prev
+
+Here are instructions on getting Editline installed and working on various
+platforms.
+
+#### Mac OS X
+
+* Install the [Java EditLine][javaeditline] library, as described at its
+  web site.
+* Be sure that `libjavaeditline.jnilib` is in your `LD_LIBRARY_PATH`
+  environment variable, and that `javaeditline.jar` is in your `CLASSPATH`.
+* See the *editrc*(5) man page for keybinding customization instructions.
+
+#### BSD
+
+* Install the [Java EditLine][javaeditline] library, as described at its
+  web site.
+* Be sure that `libjavaeditline.jnilib` is in your `LD_LIBRARY_PATH`
+  environment variable, and that `javaeditline.jar` is in your `CLASSPATH`.
+* See the *editrc*(5) man page for keybinding customization instructions.
+
+#### Linux
+
+These instructions differ, depending on the Linux distribution.
+
+##### Ubuntu
+
+* Via *apt*, install the `libedit2` package, to get the base Editline C
+  library and headers.
+* Install the [Java EditLine][javaeditline] library, as described at its
+  web site.
+* Be sure that `libjavaeditline.jnilib` is in your `LD_LIBRARY_PATH`
+  environment variable, and that `javaeditline.jar` is in your `CLASSPATH`.
+* See the *editrc*(5) man page for keybinding customization instructions.
 
 ### Getting GNU Readline to work
 
@@ -1151,39 +1211,6 @@ These instructions differ, depending on the Linux distribution.
 * Via *apt*, install the `libreadline-java` package.
 * Ensure that `/usr/share/java/libreadline-java.jar` is in your `CLASSPATH`.
 * Ensure that `LD_LIBRARY_PATH` contains `/usr/lib/jni`
-
-### Getting Editline to work
-
-Editline keyboard bindings aren't always "correct" out of the box. For instance,
-tab completion didn't work for me on Ubuntu or Mac OS X. To correct this
-problem, I put the following line in my `$HOME/.editrc` file:
-
-    bind \\t rl_complete
-
-Since I am also a long-time Emacs user, I want an incremental reverse-search
-capability. To do that with Editline requires an additional line in `.editrc`:
-
-    bind '^R' em-inc-search-prev
-
-Here are instructions on getting Editline installed and working on various
-platforms.
-
-#### Mac OS X
-
-See **Getting GNU Readline to work**, above. (On Mac OS X, GNU Readline is
-really Editline.)
-
-#### Linux
-
-These instructions differ, depending on the Linux distribution.
-
-##### Ubuntu
-
-* Via *apt*, install the `libreadline-java` and `libedit2` packages.
-* Ensure that `/usr/share/java/libreadline-java.jar` is in your `CLASSPATH`.
-* Ensure that `LD_LIBRARY_PATH` contains `/usr/lib/jni`
-* Invoke SQLShell with `-r editline`, to force it to use Editline.
-* See the *editrc*(5) man page for keybinding customization instructions.
 
 ### Using a Specific Readline Library
 
