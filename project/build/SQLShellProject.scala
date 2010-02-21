@@ -137,7 +137,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // Grizzled comes from local machine for now. This works, though, as long
     // as someone has done a publish-local.
 
-    val grizzled = "org.clapper" % "grizzled-scala" % "0.3"
+    val grizzled = "org.clapper" % "grizzled-scala" % "0.3.1"
 
     val ShowdownURL = "http://attacklab.net/showdown/showdown-v0.9.zip"
     val ShowdownLocal = "lib_managed" / "showdown.js"

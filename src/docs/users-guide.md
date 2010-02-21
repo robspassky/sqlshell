@@ -750,7 +750,23 @@ from commands that are processed by the connected database engine.
 `history`
 
 > The `history` command (also callable as `h`), displays the command
-> history. See **Command History** for a complete explanation of SQLShell's
+> history. The command has the general form:
+
+    history [-n] [regex]
+
+> *n* specifies the maximum number of commands to show from the history. If
+> omitted, all commands (or all matching commands, if *regex* is specified)
+> are shown.
+>
+> *regex* is an optional regular expression that can be used to filter the
+> list of commands.
+>
+> Examples:
+
+    history -30         <-- show the last 30 commands
+    history -3 ^create  <-- show the last 3 commands that match "^create"
+
+See **Command History** for a complete explanation of SQLShell's
 > command history capabilities.
 
 `r` or \!
@@ -776,6 +792,7 @@ from commands that are processed by the connected database engine.
 > Here are various `redo` invocations:
 
     sqlshell> r 1  <--- re-runs command 1, ".show tables"
+    sqlshell> !1   <--- re-runs command 1, ".show tables"
     sqlshell> \!s   <--- re-runs the most recent command that starts with "s", which is "select * from foo"
     sqlshell> r    <--- re-runs the last command, ".desc foobar"
     sqlshell> \!\!   <--- also re-runs the last command, ".desc foobar"

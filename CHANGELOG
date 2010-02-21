@@ -1,3 +1,9 @@
+Version 0.4.1 (...)
+
+- Incorporated new Grizzled Scala library, which enhances history handling
+  and fixes some command interpreter bugs.
+
+---------------------------------------------------------------------------
 Version 0.4 (20 February, 2010)
 
 - Converted to Scala 2.8.0.
