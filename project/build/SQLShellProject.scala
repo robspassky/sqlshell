@@ -101,17 +101,11 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     override def disableCrossPaths = true
 
-    override def updateAction = task
-    {
-        // updateAction invokes customUpdate directly, instead of depending
-        // on it, because customUpdate must run second. If it runs first,
-        // anything it copies into lib_managed gets wiped by super.updateAction.
-
-        super.updateAction.run
-        customUpdate.run
-    }
-
+    override def updateAction = customUpdate dependsOn(super.updateAction)
     lazy val customUpdate = task { doManualDownloads }
+
+    override def cleanAction = super.cleanAction dependsOn(localClean)
+    lazy val localClean = task { doLocalClean }
 
     /* ---------------------------------------------------------------------- *\
                        Managed External Dependencies
@@ -140,7 +134,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     val grizzled = "org.clapper" % "grizzled-scala" % "0.3.1"
 
     val ShowdownURL = "http://attacklab.net/showdown/showdown-v0.9.zip"
-    val ShowdownLocal = "lib_managed" / "showdown.js"
+    val LocalLibDir = "local_lib"
+    val ShowdownLocal = LocalLibDir / "showdown.js"
 
     /* ---------------------------------------------------------------------- *\
                           Private Helper Methods
@@ -236,7 +231,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
             // Open the Showdown script and evaluate it in the Javascript
             // context.
 
-            val scriptPath = "lib_managed" / "showdown.js"
+            val scriptPath = ShowdownLocal
             val showdownScript = loadFile(scriptPath)
             ctx.evaluateString(scope, showdownScript, "showdown", 1, null)
 
@@ -461,6 +456,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
         import java.net.URL
 
+        FileUtilities.createDirectory(LocalLibDir, log)
         if (! ShowdownLocal.exists)
         {
             val destFullPath = Path.fromFile(new File(ShowdownLocal.absolutePath))
@@ -490,6 +486,17 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
                 Right("")
             }
+        }
+
+        None
+    }
+
+    private def doLocalClean: Option[String] =
+    {
+        if (ShowdownLocal.exists)
+        {
+            log.info("Deleting " + LocalLibDir);
+            FileUtilities.clean(LocalLibDir, log);
         }
 
         None
