@@ -144,7 +144,7 @@
       <executable targetfile="$INSTALL_PATH/bin/sqlshell"
                   stage="never" os="unix"/>
 
-      <!-- curn.bat (Windows only) -->
+      <!-- bat file (Windows only) -->
 
       <singlefile src="@SRC_INSTALL@/sqlshell.bat"
                   target="$INSTALL_PATH/bin/sqlshell.bat">
