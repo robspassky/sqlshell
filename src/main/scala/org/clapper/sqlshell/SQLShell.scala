@@ -1189,6 +1189,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
     private def serializeRow(row: Array[String])
     {
         out.writeNext(row)
+        println("wrote: " + row);
     }
 
     private def deserializeRow(in: CSVReader): Array[String] =
@@ -1420,11 +1421,10 @@ class SelectHandler(shell: SQLShell, connection: Connection)
             for (resultRow <- preprocessedResults)
             {
                 val data =
-                    {for {i <- 1 to metadata.getColumnCount
-                          name = metadata.getColumnName(i)
+                    {for {(name, i) <- columnNames.zipWithIndex
                           size = colNamesAndSizes(name)
                           fmt = columnFormats(name)}
-                     yield formatter.format(fmt, resultRow(i - 1))}.toList
+                     yield formatter.format(fmt, resultRow(i))}.toList
 
                 println(data mkString ColumnSeparator)
             }

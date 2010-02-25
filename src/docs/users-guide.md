@@ -1288,9 +1288,10 @@ SQLShell uses the following third-party software:
 * [JOpt Simple][joptsimple], licensed under the [MIT License][mitlicense].
 * [Joda Time][jodatime], licensed under the [Apache Licence][apachelicense],
   version 2.
-* The Grizzled Scala Library, written by Brian M. Clapper. Licensed under
-  a BSD-style license.
+* The [Grizzled Scala Library][grizzled], written by Brian M. Clapper. Licensed 
+  under a BSD-style license.
 
+[grizzled]: http://www.clapper.org/software/scala/grizzled-scala/
 [joptsimple]: http://jopt-simple.sourceforge.net/
 [mitlicense]: http://www.opensource.org/licenses/mit-license.php
 [jodatime]: http://joda-time.sourceforge.net/
