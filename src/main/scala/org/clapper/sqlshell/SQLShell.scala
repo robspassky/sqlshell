@@ -1187,9 +1187,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
     def flush = out.flush
 
     private def serializeRow(row: Array[String]) = out.writeNext(row)
-
-    private def deserializeRow(in: CSVReader): Array[String] =
-        in.readNext
+    private def deserializeRow(in: CSVReader): Array[String] = in.readNext
 }
 
 private[sqlshell] trait SelectResultSetHandler extends ResultSetHandler
