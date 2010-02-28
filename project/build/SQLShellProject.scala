@@ -6,10 +6,14 @@ import java.io.{File, FileWriter, PrintWriter}
 
 import grizzled.file.implicits._
 
+import org.clapper.sbtplugins.MarkdownPlugin
+
 /**
  * To build SQLShell via SBT.
  */
-class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
+class SQLShellProject(info: ProjectInfo)
+    extends DefaultProject(info)
+    with MarkdownPlugin
 {
     /* ---------------------------------------------------------------------- *\
                          Compiler and SBT Options
@@ -21,6 +25,8 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     /* ---------------------------------------------------------------------- *\
                              Various settings
     \* ---------------------------------------------------------------------- */
+
+    val LocalLibDir = "local_lib"
 
     // Use the "##" base path construct to indicate that "target/classes"
     // must be stripped off before this file is packaged.
@@ -66,13 +72,18 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // Generate HTML docs from Markdown sources
     lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownSources)
     { 
-        markdown("README.md", targetDocsDir / "README.html", false)
-        markdown("BUILDING.md", targetDocsDir / "BUILDING.html", false)
-        markdown("LICENSE.md", targetDocsDir / "LICENSE.html", false)
-        markdown(usersGuide, targetDocsDir / "users-guide.html", true)
+        val markdownCSS = Some(sourceDocsDir / "markdown.css")
+        def markdownWithTOC(src: Path, target: Path) =
+            markdown(src, target, log, markdownCSS, Some("toc.js"))
+        def markdownWithoutTOC(src: Path, target: Path) =
+            markdown(src, target, log, markdownCSS, None)
+
+        markdownWithoutTOC("README.md", targetDocsDir / "README.html")
+        markdownWithoutTOC("BUILDING.md", targetDocsDir / "BUILDING.html")
+        markdownWithoutTOC("LICENSE.md", targetDocsDir / "LICENSE.html")
+        markdownWithTOC(usersGuide, targetDocsDir / "users-guide.html")
         copyFile("FAQ", targetDocsDir / "FAQ")
         copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
-        copyFile(sourceDocsDir / "no-toc.js", targetDocsDir / "no-toc.js")
         None
     } 
     .dependsOn(makeTargetDocsDir)
@@ -101,11 +112,12 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
 
     override def disableCrossPaths = true
 
-    override def updateAction = customUpdate dependsOn(super.updateAction)
-    lazy val customUpdate = task { doManualDownloads }
+    override def updateAction = markdownUpdate dependsOn(super.updateAction)
 
-    override def cleanAction = super.cleanAction dependsOn(localClean)
-    lazy val localClean = task { doLocalClean }
+    override def cleanLibAction = super.cleanAction 
+                                       .dependsOn(localCleanLib)
+                                       .dependsOn(markdownCleanLib)
+    lazy val localCleanLib = task { doLocalCleanLib }
 
     /* ---------------------------------------------------------------------- *\
                        Managed External Dependencies
@@ -132,10 +144,6 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
     // as someone has done a publish-local.
 
     val grizzled = "org.clapper" % "grizzled-scala" % "0.3.1"
-
-    val ShowdownURL = "http://attacklab.net/showdown/showdown-v0.9.zip"
-    val LocalLibDir = "local_lib"
-    val ShowdownLocal = LocalLibDir / "showdown.js"
 
     /* ---------------------------------------------------------------------- *\
                           Private Helper Methods
@@ -450,48 +458,7 @@ class SQLShellProject(info: ProjectInfo) extends DefaultProject(info)
                          "Automatically generated SQLShell build information")
     }
 
-    private def doManualDownloads: Option[String] =
-    {
-        // Download, unpack, and save the Showdown package.
-
-        import java.net.URL
-
-        FileUtilities.createDirectory(LocalLibDir, log)
-        if (! ShowdownLocal.exists)
-        {
-            val destFullPath = Path.fromFile(new File(ShowdownLocal.absolutePath))
-            def doInDirectory(dir: String)
-                             (action: File => Either[String,String]):
-                Either[String,String] =
-            {
-                val fDir = new File(dir)
-                assert (fDir.exists && fDir.isDirectory)
-                action(fDir)
-            }
-
-            FileUtilities.doInTemporaryDirectory[String](log)
-            {
-                tempDir: File =>
-
-                log.info("Downloading and unpacking: " + ShowdownURL)
-                FileUtilities.unzip(new URL(ShowdownURL),
-                                    Path.fromFile(tempDir),
-                                    log)
-
-                val js = Path.fromFile(tempDir) / "src" / "showdown.js"
-                assert (js.exists)
-                log.info("Copying " + js + " to " + destFullPath)
-                FileUtilities.copyFile(js, destFullPath, log)
-                assert(destFullPath.asFile.exists)
-
-                Right("")
-            }
-        }
-
-        None
-    }
-
-    private def doLocalClean: Option[String] =
+    private def doLocalCleanLib: Option[String] =
     {
         if (ShowdownLocal.exists)
         {
