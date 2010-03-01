@@ -55,6 +55,31 @@ class SQLShellProject(info: ProjectInfo)
     val scalaVersionDir = "scala-" + buildScalaVersion
 
     /* ---------------------------------------------------------------------- *\
+                       Managed External Dependencies
+
+               NOTE: Additional dependencies are declared in
+         project/plugins/Plugins.scala. (Declaring them there allows them
+                       to be imported in this file.)
+    \* ---------------------------------------------------------------------- */
+
+    val scalaToolsRepo = "Scala-Tools Maven Repository" at 
+        "http://scala-tools.org/repo-releases/"
+
+    val newReleaseToolsRepository = "Scala Tools Repository" at
+        "http://nexus.scala-tools.org/content/repositories/snapshots/"
+    val scalatest = "org.scalatest" % "scalatest" %
+        "1.0.1-for-scala-2.8.0.Beta1-with-test-interfaces-0.3-SNAPSHOT"
+
+    val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
+    val jodaTime = "joda-time" % "joda-time" % "1.6"
+    val izPack = "org.codehaus.izpack" % "izpack-standalone-compiler" % "4.3.1"
+    val opencsv = "net.sf.opencsv" % "opencsv" % "1.8"
+
+    val orgClapperRepo = "clapper.org Maven Repository" at
+        "http://maven.clapper.org"
+    val grizzled = "org.clapper" % "grizzled-scala" % "0.3.1"
+
+    /* ---------------------------------------------------------------------- *\
                          Custom tasks and actions
     \* ---------------------------------------------------------------------- */
 
@@ -112,38 +137,13 @@ class SQLShellProject(info: ProjectInfo)
 
     override def disableCrossPaths = true
 
-    override def updateAction = markdownUpdate dependsOn(super.updateAction)
+    override def updateAction = markdownUpdateAction
+                                .dependsOn(super.updateAction)
 
     override def cleanLibAction = super.cleanAction 
                                        .dependsOn(localCleanLib)
-                                       .dependsOn(markdownCleanLib)
+                                       .dependsOn(markdownCleanLibAction)
     lazy val localCleanLib = task { doLocalCleanLib }
-
-    /* ---------------------------------------------------------------------- *\
-                       Managed External Dependencies
-
-               NOTE: Additional dependencies are declared in
-         project/plugins/Plugins.scala. (Declaring them there allows them
-                       to be imported in this file.)
-    \* ---------------------------------------------------------------------- */
-
-    val scalaToolsRepo = "Scala-Tools Maven Repository" at 
-        "http://scala-tools.org/repo-releases/"
-
-    val newReleaseToolsRepository = "Scala Tools Repository" at
-        "http://nexus.scala-tools.org/content/repositories/snapshots/"
-    val scalatest = "org.scalatest" % "scalatest" %
-        "1.0.1-for-scala-2.8.0.Beta1-with-test-interfaces-0.3-SNAPSHOT"
-
-    val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
-    val jodaTime = "joda-time" % "joda-time" % "1.6"
-    val izPack = "org.codehaus.izpack" % "izpack-standalone-compiler" % "4.3.1"
-    val opencsv = "net.sf.opencsv" % "opencsv" % "1.8"
-
-    // Grizzled comes from local machine for now. This works, though, as long
-    // as someone has done a publish-local.
-
-    val grizzled = "org.clapper" % "grizzled-scala" % "0.3.1"
 
     /* ---------------------------------------------------------------------- *\
                           Private Helper Methods
