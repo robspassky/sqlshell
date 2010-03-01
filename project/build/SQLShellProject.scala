@@ -6,7 +6,7 @@ import java.io.{File, FileWriter, PrintWriter}
 
 import grizzled.file.implicits._
 
-import org.clapper.sbtplugins.MarkdownPlugin
+import org.clapper.sbtplugins.{EditSourcePlugin, MarkdownPlugin}
 
 /**
  * To build SQLShell via SBT.
@@ -14,6 +14,7 @@ import org.clapper.sbtplugins.MarkdownPlugin
 class SQLShellProject(info: ProjectInfo)
     extends DefaultProject(info)
     with MarkdownPlugin
+    with EditSourcePlugin
 {
     /* ---------------------------------------------------------------------- *\
                          Compiler and SBT Options
@@ -153,47 +154,6 @@ class SQLShellProject(info: ProjectInfo)
         pieces mkString File.separator
 
     private def pathFor(pieces: String*): String = pathFor(pieces.toList)
-
-    /**
-     * Edits a file, substituting variable references. Variable references
-     * look like @var@. The supplied map is used to find variable values; the
-     * keys are the variable names, without the @ characters. Any variable that
-     * isn't found in the map is silently ignored.
-     *
-     * @param in    the source file to read
-     * @param vars  the variables
-     *
-     * @return the edited lines in the file
-     */
-    private def editFile(in: Source, vars: Map[String, String]): List[String] =
-    {
-        def doEdits(line: String, keys: List[String]): String =
-        {
-            keys match
-            {
-                case Nil => 
-                    line
-
-                case key :: tail =>
-                    val value = vars(key)
-                    doEdits(line.replaceAll("@" + key + "@", value), tail)
-            }
-        }
-
-        def editLines(lines: List[String]): List[String] =
-        {
-            lines match
-            {
-                case Nil => 
-                    Nil
-
-                case line :: tail =>
-                    doEdits(line, vars.keys.toList) :: editLines(tail)
-            }
-        }
-
-        editLines(in.getLines.toList)
-    }
 
     /**
      * Simplified front-end to FileUtilities.clean()
@@ -362,17 +322,9 @@ class SQLShellProject(info: ProjectInfo)
                 "SCALA_VERSION" -> buildScalaVersion
             )
 
-            val out = new PrintWriter(new FileWriter(temp))
-            try
-            {
-                for (line <- editFile(Source.fromFile(installFile.absolutePath),
-                                      vars))
-                    out.print(line)
-            }
-            finally
-            {
-                out.close
-            }
+            editSourceToFile(Source.fromFile(installFile.absolutePath),
+                             vars,
+                             temp)
 
             // Run IzPack. This is the simplest, least-coupled way to do it,
             // apparently.
