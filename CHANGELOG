@@ -4,6 +4,8 @@ Version 0.4.1 (...)
   and fixes some command interpreter bugs.
 - SQLShell was accessing result set metadata after the result set was closed.
   With some databases (e.g., H2), this causes an exception to be thrown.
+- Factored Markdown and EditFile logic into separate SBT plugins, simplifying
+  the build.
 
 ---------------------------------------------------------------------------
 Version 0.4 (20 February, 2010)
