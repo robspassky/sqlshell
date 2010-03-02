@@ -16,6 +16,7 @@ class SQLShellProject(info: ProjectInfo)
     with MarkdownPlugin
     with EditSourcePlugin
     with IzPackPlugin
+    with posterous.Publish
 {
     /* ---------------------------------------------------------------------- *\
                          Compiler and SBT Options
