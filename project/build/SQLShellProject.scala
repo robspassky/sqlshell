@@ -309,11 +309,12 @@ class SQLShellProject(info: ProjectInfo)
             val tempInstallFile = File.createTempFile("inst", ".xml")
             tempInstallFile.deleteOnExit
 
+            val sqlshellVersion = projectVersion.value.toString
             val vars = Map(
                 "API_DOCS_DIR" -> ("target"/"doc"/"main"/"api").absolutePath,
                 "DOCS_DIR" -> targetDocsDir.absolutePath,
                 "JAR_FILE" -> jarPath.absolutePath,
-                "SQLSHELL_VERSION" -> projectVersion.value.toString,
+                "SQLSHELL_VERSION" -> sqlshellVersion,
                 "SRC_INSTALL" -> installDir.absolutePath,
                 "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
                 "TOP_DIR" -> path(".").absolutePath,
@@ -324,8 +325,10 @@ class SQLShellProject(info: ProjectInfo)
                              vars,
                              tempInstallFile)
 
+            val installerJar = projectName.value.toString.toLowerCase + "-" +
+                               sqlshellVersion + "-installer.jar"
             izpackMakeInstaller(Path.fromFile(tempInstallFile),
-                                "target"/"install.jar")
+                                "target" / installerJar)
             None
         }
     }
