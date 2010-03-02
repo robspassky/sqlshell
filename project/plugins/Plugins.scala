@@ -15,5 +15,6 @@ class Plugins(info: ProjectInfo) extends PluginDefinition(info)
         "http://maven.clapper.org/"
 
     val markdown = "org.clapper" % "sbt-markdown-plugin" % "0.1.1"
-    val editsource = "org.clapper" % "sbt-editsource-plugin" % "0.1"
+    val editsource = "org.clapper" % "sbt-editsource-plugin" % "0.1.1"
+    val izpackPlugin = "org.clapper" % "sbt-izpack-plugin" % "0.1.1"
 }

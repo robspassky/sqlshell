@@ -6,7 +6,7 @@ import java.io.{File, FileWriter, PrintWriter}
 
 import grizzled.file.implicits._
 
-import org.clapper.sbtplugins.{EditSourcePlugin, MarkdownPlugin}
+import org.clapper.sbtplugins.{EditSourcePlugin, IzPackPlugin, MarkdownPlugin}
 
 /**
  * To build SQLShell via SBT.
@@ -15,6 +15,7 @@ class SQLShellProject(info: ProjectInfo)
     extends DefaultProject(info)
     with MarkdownPlugin
     with EditSourcePlugin
+    with IzPackPlugin
 {
     /* ---------------------------------------------------------------------- *\
                          Compiler and SBT Options
@@ -138,12 +139,8 @@ class SQLShellProject(info: ProjectInfo)
 
     override def disableCrossPaths = true
 
-    override def updateAction = markdownUpdateAction
-                                .dependsOn(super.updateAction)
-
-    override def cleanLibAction = super.cleanAction 
+    override def cleanLibAction = super.cleanLibAction
                                        .dependsOn(localCleanLib)
-                                       .dependsOn(markdownCleanLibAction)
     lazy val localCleanLib = task { doLocalCleanLib }
 
     /* ---------------------------------------------------------------------- *\
@@ -308,8 +305,8 @@ class SQLShellProject(info: ProjectInfo)
             // Create the IzPack configuration file from the template.
 
             log.info("Creating IzPack configuration file.")
-            val temp = File.createTempFile("inst", ".xml")
-            temp.deleteOnExit
+            val tempInstallFile = File.createTempFile("inst", ".xml")
+            tempInstallFile.deleteOnExit
 
             val vars = Map(
                 "API_DOCS_DIR" -> ("target"/"doc"/"main"/"api").absolutePath,
@@ -324,22 +321,11 @@ class SQLShellProject(info: ProjectInfo)
 
             editSourceToFile(Source.fromFile(installFile.absolutePath),
                              vars,
-                             temp)
+                             tempInstallFile)
 
-            // Run IzPack. This is the simplest, least-coupled way to do it,
-            // apparently.
-
-            log.info("Creating installer jar.")
-            val izPath = "lib_managed" / "compile" * "*.jar"
-            val args = List(temp.getPath,
-                            "-h", izPackHome,
-                            "-b", ".",
-                            "-o", ("target"/"install.jar").absolutePath,
-                            "-k", "standard")
-            defaultRunner.run("com.izforge.izpack.compiler.Compiler", 
-                              izPath.get,
-                              args,
-                              log)
+            izpackMakeInstaller(Path.fromFile(tempInstallFile),
+                                "target"/"install.jar")
+            None
         }
     }
 
