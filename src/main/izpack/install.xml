@@ -52,7 +52,7 @@
       <author name="Brian M. Clapper" email="bmc@clapper.org"/>
     </authors>
     <url>http://www.clapper.org/software/sqlshell/</url>
-    <javaversion>1.5</javaversion>
+    <javaversion>1.6</javaversion>
   </info>
 
   <guiprefs height="600" resizable="yes" width="800">
@@ -203,6 +203,7 @@
         <exclude name="**/.svn"/>
         <exclude name="**/.git"/>
         <exclude name="docs/**"/>
+        <exclude name="target/**"/>
 
         <include name="src/main/izpack/**/*"/>
         <include name="**/*.java"/>
