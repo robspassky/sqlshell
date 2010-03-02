@@ -1,0 +1,8 @@
+* Enhanced the tab-completion logic so that SQL statements tab-complete
+  on table names.
+* Now works properly with Microsoft Access tables (though `.show tables`
+  doesn't work, with the JDBC-ODBC bridge). With MS Access and the JDBC-ODBC
+  bridge, you can't retrieve the same column more than once.
+* Installer now bundles `scala-library.jar`, and front-end shell scripts
+  now use the Java, not Scala, executable. This change means Scala does not
+  have to be installed on the machine for SQLShell to run.

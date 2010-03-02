@@ -1,0 +1,14 @@
+* Converted to Scala 2.8.0.
+* Now must be compiled with [SBT][sbt] version 0.7.0 or better.
+* Added ability to suppress display of `SELECT` result set.
+* Added ability to sort the names of the columns in a `.desc TABLE` command,
+  depending on the value of the `sortcolnames` setting.
+* Got rid of MarkdownJ as the Markdown processor; it's buggy and not maintained
+  any more. Markdown is now processed with the Showdown Javascript Markdown
+  parser, invoked via Mozilla Rhino.
+* Simplified internal `JDBCHelper` class.
+* Now bundles `javaeditline.jar` (but not the accompanying JNI library).
+  See the [javaeditline web site][javaeditline] for details.
+
+[javaeditline]: http://www.clapper.org/software/java/javaeditline/
+[sbt]: http://code.google.com/p/simple-build-tool

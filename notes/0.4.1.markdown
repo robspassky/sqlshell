@@ -1,0 +1,10 @@
+* Incorporated a new version of the [Grizzled Scala library][grizzled-scala],
+  which enhances history handling and fixes some command interpreter bugs.
+* Fix: SQLShell was accessing result set metadata after the result set was
+  closed. With some databases (e.g., H2), this causes an exception to be
+  thrown.
+- Factored Markdown and EditFile logic into separate [SBT
+  plugins][sbt-plugins], simplifying the build.
+
+[grizzled-scala]: http://www.clapper.org/software/scala/grizzled-scala/
+[sbt-plugins]: http://bmc.github.com/sbt-plugins/

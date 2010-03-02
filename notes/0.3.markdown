@@ -1,0 +1,6 @@
+* Fixed infinite recursion when receiving results.
+* Fixed handling of `--version` and `--help` options.
+* Added build time to `--version` output.
+* Fixed `OutOfMemoryError` problems on large result sets.
+* Changed how retrieval and execution times are displayed, to give slightly
+  better real-time feedback.
