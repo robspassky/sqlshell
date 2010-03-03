@@ -1,3 +1,8 @@
+Version 0.4.2 (...)
+
+- Fixed a command completion error in the ".show" command.
+
+---------------------------------------------------------------------------
 Version 0.4.1 (2 March, 2010)
 
 - Incorporated new Grizzled Scala library, which enhances history handling

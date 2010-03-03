@@ -2407,6 +2407,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
                                                         _.toLowerCase)
     private val ShowTables = """^\s*tables(/[^/.\s]+)?\s*$""".r
     private val ShowSchemas = """^\s*(schemas)\s*$""".r
+    private val PartialSubCommand = """^\s*([^\s]+)\s*$""".r
 
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
@@ -2464,6 +2465,10 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
                 Nil
 
             case LineToken(cmd) :: Delim :: LineToken(arg) :: Cursor :: Nil =>
+                subCommandCompleter.complete(token, allTokens, line)
+
+            case LineToken(cmd) :: Delim :: 
+                 LineToken(arg) :: Cursor :: Delim :: rest :: Nil =>
                 subCommandCompleter.complete(token, allTokens, line)
 
             case _ =>
