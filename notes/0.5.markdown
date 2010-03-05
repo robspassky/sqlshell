@@ -4,3 +4,5 @@
   run all at once, such as stored procedure definitions. See the User's
   Guide for complete details.
 * Now requires [SBT][sbt] 0.7.2
+
+[sbt]: http://code.google.com/p/simple-build-tool
