@@ -80,7 +80,7 @@ class SQLShellProject(info: ProjectInfo)
 
     val orgClapperRepo = "clapper.org Maven Repository" at
         "http://maven.clapper.org"
-    val grizzled = "org.clapper" % "grizzled-scala" % "0.3.1"
+    val grizzled = "org.clapper" % "grizzled-scala" % "0.4"
 
     /* ---------------------------------------------------------------------- *\
                          Custom tasks and actions

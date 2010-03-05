@@ -79,6 +79,14 @@ import scala.annotation.tailrec
 import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
 
 /**
+ * Global constants
+ */
+private[sqlshell] object Constants
+{
+    val SpecialCommentPrefix = "--sqlshell-"
+}
+
+/**
  * Holds information about a table
  */
 class TableSpec(val name: Option[String],
@@ -192,6 +200,8 @@ class SQLShell(val config: Configuration,
                         new ShowHandler(this, connection),
                         new DescribeHandler(this, connection,
                                             transactionManager),
+                        new CommentHandler(this, connection),
+                        new BlockSQLHandler(this, selectHandler, updateHandler),
                         setHandler,
                         new EchoHandler,
                         new ExitHandler,
@@ -218,9 +228,6 @@ class SQLShell(val config: Configuration,
                                                     selectHandler,
                                                     updateHandler)
 
-    // Allow "." characters in commands.
-    override def StartCommandIdentifier = super.StartCommandIdentifier + "."
-
     /**
      * The primary prompt string.
      */
@@ -231,6 +238,8 @@ class SQLShell(val config: Configuration,
      * retrieved.
      */
     override def secondaryPrompt = "> "
+
+    override def StartCommandIdentifier = super.StartCommandIdentifier + "-"
 
     override def preLoop: Unit =
     {
@@ -249,7 +258,8 @@ class SQLShell(val config: Configuration,
     {
         if (transactionManager.inTransaction)
         {
-            warning("An uncommitted transaction is open. Rolling it back.")
+            logger.warning("An uncommitted transaction is open. " +
+                           "Rolling it back.")
             transactionManager.rollback()
         }
 
@@ -295,7 +305,7 @@ class SQLShell(val config: Configuration,
 
     override def preCommand(line: String) =
     {
-        if (line.ltrim.startsWith("--"))
+        if (line.trim().length == 0)
             Some("")
 
         else
@@ -1228,6 +1238,68 @@ private[sqlshell] class ResultSetCacheHandler(tempFile: File,
 private [sqlshell] class ResultSetNoCacheHandler extends SelectResultSetHandler
 
 /**
+ * Handles SQL comments.
+ */
+class CommentHandler(shell: SQLShell, connection: Connection)
+    extends SQLShellCommandHandler with HiddenCommandHandler
+{
+    val CommandName = "--"
+
+    override def matches(candidate: String): Boolean =
+    {
+        candidate.startsWith("--") && 
+        (! candidate.startsWith(Constants.SpecialCommentPrefix))
+    }
+
+    def doRunCommand(command: String, args: String): CommandAction = KeepGoing
+}
+
+/**
+ * Handles a block SQL command, consisting of a multi-line hunk of SQL
+ * between two delimiting lines.
+ */
+class BlockSQLHandler(shell: SQLShell,
+                      val selectHandler: SelectHandler,
+                      val updateHandler: UpdateHandler)
+    extends SQLShellCommandHandler
+    with BlockCommandHandler
+    with HiddenCommandHandler
+{
+    import scala.collection.mutable.ListBuffer
+
+    val CommandName = Constants.SpecialCommentPrefix + "block-begin"
+    val EndCommand = ("""^\s*""" +
+                      Constants.SpecialCommentPrefix +
+                      """block-end\s*$""").r
+
+    override def doRunCommand(command: String, args: String): CommandAction =
+    {
+        assert(command == CommandName)
+
+        // The last argument will match EndCommand. Kill it.
+
+        val argArray = args.split("\n+")
+        assert (argArray.length > 0)
+        assert (EndCommand.findFirstIn(argArray.last) != None)
+        val newArgs = argArray.slice(0, argArray.length - 1)
+        val block = newArgs mkString "\n"
+        println(block)
+
+        // Try it as both a query and an update.
+
+        try
+        {
+            selectHandler.runCommand("", block)
+        }
+
+        catch
+        {
+            case _ => updateHandler.runCommand("", block)
+        }
+    }
+}
+
+/**
  * Handles SQL "SELECT" statements.
  */
 class SelectHandler(shell: SQLShell, connection: Connection)
@@ -1434,9 +1506,16 @@ class SelectHandler(shell: SQLShell, connection: Connection)
 abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection)
     extends SQLHandler(shell, connection) with Timer
 {
+    val mustRemoveSemiColon = true
+
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
-        val newArgs = removeSemicolon(args)
+        val newArgs = 
+            if (mustRemoveSemiColon) 
+                removeSemicolon(args)
+            else
+                args
+
         withSQLStatement(connection)
         {
             statement =>
@@ -1821,16 +1900,24 @@ class UnknownHandler(shell: SQLShell,
 
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
-        // Try it as both a query and an update.
-
-        try
+        if (commandName startsWith Constants.SpecialCommentPrefix)
         {
-            selectHandler.runCommand(commandName, args)
+            error("Unknown special command.");
         }
 
-        catch
+        else
         {
-            case _ => updateHandler.runCommand(commandName, args)
+            // Try it as both a query and an update.
+
+            try
+            {
+                selectHandler.runCommand(commandName, args)
+            }
+
+            catch
+            {
+                case _ => updateHandler.runCommand(commandName, args)
+            }
         }
 
         KeepGoing
