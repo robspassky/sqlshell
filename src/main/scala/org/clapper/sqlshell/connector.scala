@@ -71,15 +71,76 @@ private[sqlshell] class DatabaseInfo(val dbName: Option[String],
 }
 
 /**
+ * Database metadata.
+ */
+private[sqlshell] class DatabaseMetadata(val productName: Option[String],
+                                         val productVersion: Option[String],
+                                         val driverName: Option[String],
+                                         val driverVersion: Option[String],
+                                         val user: Option[String],
+                                         val jdbcURL: Option[String],
+                                         val isolation: String)
+
+/**
  * Connection info.
  *
- * @param connection  the established connection
- * @param configInfo  the configuration options associated with the
- *                    connection
+ * @param connection         the established connection
+ * @param configInfo         the configuration options associated with the
+ *                           connection
+ * @param configSectionName  the configuration section name
+ * @parma jdbcURL            the JDBC URL for the database
  */
 private[sqlshell] class ConnectionInfo(val connection: SQLConnection,
                                        val configInfo: Map[String, String],
-                                       val jdbcURL:    String)
+                                       configSectionName: Option[String],
+                                       val jdbcURL: String)
+{
+    private val DbSectionName = """^db_(.*)$""".r
+
+    /**
+     * Get the DB name, which is the section name, with "db_" stripped off.
+     * Returns None if name is unknown.
+     */
+    val dbName = configSectionName match
+    {
+        case None                   => None
+        case Some(DbSectionName(s)) => Some(s)
+        case Some(s)                => Some(s)
+    }
+
+    def databaseInfo: DatabaseMetadata =
+    {
+        def toOption(s: String): Option[String] =
+            if ((s == null) || (s.trim == "")) None else Some(s)
+
+        val metadata = connection.getMetaData
+
+        val isolation =
+            connection.getTransactionIsolation match
+            {
+                case SQLConnection.TRANSACTION_READ_UNCOMMITTED =>
+                    "read uncommitted"
+                case SQLConnection.TRANSACTION_READ_COMMITTED =>
+                    "read committed"
+                case SQLConnection.TRANSACTION_REPEATABLE_READ =>
+                    "repeatable read"
+                case SQLConnection.TRANSACTION_SERIALIZABLE =>
+                    "serializable"
+                case SQLConnection.TRANSACTION_NONE =>
+                    "none"
+                case n =>
+                    "unknown transaction isolation value of " + n.toString
+            }
+
+        new DatabaseMetadata(toOption(metadata.getDatabaseProductName),
+                             toOption(metadata.getDatabaseProductVersion),
+                             toOption(metadata.getDriverName),
+                             toOption(metadata.getDriverVersion),
+                             toOption(metadata.getUserName),
+                             toOption(metadata.getURL),
+                             isolation)
+    }
+}
 
 /**
  * Handles connecting to a database.
@@ -119,7 +180,7 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                               "url" -> optionToString(info.dbURL),
                               "user" -> optionToString(info.dbURL),
                               "password" -> optionToString(info.dbPassword))
-            new ConnectionInfo(conn, options, info.dbURL.get)
+            new ConnectionInfo(conn, options, None, info.dbURL.get)
         }
     }
 
@@ -137,7 +198,8 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                 case "" if (required) =>
                     throw new SQLShellConfigException(
                         "Missing required \"" + optionName + "\" option " +
-                        "in configuration file section \"" + sectionName + "\"")
+                        "in configuration file section \"" + sectionName +
+                        "\"")
 
                 case s  => 
                     Some(s)
@@ -161,7 +223,8 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
                                        url,
                                        option(sectionName, "user", false),
                                        option(sectionName, "password", false))
-                new ConnectionInfo(conn, config.options(sectionName), url)
+                new ConnectionInfo(conn, config.options(sectionName), 
+                                   Some(sectionName), url)
 
             case _ =>
                 val message = "The following database sections " +
@@ -191,7 +254,7 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
             // SQLite3 driver returns a null connection on connection
             // failure.
             if (connection == null)
-                throw new SQLShellException("Cannot connect to \"" + url + "\"")
+                throw new SQLShellException("Can't connect to \"" + url + "\"")
             connection
         }
 

@@ -84,6 +84,7 @@ import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
 private[sqlshell] object Constants
 {
     val SpecialCommentPrefix = "--sqlshell-"
+    val DefaultPrimaryPrompt = "sqlshell> "
 }
 
 /**
@@ -142,7 +143,7 @@ object AnsiSetting extends Setting with BooleanValueConverter
  *                        mode
  */
 class SQLShell(val config: Configuration,
-               dbInfo: DatabaseInfo,
+               val dbInfo: DatabaseInfo,
                readlineLibs: List[ReadlineType],
                useAnsiColors: Boolean,
                showStackTraces: Boolean,
@@ -167,6 +168,7 @@ class SQLShell(val config: Configuration,
         ("echo",         new BooleanSetting(false)),
         ("logging",      LogLevelSetting),
         ("maxhistory",   new MaxHistorySetting(readline)),
+        ("prompt",       new StringSetting(Constants.DefaultPrimaryPrompt)),
         ("schema",       new StringSetting("")),
         ("showbinary",   new IntSetting(0)),
         ("showresults",  new BooleanSetting(true)),
@@ -229,10 +231,35 @@ class SQLShell(val config: Configuration,
                                                     selectHandler,
                                                     updateHandler)
 
+    private val databaseInfo = connectionInfo.databaseInfo
     /**
      * The primary prompt string.
      */
-    override def primaryPrompt = "sqlshell> "
+    override def primaryPrompt =
+    {
+        import grizzled.string.template.WindowsCmdStringTemplate
+
+        def resolveVar(varname: String): Option[String] =
+        {
+            varname match
+            {
+                case "db"     => connectionInfo.dbName
+                case "user"   => databaseInfo.user
+                case "dbtype" => databaseInfo.productName
+                case "SP"     => Some(" ")
+                case _        => None
+            }
+        }
+
+        settings.stringSetting("prompt") match
+        {
+            case None =>
+                Constants.DefaultPrimaryPrompt
+
+            case Some(s) =>
+                new WindowsCmdStringTemplate(resolveVar, true).substitute(s)
+        }
+    }
 
     /**
      * The second prompt string, used when additional input is being
@@ -2024,47 +2051,31 @@ class DescribeHandler(val shell: SQLShell,
 
     private def describeDatabase =
     {
-        val metadata = connection.getMetaData
-        val productName = metadata.getDatabaseProductName
-        val productVersion = metadata.getDatabaseProductVersion
-        val driverName = metadata.getDriverName
-        val driverVersion = metadata.getDriverVersion
-
-        val isolation =
-            connection.getTransactionIsolation match
-            {
-                case Connection.TRANSACTION_READ_UNCOMMITTED =>
-                    "read uncommitted"
-                case Connection.TRANSACTION_READ_COMMITTED =>
-                    "read committed"
-                case Connection.TRANSACTION_REPEATABLE_READ =>
-                    "repeatable read"
-                case Connection.TRANSACTION_SERIALIZABLE =>
-                    "serializable"
-                case Connection.TRANSACTION_NONE =>
-                    "none"
-                case n =>
-                    "unknown transaction isolation value of " + n.toString
-            }
-
-        val user = metadata.getUserName
-        val displayUser = if ((user == null) || (user.trim == "")) null
-                          else user
+        val info = shell.connectionInfo.databaseInfo
 
         val inTransactionStr = if (transactionManager.inTransaction) "yes"
                                else "no"
 
-        // Need to use our own wrapper, to get a prefix.
-        val w = new WordWrapper(79, 0, "                       ", ' ')
-        println(w.wrap("Connected to database: " + metadata.getURL))
-        if (user != null)
-            println(w.wrap("Connected as user:     " + displayUser))
-        println(w.wrap("Database vendor:       " + productName))
-        println(w.wrap("Database version:      " + productVersion))
-        println(w.wrap("JDBC driver:           " + driverName))
-        println(w.wrap("JDBC driver version:   " + driverVersion))
-        println(w.wrap("Transaction isolation: " + isolation))
-        println(w.wrap("Open transaction?      " + inTransactionStr))
+        def toString(opt: Option[String]): String =
+        {
+            opt match
+            {
+                case None    => "?"
+                case Some(s) => s
+            }
+        }
+
+        wrapPrintln("Database name:         ", 
+                    toString(shell.connectionInfo.dbName))
+        wrapPrintln("Connected to database: ", toString(info.jdbcURL))
+        if (info.user != None)
+            wrapPrintln("Connected as user:     ", info.user.get)
+        wrapPrintln("Database vendor:       ", toString(info.productName))
+        wrapPrintln("Database version:      ", toString(info.productVersion))
+        wrapPrintln("JDBC driver:           ", toString(info.driverName))
+        wrapPrintln("JDBC driver version:   ", toString(info.driverVersion))
+        wrapPrintln("Transaction isolation: ", info.isolation)
+        wrapPrintln("Open transaction?      ", inTransactionStr)
     }
 
     private def nullIfEmpty(s: String) =

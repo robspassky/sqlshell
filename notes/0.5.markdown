@@ -3,6 +3,10 @@
   structured comments, used to delineate multi-statement SQL that must be
   run all at once, such as stored procedure definitions. See the User's
   Guide for complete details.
+* SQLShell now permits setting the primary prompt, via ".set prompt".
+  The prompt string can contain escapes, such as `"%db%"` (which substitutes
+  the current database name) and `"%user%"` (which substitutes the name of
+  the connected user). See the User's Guide for details.
 * Now requires [SBT][sbt] 0.7.2
 
 [sbt]: http://code.google.com/p/simple-build-tool

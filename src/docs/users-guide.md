@@ -530,6 +530,7 @@ transcript, to whet your appetite:
             echo: false
          logging: info
       maxhistory: 2147483647
+          prompt: sqlshell>
           schema: public
       showbinary: 20
      showresults: true
@@ -887,6 +888,7 @@ See **Command History** for a complete explanation of SQLShell's
             echo: false
          logging: info
       maxhistory: 2147483647
+          prompt: sqlshell>
           schema:
       showbinary: 20
     showrowcount: true
@@ -936,6 +938,19 @@ See **Command History** for a complete explanation of SQLShell's
 > * `maxhistory`: Sets the maximum number of entries in the command history.
 >   **Default:** A really large number (the largest possible signed 32-bit
 >   integer, 2147483647).
+>
+> * `prompt`: Sets the primary prompt, which defaults to "sqlshell> ".
+>   You can change the prompt to anything you want. The string you pass to
+>   `.set prompt` can contain the following escapes, which are substituted
+>   as described. In all cases, if an escape has no value, an empty string
+>   is subsituted.
+>
+>   - `%db%`: Substitute the name of the current database, if known.
+>     The name is the section name in the configuration file, minus its
+>     "db_" prefix.
+>   - `%dbtype%`: The database type (Oracle, Microsoft SQL Server, etc.)
+>   - `%user%`: The name of the user connected to the database.
+>   - `%SP%`: A space
 >
 > * `schema': The schema to use when resolving table names. If omitted,
 >   then SQLShell considers all tables that are visible to the connected
