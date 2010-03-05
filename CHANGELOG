@@ -1,6 +1,10 @@
-Version 0.4.2 (...)
+Version 0.5 (...)
 
 - Fixed a command completion error in the ".show" command.
+- SQLShell now supports `--sqlshell-block-begin` and `--sqlshell-block-end`
+  structured comments, used to delineate multi-statement SQL that must be
+  run all at once, such as stored procedure definitions. See the User's
+  Guide for complete details.
 
 ---------------------------------------------------------------------------
 Version 0.4.1 (2 March, 2010)

@@ -12,10 +12,12 @@ This is the SQLShell User's Guide.
 ## Introduction
 
 SQLShell is a SQL command line tool, similar in concept to tools like
-Oracle's [SQL*Plus][sqlplus], the PostgreSQL `psql` command, and
-MySQL's `mysql` tool.
+Oracle's [SQL*Plus][sqlplus], the [PostgreSQL][postgresql] `psql` command,
+and the [MySQL][mysql] `mysql` tool.
 
 [sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html
+[postgresql]: http://www.postgresql.org/
+[mysql]: http://www.mysql.com/
 
 SQLShell is a [Scala][scala] rewrite of my Python *sqlcmd* tool (rewritten
 because, as it turns out, I think JDBC is more consistent and portable than
@@ -627,6 +629,13 @@ Example of use:
 
 ### Comments
 
+SQLShell honors two kinds of comments:
+
+* normal SQL comments
+* SQLShell comment-commands
+
+#### Normal SQL Comments
+
 SQLShell honors (and ignores) SQL comments, as long as each comment is on a
 line by itself. A SQL comment begins with "--".
 
@@ -639,7 +648,58 @@ Example of *unsupported* syntax:
 
     INSERT INTO foo VALUES (1); -- initialize foo
 
-### SQLShell-specific Commands
+#### SQLShell Comment-commands
+
+SQLShell implements some SQL-related commands as special comments. All
+such comments start with `--sqlshell-`.
+
+##### Defining a block of SQL (e.g., to create a stored procedure)
+
+SQLShell is RDBMS-agnostic. It doesn't actually parse the SQL it sends to the
+remote database. With normal SQL commands like `SELECT` and `INSERT`, SQLShell
+simply looks for the final semicolon (";"), and passes everything up to that
+semicolon to the database, allowing the database engine to do the parsing.
+
+This strategy works fine for normal SQL command, which can be treated as a
+single line. But what about stored procedure definitions?
+
+These (and anything else requiring a block of SQL, possibly with embedded
+semicolons) causes problems for SQLShell, because it can't tell where the
+command is supposed to end. To solve this problem the "right" way would
+require adding more sophisticated parsing logic to SQLShell--parsing logic
+that would necessarily be different for every back-end database engine.
+
+SQLShell takes a simpler approach. It allows you to signify the start and
+end of a block of SQL, using two special comment lines:
+
+    --sqlshell-block-begin
+    ... SQL ...
+    --sqlshell-block-end
+
+When SQLShell sees `--sqlshell-block-begin`, on a line by itself, it looks
+ahead, for a matching `--sqlshell-block-end` command (also on a line by
+itself). SQLShell then issues everything between those commands as one SQL
+statement. For example, consider the following [PostgreSQL][postgresql]
+function definition (using the PL/pgSQL language):
+
+    --sqlshell-block-begin
+    CREATE OR REPLACE FUNCTION totalfoo() RETURNS integer AS $$
+    DECLARE
+        q int;
+    BEGIN
+    SELECT COUNT(*) INTO q FROM foo;
+    RETURN q;
+    END;
+    $$ LANGUAGE plpgsql;
+    --sqlshell-block-end
+
+SQLShell will issue the entire function definition as one statement.
+
+Because SQLShell's special "block begin" and "block end" command are implemented
+as structured comments, the same script you run through SQLShell will also work
+in other database tools.
+
+### Other SQLShell-specific Commands
 
 These internal SQLShell commands are one-line commands that do not require
 a trailing semi-colon and cannot be on multiple lines. Most (but not all)
