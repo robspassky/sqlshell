@@ -201,7 +201,8 @@ class SQLShell(val config: Configuration,
                         new DescribeHandler(this, connection,
                                             transactionManager),
                         new CommentHandler(this, connection),
-                        new BlockSQLHandler(this, selectHandler, updateHandler),
+                        new BlockSQLHandler(this, selectHandler, 
+                                            updateHandler),
                         setHandler,
                         new EchoHandler,
                         new ExitHandler,
@@ -781,7 +782,7 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
  * Handles the ".about" command.
  */
 class AboutHandler(val shell: SQLShell)
-    extends SQLShellCommandHandler with Sorter
+    extends SQLShellCommandHandler with Sorter with Wrapper
 {
     import java.util.Properties
 
@@ -810,7 +811,8 @@ class AboutHandler(val shell: SQLShell)
     def showAbbreviatedInfo =
     {
         println(aboutInfo.identString)
-        println("Using " + getReadline().get);
+        println(aboutInfo.copyright)
+        println("Using " + getReadline().get)
     }
 
     def showFullInfo =
@@ -830,7 +832,8 @@ class AboutHandler(val shell: SQLShell)
             {
                 case None        => 
                 case Some(value) => 
-                    println((label + ":").padTo(maxLabelLength, ' ') + value)
+                    wrapPrintln((label + ":").padTo(maxLabelLength, ' '),
+                                value)
             }
         }
     }
@@ -2387,7 +2390,8 @@ class DescribeHandler(val shell: SQLShell,
                        ", catalog " + catalog + ", schema " + schema)
         try
         {
-            withResultSet(dmd.getIndexInfo(catalog, schema, table, false, true))
+            withResultSet(dmd.getIndexInfo(catalog, schema, table, false, 
+                                           true))
             {
                 rs =>
                 gatherIndexInfo(rs)

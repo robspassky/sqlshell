@@ -1,0 +1,6 @@
+* Fixed a command completion error in the `.show` command.
+* SQLShell now supports `--sqlshell-block-begin` and `--sqlshell-block-end`
+  structured comments, used to delineate multi-statement SQL that must be
+  run all at once, such as stored procedure definitions. See the User's
+  Guide for complete details.
+* Now requires [SBT][sbt] 0.7.2
