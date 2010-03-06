@@ -227,18 +227,29 @@ class SQLShell(val config: Configuration,
         pushReader(new SourceReader(Source.fromFile(fileToRun.get)).readline)
     }
 
-    private val unknownHandler = new UnknownHandler(this,
-                                                    selectHandler,
-                                                    updateHandler)
-
-    private val databaseInfo = connectionInfo.databaseInfo
     /**
-     * The primary prompt string.
+     * Cached information about the current database.
+     */
+    private val databaseInfo = connectionInfo.databaseInfo
+
+    /**
+     * The primary prompt string. This method supports substitution.
      */
     override def primaryPrompt =
     {
-        import grizzled.string.template.WindowsCmdStringTemplate
+        /**
+         * Renaming the imported template implementation allows it to be
+         * changed without affecting the underlying code. We use the
+         * Windows-style template engine (with "%var%" syntax), rather than
+         * the Unix shell-style one (with "${var}" syntax) to avoid problems
+         * in the configuration file, which uses "${var}" substitution.
+         */
+        import grizzled.string.template.{WindowsCmdStringTemplate => Template}
 
+        /**
+         * Resolves a variable reference. See
+         * grizzled.string.template.StringTemplate
+         */
         def resolveVar(varname: String): Option[String] =
         {
             varname match
@@ -253,22 +264,26 @@ class SQLShell(val config: Configuration,
 
         settings.stringSetting("prompt") match
         {
-            case None =>
-                Constants.DefaultPrimaryPrompt
-
-            case Some(s) =>
-                new WindowsCmdStringTemplate(resolveVar, true).substitute(s)
+            case None    => Constants.DefaultPrimaryPrompt
+            case Some(s) => new Template(resolveVar, true).substitute(s)
         }
     }
 
     /**
      * The second prompt string, used when additional input is being
-     * retrieved.
+     * retrieved. Cannot currently be overridden.
      */
     override def secondaryPrompt = "> "
 
+    /**
+     * Augment the characters permitted in a multi-character command name,
+     * so that they include "-".
+     */
     override def StartCommandIdentifier = super.StartCommandIdentifier + "-"
 
+    /**
+     * Stuff that happens before the first prompt is ever issued.
+     */
     override def preLoop: Unit =
     {
         historyPath match
@@ -282,6 +297,9 @@ class SQLShell(val config: Configuration,
         }
     }
 
+    /**
+     * Stuff that happens right before we exit.
+     */
     override def postLoop: Unit =
     {
         if (transactionManager.inTransaction)
@@ -302,6 +320,9 @@ class SQLShell(val config: Configuration,
         }
     }
 
+    /**
+     * What to do on EOF.
+     */
     override def handleEOF: CommandAction =
     {
         logger.verbose("EOF. Exiting.")
@@ -309,6 +330,15 @@ class SQLShell(val config: Configuration,
         Stop
     }
 
+    /**
+     * The handler for unknown commands.
+     */
+    private val unknownHandler = new UnknownHandler(this,
+                                                    selectHandler,
+                                                    updateHandler)
+    /**
+     * The method that's called when an unknown command is typed.
+     */
     override def handleUnknownCommand(commandName: String,
                                       unparsedArgs: String): CommandAction =
     {
@@ -316,6 +346,9 @@ class SQLShell(val config: Configuration,
         KeepGoing
     }
 
+    /**
+     * Called when an exception occurs.
+     */
     override def handleException(e: Exception): CommandAction =
     {
         val message = if (e.getMessage == null)
@@ -331,6 +364,14 @@ class SQLShell(val config: Configuration,
         KeepGoing
     }
 
+    /**
+     * Called before a command is executed. Allows editing of the command.
+     *
+     * @param line  the command line
+     *
+     * @return The possibly edited command, Some("") to signal an empty
+     *         command, or None to signal EOF. 
+     */
     override def preCommand(line: String) =
     {
         if (line.trim().length == 0)
@@ -344,6 +385,15 @@ class SQLShell(val config: Configuration,
         }
     }
 
+    /**
+     * Called after a command line is interpreted.
+     *
+     * @param command      the command that invoked this handler
+     * @param unparsedArgs the remainder of the unparsed command line
+     *
+     * @return KeepGoing to tell the main loop to continue, or Stop to tell
+     *         the main loop to be done.
+     */
     override def postCommand(command: String,
                              unparsedArgs: String): CommandAction =
     {
