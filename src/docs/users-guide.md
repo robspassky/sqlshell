@@ -525,19 +525,20 @@ transcript, to whet your appetite:
     Type "help" for help. Type ".about" for more information.
 
     sqlshell> .set
-            ansi: true
-         catalog: 
-            echo: false
-         logging: info
-       maxbinary: 20
-      maxhistory: 2147483647
-          prompt: sqlshell>
-          schema: public
-     showresults: true
-    showrowcount: true
-     showtimings: true
-    sortcolnames: false
-      stacktrace: false
+             ansi: true
+          catalog: 
+             echo: false
+          logging: info
+        maxbinary: 20
+   maxcompletions: 30
+       maxhistory: 2147483647
+           prompt: sqlshell>
+           schema: public
+      showresults: true
+     showrowcount: true
+      showtimings: true
+     sortcolnames: false
+       stacktrace: false
 
     sqlshell> .desc database
     Connected to database: jdbc:postgresql://localhost:5432/bmc
@@ -883,18 +884,20 @@ See **Command History** for a complete explanation of SQLShell's
 > any parameters, `.set` displays all internal settings and their values:
 
     sqlshell> .set
-            ansi: true
-         catalog:
-            echo: false
-         logging: info
-       maxbinary: 20
-      maxhistory: 2147483647
-          prompt: sqlshell>
-          schema:
-    showrowcount: true
-     showtimings: true
-    sortcolnames: false
-      stacktrace: false
+             ansi: true
+          catalog: 
+             echo: false
+          logging: info
+        maxbinary: 20
+   maxcompletions: 30
+       maxhistory: 2147483647
+           prompt: sqlshell>
+           schema: public
+      showresults: true
+     showrowcount: true
+      showtimings: true
+     sortcolnames: false
+       stacktrace: false
 
 > The initial value for any setting may be placed in the `[settings]` section
 > of the configuration file.
