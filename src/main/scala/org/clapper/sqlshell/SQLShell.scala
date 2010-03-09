@@ -106,6 +106,15 @@ class MaxHistorySetting(readline: Readline)
         readline.history.max = newValue.asInstanceOf[Int]
 }
 
+class MaxCompletionsSetting(readline: Readline)
+    extends Setting with IntValueConverter
+{
+    override def get = readline.maxShownCompletions
+
+    override def set(newValue: Any) =
+        readline.maxShownCompletions = newValue.asInstanceOf[Int]
+}
+
 /**
  * Handles enabling/disabling verbose messages.
  */
@@ -163,19 +172,20 @@ class SQLShell(val config: Configuration,
     AnsiSetting.set(useAnsiColors)
 
     val settings = new Settings(
-        ("ansi",         AnsiSetting),
-        ("catalog",      new StringSetting("")),
-        ("echo",         new BooleanSetting(false)),
-        ("logging",      LogLevelSetting),
-        ("maxhistory",   new MaxHistorySetting(readline)),
-        ("prompt",       new StringSetting(Constants.DefaultPrimaryPrompt)),
-        ("schema",       new StringSetting("")),
-        ("showbinary",   new IntSetting(0)),
-        ("showresults",  new BooleanSetting(true)),
-        ("showrowcount", new BooleanSetting(true)),
-        ("showtimings",  new BooleanSetting(true)),
-        ("sortcolnames", new BooleanSetting(false)),
-        ("stacktrace",   new BooleanSetting(showStackTraces))
+        ("ansi",           AnsiSetting),
+        ("catalog",        new StringSetting("")),
+        ("echo",           new BooleanSetting(false)),
+        ("logging",        LogLevelSetting),
+        ("maxbinary",      new IntSetting(0)),
+        ("maxcompletions", new MaxCompletionsSetting(readline)),
+        ("maxhistory",     new MaxHistorySetting(readline)),
+        ("prompt",         new StringSetting(Constants.DefaultPrimaryPrompt)),
+        ("schema",         new StringSetting("")),
+        ("showresults",    new BooleanSetting(true)),
+        ("showrowcount",   new BooleanSetting(true)),
+        ("showtimings",    new BooleanSetting(true)),
+        ("sortcolnames",   new BooleanSetting(false)),
+        ("stacktrace",     new BooleanSetting(showStackTraces))
     )
 
     // List of command handlers.
@@ -1018,7 +1028,7 @@ trait ResultSetHandler
     def closeResultSetHandler: Unit = return
 }
 
-abstract class ResultSetStringifier(showBinary: Int)
+abstract class ResultSetStringifier(maxBinary: Int)
 {
     private val DateFormatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.S")
 
@@ -1052,7 +1062,7 @@ abstract class ResultSetStringifier(showBinary: Int)
 
         def clobString(i: Int): String =
         {
-            if (showBinary == 0)
+            if (maxBinary == 0)
                 "<clob>"
 
             else
@@ -1068,13 +1078,13 @@ abstract class ResultSetStringifier(showBinary: Int)
                         // Read one more than the binary length. If we get
                         // that many, then display an ellipsis.
 
-                        val buf = r.readSome(showBinary + 1)
+                        val buf = r.readSome(maxBinary + 1)
                         buf.length match
                         {
-                            case 0 =>                     ""
-                            case n if (n > showBinary) => buf.mkString("") +
-                                                          "..."
-                            case n =>                     buf.mkString("")
+                            case 0 =>                    ""
+                            case n if (n > maxBinary) => buf.mkString("") +
+                                                         "..."
+                            case n =>                    buf.mkString("")
                         }
                     }
                 }
@@ -1083,7 +1093,7 @@ abstract class ResultSetStringifier(showBinary: Int)
 
         def binaryString(i: Int): String =
         {
-            if (showBinary == 0)
+            if (maxBinary == 0)
                 "<blob>"
 
             else
@@ -1099,8 +1109,8 @@ abstract class ResultSetStringifier(showBinary: Int)
                         // Read one more than the binary length. If we get
                         // that many, then display an ellipsis.
 
-                        val buf = is.readSome(showBinary + 1)
-                        val ellipsis = buf.length > showBinary
+                        val buf = is.readSome(maxBinary + 1)
+                        val ellipsis = buf.length > maxBinary
                         val hexList =
                         {
                             for (b <- buf)
@@ -1291,8 +1301,8 @@ private[sqlshell] trait SelectResultSetHandler extends ResultSetHandler
  * Used by the select handler to process and cache a result set.
  */
 private[sqlshell] class ResultSetCacheHandler(tempFile: File,
-                                              val showBinary: Int)
-    extends ResultSetStringifier(showBinary) with SelectResultSetHandler
+                                              val maxBinary: Int)
+    extends ResultSetStringifier(maxBinary) with SelectResultSetHandler
 {
     import java.io.{FileOutputStream, ObjectOutputStream}
 
@@ -1479,8 +1489,8 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         logger.verbose("Processing results...")
 
         val metadata = rs.getMetaData
-        val showBinary = shell.settings.intSetting("showbinary")
-        val cacheHandler = new ResultSetCacheHandler(tempFile, showBinary)
+        val maxBinary = shell.settings.intSetting("maxbinary")
+        val cacheHandler = new ResultSetCacheHandler(tempFile, maxBinary)
         val noCacheHandler = new ResultSetNoCacheHandler
         val resultHandler = 
             if (shell.settings.booleanSettingIsTrue("showresults"))
@@ -1655,10 +1665,10 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
    |headers, until it sees ".capture off".""".stripMargin
 
     private val HandlerKey = this.getClass.getName
-    private val showBinary = shell.settings.intSetting("showbinary")
+    private val maxBinary = shell.settings.intSetting("maxbinary")
 
     private class SaveToCSVHandler(path: File)
-        extends ResultSetStringifier(showBinary) with ResultSetHandler
+        extends ResultSetStringifier(maxBinary) with ResultSetHandler
     {
         import java.io.{FileOutputStream, OutputStreamWriter}
 
@@ -2537,6 +2547,8 @@ class DescribeHandler(val shell: SQLShell,
 class ShowHandler(val shell: SQLShell, val connection: Connection)
     extends SQLShellCommandHandler with Wrapper with Sorter
 {
+    import grizzled.collection.GrizzledLinearSeq.Implicits._
+
     val CommandName = ".show"
     val Help =
 """|Show various useful things.
@@ -2655,7 +2667,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
         val tables: List[TableSpec] = shell.getTables(schemaOption, nameFilter)
         val tableNames = tables.filter(_.name != None).map(_.name.get)
         val sorted = sortByName(tableNames)
-        print(shell.columnarize(sorted, shell.OutputWidth))
+        print(sorted.columnarize(shell.OutputWidth))
 
         KeepGoing
     }
@@ -2664,6 +2676,6 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
     {
         val schemas = shell.getSchemas
         val sorted = sortByName(schemas)
-        print(shell.columnarize(sorted, shell.OutputWidth))
+        print(sorted.columnarize(shell.OutputWidth))
     }
 }

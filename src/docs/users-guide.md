@@ -176,7 +176,7 @@ The following file specifies the same databases as in the examples, above:
     # sqlshell initialization file
 
     [settings]
-    showbinary: 20
+    maxbinary: 20
 
     [db.testdb]
     aliases: sqlite, test
@@ -345,7 +345,7 @@ settings that are understood by the `.set` command. See the description of
 
     [settings]
     # Show up to 20 characters of CLOB and BLOB data
-    showbinary: 20
+    maxbinary: 20
 
 #### The [drivers] section
 
@@ -529,10 +529,10 @@ transcript, to whet your appetite:
          catalog: 
             echo: false
          logging: info
+       maxbinary: 20
       maxhistory: 2147483647
           prompt: sqlshell>
           schema: public
-      showbinary: 20
      showresults: true
     showrowcount: true
      showtimings: true
@@ -887,10 +887,10 @@ See **Command History** for a complete explanation of SQLShell's
          catalog:
             echo: false
          logging: info
+       maxbinary: 20
       maxhistory: 2147483647
           prompt: sqlshell>
           schema:
-      showbinary: 20
     showrowcount: true
      showtimings: true
     sortcolnames: false
@@ -935,6 +935,19 @@ See **Command History** for a complete explanation of SQLShell's
 >   to the screen. Legal values are, in order of verbosity: `error`, `info`, 
 >   `verbose`, `warning`, `debug`. **Default:** `info`
 >
+> * `maxbinary`: How many bytes or characters to display from binary (BLOB,
+>   CLOB, LONGVARCHAR, etc.) columns. For non-character columns like BLOBs,
+>   the bytes are displayed as two-character hexadecimal strings. If this
+>   setting is 0, then SQLShell will not retrieve binary values and will display
+>   placeholder strings like `<binary>` and `<clob>`, instead. **Default:** 0
+>
+> * `maxcompletions`: The maximum number of possible completions to show.
+>   This setting comes into play when you press the TAB key to complete a
+>   string, and there are multiple possible completions for the string.
+>   SQLShell will display up to `maxcompletions` of those possible completions,
+>   in a columnar form, on the screen. If this setting is 0, then SQLShell
+>   will display all of the possible completions.  **Default:** 30
+>
 > * `maxhistory`: Sets the maximum number of entries in the command history.
 >   **Default:** A really large number (the largest possible signed 32-bit
 >   integer, 2147483647).
@@ -957,12 +970,6 @@ See **Command History** for a complete explanation of SQLShell's
 >   user. This variable just sets the initial value for this setting. This 
 >   value may also be initialized in the configuration section for the database.
 >   **Default:** none
->
-> * `showbinary`: How many bytes or characters to display from binary (BLOB,
->   CLOB, LONGVARCHAR, etc.) columns. For non-character columns like BLOBs,
->   the bytes are displayed as two-character hexadecimal strings. If this
->   setting is 0, then SQLShell will not retrieve binary values and will display
->   placeholder strings like `<binary>` and `<clob>`, instead. **Default:** 0
 >
 > * `showrowcount`: Whether or not to display the number of rows retrieved or
 >   affected by a SQL statement. **Default:** on

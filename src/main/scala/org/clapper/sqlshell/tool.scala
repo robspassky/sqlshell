@@ -119,7 +119,7 @@ object Tool
     {
         import java.util.Arrays.asList
         import java.util.{List => JList}
-        import grizzled.collection.implicits._
+        import scala.collection.JavaConversions._
 
         val parser = new OptionParser
 
@@ -177,7 +177,10 @@ object Tool
             val showAnsi = ! options.has("n")
 
             val positionalParams =
-                (for (s <- options.nonOptionArguments) yield s).toList
+                {
+                    for (s <- JListWrapper(options.nonOptionArguments)) 
+                        yield s
+                }.toList
 
             if (positionalParams.length == 0)
                 throw new CommandLineException("Missing parameter(s).")
@@ -210,9 +213,11 @@ object Tool
 
             val readlineLibNames =
                 if (options.has("r"))
-                    {for (v <- options.valuesOf("r")
-                                      .asInstanceOf[JList[String]])
-                         yield(v)}.toList
+                {
+                    val names: scala.collection.mutable.Buffer[String] = 
+                        options.valuesOf("r").asInstanceOf[JList[String]]
+                    names.toList
+                }
                 else
                     Nil
 
