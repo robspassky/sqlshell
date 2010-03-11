@@ -1605,7 +1605,6 @@ abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection)
 
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
-println("args=" + args)
         val newArgs = 
             if (mustRemoveSemiColon) 
                 removeSemicolon(args)
