@@ -662,9 +662,11 @@ class SQLShell(val config: Configuration,
 abstract class SQLShellCommandHandler extends CommandHandler
 {
     def runCommand(commandName: String, args: String): CommandAction =
-        doRunCommand(commandName, removeSemicolon(args))
+        doRunCommand(commandName, removeSemicolon(editArgs(args)))
 
     def doRunCommand(commandName: String, args: String): CommandAction
+
+    protected def editArgs(args: String): String = args
 
     protected def removeSemicolon(s: String): String =
         if (s endsWith ";")
@@ -1014,6 +1016,9 @@ abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
                 shell.getTableNames(None)
         }
     }
+
+    override protected def editArgs(args: String): String =
+        args.replaceAll("[\n\r]", " ")
 }
 
 /**
@@ -1600,6 +1605,7 @@ abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection)
 
     def doRunCommand(commandName: String, args: String): CommandAction =
     {
+println("args=" + args)
         val newArgs = 
             if (mustRemoveSemiColon) 
                 removeSemicolon(args)

@@ -1,3 +1,8 @@
+Version 0.5.1 (11 March, 2010)
+
+- Quick update to roll in a fix to the grizzled.cmd library.
+
+---------------------------------------------------------------------------
 Version 0.5 (11 March, 2010)
 
 - Fixed a command completion error in the ".show" command.
