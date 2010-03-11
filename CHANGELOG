@@ -1,7 +1,7 @@
-Version 0.5 (...)
+Version 0.5 (11 March, 2010)
 
 - Fixed a command completion error in the ".show" command.
-- Completions are now displayed in a columnar fashion.
+- Possible completions are now displayed in columns, not one per line.
 - SQLShell now supports --sqlshell-block-begin and --sqlshell-block-end
   structured comments, used to delineate multi-statement SQL that must be
   run all at once, such as stored procedure definitions. See the User's
@@ -13,7 +13,7 @@ Version 0.5 (...)
   The prompt string can contain escapes, such as "%db%" (which substitutes
   the current database name) and "%user%" (which substitutes the name of
   the connected user). See the User's Guide for details.
-- Now requires sbt 0.7.2
+- Now uses sbt 0.7.2 to build from source.
 
 ---------------------------------------------------------------------------
 Version 0.4.1 (2 March, 2010)
