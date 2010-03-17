@@ -1,11 +1,8 @@
-- Add ability to change transaction isolation level
+- Add prompt for password capability.
+  + Auto-detect bad authentication and switch to prompting?
+  + Might be annoying to do.
 
-- Fix completion handler:
-  + Implement a custom interface to EditLine (and, perhaps, Readline).
-    JavaReadline doesn't expose enough of the underlying API.
+- Add ability to change transaction isolation level
 
 - Support this kind of syntax: .desc ?
   Identical to: ? .desc
-
-- Add ability to do ".history regex" to show only commands matching the
-  regex.
