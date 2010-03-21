@@ -7,6 +7,7 @@ import java.io.{File, FileWriter, PrintWriter}
 import grizzled.file.implicits._
 
 import org.clapper.sbtplugins.{EditSourcePlugin, IzPackPlugin, MarkdownPlugin}
+import org.clapper.sbtplugins.izpack._
 
 /**
  * To build SQLShell via SBT.
@@ -35,12 +36,6 @@ class SQLShellProject(info: ProjectInfo)
     // must be stripped off before this file is packaged.
     val aboutInfoPath = ("target" / "classes" ##) / "org" / "clapper" /
                          "sqlshell" / "SQLShell.properties"
-    val izPackHome = 
-        if (System.getenv("IZPACK_HOME") != null)
-            System.getenv("IZPACK_HOME")
-        else
-            pathFor(System.getProperty("user.home"), "java", "izPack")
-
     val sourceDocsDir = "src" / "docs"
     val targetDocsDir = "target" / "doc"
     val usersGuide = sourceDocsDir / "users-guide.md"
@@ -271,66 +266,9 @@ class SQLShellProject(info: ProjectInfo)
      */
     private def installerAction =
     {
-        if (! new File(izPackHome).exists)
-            throw new Exception("Can't run IzPack compiler. No valid " +
-                                "IZPACK_HOME.")
-
-        // Determine what's to be installed.
-
-        val installDir = mainSourcePath / "izpack"
-        val installFile = installDir / "install.xml"
-
-        // Copy the third party jars (minus the ones we don't want) to a
-        // temporary directory.
-
-        FileUtilities.withTemporaryDirectory(log)
-        {
-            jarDir =>
-
-            // Get the list of jar files to include, besides the project's
-            // jar. Note to self: "**" means "recursive drill down". "*"
-            // means "immediate descendent".
-
-            val jars = 
-                (("lib" +++ "lib_managed") **
-                 ("*.jar" - "izpack*.jar"
-                          - "scalatest*.jar"
-                          - "scala-library*.jar"
-                          - "scala-compiler.jar")) +++
-                 ("project" / "boot" / scalaVersionDir ** "scala-library.jar")
-
-            val jarDirPath = Path.fromFile(jarDir)
-            log.info("Copying jars to \"" + jarDir + "\"")
-            FileUtilities.copyFlat(jars.get, jarDirPath, log)
-
-            // Create the IzPack configuration file from the template.
-
-            log.info("Creating IzPack configuration file.")
-            val tempInstallFile = File.createTempFile("inst", ".xml")
-            tempInstallFile.deleteOnExit
-
-            val sqlshellVersion = projectVersion.value.toString
-            val vars = Map(
-                "API_DOCS_DIR" -> ("target"/"doc"/"main"/"api").absolutePath,
-                "DOCS_DIR" -> targetDocsDir.absolutePath,
-                "JAR_FILE" -> jarPath.absolutePath,
-                "SQLSHELL_VERSION" -> sqlshellVersion,
-                "SRC_INSTALL" -> installDir.absolutePath,
-                "THIRD_PARTY_JAR_DIR" -> jarDir.getPath,
-                "TOP_DIR" -> path(".").absolutePath,
-                "SCALA_VERSION" -> buildScalaVersion
-            )
-
-            editSourceToFile(Source.fromFile(installFile.absolutePath),
-                             vars,
-                             tempInstallFile)
-
-            val installerJar = projectName.value.toString.toLowerCase + "-" +
-                               sqlshellVersion + "-installer.jar"
-            izpackMakeInstaller(Path.fromFile(tempInstallFile),
-                                "target" / installerJar)
-            None
-        }
+        val installerJar = projectName.value.toString.toLowerCase + "-" +
+                           projectVersion.value.toString + "-install.jar"
+        izpackMakeInstaller(installConfig, "target" / installerJar)
     }
 
     private def copyFile(source: Path, target: Path)
@@ -409,5 +347,179 @@ class SQLShellProject(info: ProjectInfo)
         }
 
         None
+    }
+
+    /* ---------------------------------------------------------------------- *\
+                        Installation Configuration
+    \* ---------------------------------------------------------------------- */
+
+    lazy val installConfig = new IzPackConfig("target" / "install", log)
+    {
+        val InstallSrcDir = mainSourcePath / "izpack"
+        val TargetDocDir = "target" / "doc"
+        val LicenseHTML = TargetDocDir / "LICENSE.html"
+        val ReadmeHTML = TargetDocDir / "README.html"
+
+        new Info
+        {
+            appName = projectName.value.toString
+            appVersion = projectVersion.value.toString
+            appSubPath = "clapper.org/sqlshell"
+            author("Brian M. Clapper", "bmc@clapper.org")
+            url = "http://www.clapper.org/software/scala/sqlshell"
+            javaVersion = "1.6"
+            writeInstallationInfo = true
+        }
+
+        languages = List("eng", "chn", "deu", "fra", "jpn", "spa", "rus")
+
+        new Resources
+        {
+            new Resource
+            {
+                id = "HTMLLicencePanel.licence"
+                source = LicenseHTML
+            }
+
+            new Resource
+            {
+                id = "HTMLInfoPanel.info"
+                source = ReadmeHTML
+            }
+
+            new Resource
+            {
+                id = "Installer.image"
+                source = InstallSrcDir / "sqlshell-logo.png"
+            }
+
+            new Resource
+            {
+                id = "XInfoPanel.info"
+                source = InstallSrcDir / "final_screen.txt"
+            }
+
+            new InstallDirectory
+            {
+                """C:\Program Files\clapper.org\sqlshell""" on Windows
+                "/Applications/sqlshell" on MacOSX
+                "/usr/local/sqlshell" on Unix
+            }
+        }
+
+        new Packaging
+        {
+            packager = Packager.SingleVolume
+        }
+
+        new GuiPrefs
+        {
+            height = 768
+            width = 1024
+
+            new LookAndFeel("looks")
+            {
+                onlyFor(Windows)
+                params = Map("variant" -> "extwin")
+            }
+
+            new LookAndFeel("looks")
+            {
+                onlyFor(Unix)
+            }
+        }
+
+        new Panels
+        {
+            new Panel("HelloPanel")
+            new Panel("HTMLInfoPanel")
+            new Panel("HTMLLicencePanel")
+            new Panel("TargetPanel")
+            new Panel("PacksPanel")
+            new Panel("InstallPanel")
+            new Panel("XInfoPanel")
+            new Panel("FinishPanel")
+        }
+
+        new Packs
+        {
+            new Pack("Core")
+            {
+                required = true
+                preselected = true
+                description = "The sqlshell jar file, binaries, and " +
+                              "dependent jars"
+
+                new SingleFile(LicenseHTML, "LICENSE.html")
+                new SingleFile(ReadmeHTML, "README.html")
+
+                new SingleFile(InstallSrcDir / "sqlshell.sh",
+                               "$INSTALL_PATH/bin/sqlshell")
+                {
+                    onlyFor(Unix, MacOSX)
+                }
+
+                new Parsable("$INSTALL_PATH/bin/sqlshell")
+                {
+                    onlyFor(Unix, MacOSX)
+                }
+
+                new Executable("$INSTALL_PATH/bin/sqlshell")
+                {
+                    onlyFor(Unix, MacOSX)
+                }
+
+                new SingleFile(InstallSrcDir / "sqlshell.bat",
+                               "$INSTALL_PATH/bin/sqlshell.bat")
+                {
+                    onlyFor(Windows)
+                }
+
+                new Parsable("$INSTALL_PATH/bin/sqlshell.bat")
+                {
+                    onlyFor(Windows)
+                }
+
+                new Executable("$INSTALL_PATH/bin/sqlshell.bat")
+                {
+                    onlyFor(Windows)
+                }
+
+                new SingleFile(InstallSrcDir / "sample.cfg",
+                               "$INSTALL_PATH/sample.cfg")
+
+                new SingleFile(jarPath, "$INSTALL_PATH/lib/sqlshell.jar")
+
+                // Get the list of jar files to include, besides the
+                // project's jar. Note to self: "**" means "recursive drill
+                // down". "*" means "immediate descendent".
+
+                val projectBootDir = "project" / "boot" / scalaVersionDir
+                val jars = 
+                    (("lib" +++ "lib_managed") **
+                     ("*.jar" - "izpack*.jar"
+                              - "scalatest*.jar"
+                              - "scala-library*.jar"
+                              - "scala-compiler.jar")) +++
+                     (projectBootDir ** "scala-library.jar")
+
+                new FileSet(jars, "$INSTALL_PATH/lib")
+            }
+
+            new Pack("Documentation")
+            {
+                required = false
+                preselected = true
+                description = "The sqlshell User's Guide and other docs"
+
+                new FileSet((TargetDocDir * "*.html") +++
+                            (TargetDocDir * "*.js") +++
+                            (TargetDocDir * "*.md") +++
+                            (TargetDocDir * "*.css") +++
+                            (TargetDocDir * "FAQ"),
+                            "$INSTALL_PATH/docs")
+                new File(path("CHANGELOG"), "$INSTALL_PATH/docs")
+            }
+        }
     }
 }
