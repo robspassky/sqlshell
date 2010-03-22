@@ -406,7 +406,6 @@ class SQLShellProject(info: ProjectInfo)
                 "/usr/local/sqlshell" on Unix
             }
         }
-
         new Packaging
         {
             packager = Packager.SingleVolume
@@ -450,8 +449,8 @@ class SQLShellProject(info: ProjectInfo)
                 description = "The sqlshell jar file, binaries, and " +
                               "dependent jars"
 
-                new SingleFile(LicenseHTML, "LICENSE.html")
-                new SingleFile(ReadmeHTML, "README.html")
+                new SingleFile(LicenseHTML, "$INSTALL_PATH/LICENSE.html")
+                new SingleFile(ReadmeHTML, "$INSTALL_PATH/README.html")
 
                 new SingleFile(InstallSrcDir / "sqlshell.sh",
                                "$INSTALL_PATH/bin/sqlshell")
