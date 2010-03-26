@@ -1116,16 +1116,14 @@ abstract class ResultSetStringifier(maxBinary: Int)
 
                         val buf = is.readSome(maxBinary + 1)
                         val ellipsis = buf.length > maxBinary
-                        val hexList =
-                        {
-                            for (b <- buf)
-                            yield b.asInstanceOf[Int].toHexString.toList match
+                        val conv = (b: Byte) => 
+                            b.asInstanceOf[Int].toHexString.toList match
                             {
                                 case digit :: Nil => "0" + digit
                                 case digits       => digits mkString ""
                             }
-                        }
-                        val hexString = hexList.mkString("")
+
+                        val hexString = buf.map(conv(_)) mkString ""
                         if (ellipsis) hexString + "..." else hexString
                     }
                 }
@@ -1558,13 +1556,11 @@ class SelectHandler(shell: SQLShell, connection: Connection)
             val columnNames = colNamesAndSizes.keysIterator.toList
             val columnFormats = 
                 LinkedHashMap.empty[String,String].clone() ++=
-                (columnNames.map(col => (col, "%-" + colNamesAndSizes(col) + "s")))
+                (columnNames.map(c => (c, "%-" + colNamesAndSizes(c) + "s")))
 
             println()
             println(
-                {for (col <- columnNames)
-                     yield formatter.format(columnFormats(col), col)}
-                .toList
+                columnNames.map(c => formatter.format(columnFormats(c), c))
                 .mkString(ColumnSeparator)
             )
 
@@ -2243,7 +2239,7 @@ class DescribeHandler(val shell: SQLShell,
                 else
                     colMap.keysIterator.toList
 
-            (for (key <- keys) yield (key, colMap(key))).toList
+            keys.map(key => (key, colMap(key)))
         }
 
         withSQLStatement(connection)

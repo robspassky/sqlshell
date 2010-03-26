@@ -2,6 +2,7 @@ Version 0.5.2 (...)
 
 - Updated license to include license terms and copyrights for all third-party
   software shipped with SQLShell.
+- Some internal cosmetic code changes.
 - Updated to the released version of SBT 0.7.2.
 - Updated to version 0.4.2 of Grizzled Scala.
 
