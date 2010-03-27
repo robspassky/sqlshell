@@ -81,8 +81,7 @@ import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
 /**
  * Global constants
  */
-private[sqlshell] object Constants
-{
+private[sqlshell] object Constants {
     val SpecialCommentPrefix = "--sqlshell-"
     val DefaultPrimaryPrompt = "sqlshell> "
 }
@@ -98,8 +97,8 @@ class TableSpec(val name: Option[String],
  * "Holds" the max history value
  */
 class MaxHistorySetting(readline: Readline)
-    extends Setting with IntValueConverter
-{
+extends Setting with IntValueConverter {
+
     override def get = readline.history.max
 
     override def set(newValue: Any) =
@@ -107,10 +106,8 @@ class MaxHistorySetting(readline: Readline)
 }
 
 class MaxCompletionsSetting(readline: Readline)
-    extends Setting with IntValueConverter
-{
+extends Setting with IntValueConverter {
     override def get = readline.maxShownCompletions
-
     override def set(newValue: Any) =
         readline.maxShownCompletions = newValue.asInstanceOf[Int]
 }
@@ -118,8 +115,7 @@ class MaxCompletionsSetting(readline: Readline)
 /**
  * Handles enabling/disabling verbose messages.
  */
-object LogLevelSetting extends Setting with ValueConverter
-{
+object LogLevelSetting extends Setting with ValueConverter {
     override val legalValues = logger.Levels.map(_.toString)
     override def get = logger.level.toString
     override def set(newValue: Any) = logger.level = newValue
@@ -129,8 +125,7 @@ object LogLevelSetting extends Setting with ValueConverter
 /**
  * Handles changes to the "ansi" setting.
  */
-object AnsiSetting extends Setting with BooleanValueConverter
-{
+object AnsiSetting extends Setting with BooleanValueConverter {
     override def get = logger.useAnsi
 
     override def set(newValue: Any) =
@@ -158,9 +153,7 @@ class SQLShell(val config: Configuration,
                showStackTraces: Boolean,
                beVerbose: Boolean,
                fileToRun: Option[File])
-    extends CommandInterpreter("sqlshell", readlineLibs)
-    with Wrapper with Sorter
-{
+extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter {
     val connector = new DatabaseConnector(config)
     val connectionInfo = connector.connect(dbInfo)
     val connection = connectionInfo.connection
@@ -227,8 +220,7 @@ class SQLShell(val config: Configuration,
     logger.verbose("Connected to: " + connectionInfo.jdbcURL)
     println()
 
-    if (fileToRun != None)
-    {
+    if (fileToRun != None) {
         // Push a reader for the file on the stack. To ensure that we don't
         // fall through to interactive mode, make sure there's an "exit" at
         // the end.
@@ -245,8 +237,7 @@ class SQLShell(val config: Configuration,
     /**
      * The primary prompt string. This method supports substitution.
      */
-    override def primaryPrompt =
-    {
+    override def primaryPrompt = {
         /**
          * Renaming the imported template implementation allows it to be
          * changed without affecting the underlying code. We use the
@@ -260,10 +251,8 @@ class SQLShell(val config: Configuration,
          * Resolves a variable reference. See
          * grizzled.string.template.StringTemplate
          */
-        def resolveVar(varname: String): Option[String] =
-        {
-            varname match
-            {
+        def resolveVar(varname: String): Option[String] = {
+            varname match {
                 case "db"     => connectionInfo.dbName
                 case "user"   => databaseInfo.user
                 case "dbtype" => databaseInfo.productName
@@ -272,8 +261,7 @@ class SQLShell(val config: Configuration,
             }
         }
 
-        settings.stringSetting("prompt") match
-        {
+        settings.stringSetting("prompt") match {
             case None    => Constants.DefaultPrimaryPrompt
             case Some(s) => new Template(resolveVar, true).substitute(s)
         }
@@ -294,13 +282,10 @@ class SQLShell(val config: Configuration,
     /**
      * Stuff that happens before the first prompt is ever issued.
      */
-    override def preLoop: Unit =
-    {
-        historyPath match
-        {
+    override def preLoop: Unit = {
+        historyPath match {
             case None =>
                 return
-
             case Some(path) =>
                 logger.verbose("Loading history from \"" + path + "\"...")
                 history.load(path)
@@ -310,20 +295,16 @@ class SQLShell(val config: Configuration,
     /**
      * Stuff that happens right before we exit.
      */
-    override def postLoop: Unit =
-    {
-        if (transactionManager.inTransaction)
-        {
+    override def postLoop: Unit = {
+        if (transactionManager.inTransaction) {
             logger.warning("An uncommitted transaction is open. " +
                            "Rolling it back.")
             transactionManager.rollback()
         }
 
-        historyPath match
-        {
+        historyPath match {
             case None =>
                 return
-
             case Some(path) =>
                 logger.verbose("Saving history to \"" + path + "\"...")
                 history.save(path)
@@ -333,8 +314,7 @@ class SQLShell(val config: Configuration,
     /**
      * What to do on EOF.
      */
-    override def handleEOF: CommandAction =
-    {
+    override def handleEOF: CommandAction = {
         logger.verbose("EOF. Exiting.")
         println()
         Stop
@@ -350,8 +330,7 @@ class SQLShell(val config: Configuration,
      * The method that's called when an unknown command is typed.
      */
     override def handleUnknownCommand(commandName: String,
-                                      unparsedArgs: String): CommandAction =
-    {
+                                      unparsedArgs: String): CommandAction = {
         unknownHandler.runCommand(commandName, unparsedArgs)
         KeepGoing
     }
@@ -359,8 +338,7 @@ class SQLShell(val config: Configuration,
     /**
      * Called when an exception occurs.
      */
-    override def handleException(e: Exception): CommandAction =
-    {
+    override def handleException(e: Exception): CommandAction = {
         val message = if (e.getMessage == null)
                           e.getClass.getName
                       else
@@ -382,13 +360,11 @@ class SQLShell(val config: Configuration,
      * @return The possibly edited command, Some("") to signal an empty
      *         command, or None to signal EOF. 
      */
-    override def preCommand(line: String) =
-    {
+    override def preCommand(line: String) = {
         if (line.trim().length == 0)
             Some("")
 
-        else
-        {
+        else {
             if (settings.booleanSettingIsTrue("echo"))
                 printf("\n>>> %s\n\n", line)
             Some(line)
@@ -405,8 +381,7 @@ class SQLShell(val config: Configuration,
      *         the main loop to be done.
      */
     override def postCommand(command: String,
-                             unparsedArgs: String): CommandAction =
-    {
+                             unparsedArgs: String): CommandAction = {
         // Force a newline after each command's output.
         println()
         return KeepGoing
@@ -422,10 +397,8 @@ class SQLShell(val config: Configuration,
      *
      * @return <tt>Some(name)</tt> or <tt>None</tt>
      */
-    private[sqlshell] def getSchema(schemaString: String): Option[String] =
-    {
-        val schemaOpt = schemaString match
-        {
+    private[sqlshell] def getSchema(schemaString: String): Option[String] = {
+        val schemaOpt = schemaString match {
             case null => None
             case s    => Some(s)
         }
@@ -444,10 +417,8 @@ class SQLShell(val config: Configuration,
      *
      * @return <tt>Some(name)</tt> or <tt>None</tt>
      */
-    private[sqlshell] def getSchema(schema: Option[String]): Option[String] =
-    {
-        val actualSchema = schema match
-        {
+    private[sqlshell] def getSchema(schema: Option[String]): Option[String] = {
+        val actualSchema = schema match {
             case None =>
                 settings.stringSetting("schema")
             case Some(s) =>
@@ -471,19 +442,16 @@ class SQLShell(val config: Configuration,
      *
      * @return a list of matching tables, or Nil
      */
-    private[sqlshell] def getTables(schema: Option[String],
-                                    nameFilter: Regex): List[TableSpec] =
-    {
+    private[sqlshell] def tables(schema: Option[String],
+                                 nameFilter: Regex): List[TableSpec] = {
         def toOption(s: String): Option[String] =
             if (s == null) None else Some(s)
 
         def getTableData(rs: ResultSet, 
-                         keep: TableSpec => Boolean): List[TableSpec] =
-        {
+                         keep: TableSpec => Boolean): List[TableSpec] = {
             val result = new ListBuffer[TableSpec]
 
-            while (rs.next)
-            {
+            while (rs.next) {
                 val ts = new TableSpec(toOption(rs.getString("TABLE_NAME")),
                                        toOption(rs.getString("TABLE_SCHEM")),
                                        toOption(rs.getString("TABLE_TYPE")))
@@ -498,8 +466,7 @@ class SQLShell(val config: Configuration,
         // Some databases (e.g., MS Access over the JDBC-ODBC bridge) don't
         // support it.
 
-        try
-        {
+        try {
             val jdbcSchema = 
                 if (schema == None)
                     settings.stringSetting("schema", null)
@@ -511,8 +478,7 @@ class SQLShell(val config: Configuration,
                            ", catalog=" + catalog)
             val rs = metadata.getTables(catalog, jdbcSchema, null,
                                         Array("TABLE", "VIEW"))
-            try
-            {
+            try {
                 def matches(ts: TableSpec): Boolean =
                     (ts != None) &&
                     (nameFilter.findFirstIn(ts.name.get) != None)
@@ -520,14 +486,12 @@ class SQLShell(val config: Configuration,
                 getTableData(rs, matches)
             }
 
-            finally
-            {
+            finally {
                 rs.close
             }
         }
 
-        catch
-        {
+        catch {
             case e: SQLException =>
                 logger.verbose("Failed to retrieve metadata: " + e.getMessage)
                 Nil
@@ -541,8 +505,8 @@ class SQLShell(val config: Configuration,
      *
      * @return a list of matching tables, or Nil
      */
-    private[sqlshell] def getTables(schema: Option[String]): List[TableSpec] =
-        getTables(schema, """.*""".r)
+    private[sqlshell] def tables(schema: Option[String]): List[TableSpec] =
+        tables(schema, """.*""".r)
 
     /**
      * Get all table data.
@@ -551,11 +515,10 @@ class SQLShell(val config: Configuration,
      *
      * @return a list of matching tables, or Nil
      */
-    private[sqlshell] def getTables(schema: String): List[TableSpec] =
-    {
+    private[sqlshell] def tables(schema: String): List[TableSpec] = {
         val schemaOpt = if ((schema == null) || (schema.trim == "")) None
                         else Some(schema)
-        getTables(schemaOpt, """.*""".r)
+        tables(schemaOpt, """.*""".r)
     }
 
     /**
@@ -565,9 +528,8 @@ class SQLShell(val config: Configuration,
      *
      * @return a sorted list of table names
      */
-    private[sqlshell] def getTableNames(schema: Option[String]): List[String] =
-    {
-        val tableData = getTables(schema)
+    private[sqlshell] def tableNames(schema: Option[String]): List[String] = {
+        val tableData = tables(schema)
         val tableNames = tableData.filter(_.name != None).map(_.name.get)
         sortByName(tableNames)
     }
@@ -582,20 +544,20 @@ class SQLShell(val config: Configuration,
      */
     private[sqlshell] def matchTableNames(schema: Option[String],
                                           prefix: Option[String]):
-        List[String] =
-    {
-        prefix match
-        {
+        List[String] = {
+
+        prefix match {
             case None =>
-                getTableNames(schema)
+                tableNames(schema)
 
             case Some(p) =>
-                val tables = getTables(schema)
+                val theTables = tables(schema)
                 val lcPrefix = p.toLowerCase
-                tables.filter(ts =>
-                              (ts.name != None) &&
-                              (ts.name.get.toLowerCase.startsWith(lcPrefix)))
-                      .map(_.name.get)
+                theTables.filter { ts =>
+                    (ts.name != None) &&
+                    (ts.name.get.toLowerCase.startsWith(lcPrefix))
+                }
+                .map(_.name.get)
         }
     }
 
@@ -604,53 +566,43 @@ class SQLShell(val config: Configuration,
      *
      * @return a list of schema names
      */
-    private[sqlshell] def getSchemas: List[String] =
-    {
-        def getResults(rs: ResultSet): List[String] =
-        {
+    private[sqlshell] def getSchemas: List[String] = {
+        def getResults(rs: ResultSet): List[String] = {
             if (! rs.next)
                 Nil
-
             else
                 rs.getString(1) :: getResults(rs)
         }
 
         val metadata = connection.getMetaData
         val rs = metadata.getSchemas
-        try
-        {
+        try {
             getResults(rs)
         }
 
-        finally
-        {
+        finally {
             rs.close
         }
     }
 
     private def loadSettings(config: Configuration,
-                             connectionInfo: ConnectionInfo) =
-    {
+                             connectionInfo: ConnectionInfo) = {
         if (config.hasSection("settings"))
         {
             logger.verbose("Loading settings from configuration.")
             for ((variable, value) <- config.options("settings"))
-                try
-                {
+                try {
                     settings.changeSetting(variable, value)
                     logger.verbose("+ " + setHandler.CommandName + " " +
                                    variable + "=" + value)
                 }
-                catch
-                {
+                catch {
                     case e: UnknownVariableException => warning(e.message)
                 }
         }
 
-        connectionInfo.configInfo.get("schema") match
-        {
+        connectionInfo.configInfo.get("schema") match {
             case None =>
-
             case Some(schema) =>
                 settings.changeSetting("schema", schema)
                 logger.verbose("+ " + setHandler.CommandName + " schema=" + 
@@ -659,8 +611,7 @@ class SQLShell(val config: Configuration,
     }
 }
 
-abstract class SQLShellCommandHandler extends CommandHandler
-{
+abstract class SQLShellCommandHandler extends CommandHandler {
     def runCommand(commandName: String, args: String): CommandAction =
         doRunCommand(commandName, removeSemicolon(editArgs(args)))
 
@@ -678,8 +629,7 @@ abstract class SQLShellCommandHandler extends CommandHandler
 /**
  * Handles the "exit" command
  */
-class ExitHandler extends SQLShellCommandHandler
-{
+class ExitHandler extends SQLShellCommandHandler {
     val CommandName = "exit"
     val Help = "Exit SQLShell."
 
@@ -689,15 +639,13 @@ class ExitHandler extends SQLShellCommandHandler
 /**
  * Handles the ".echo" command
  */
-class EchoHandler extends SQLShellCommandHandler
-{
+class EchoHandler extends SQLShellCommandHandler {
     val CommandName = ".echo"
     val Help = """|Echo the remaining arguments to the terminal. For example:
                   |
                   |     .echo This will be displayed.""".stripMargin
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
         println(args)
         KeepGoing
     }
@@ -715,10 +663,8 @@ class RunFileHandler(val shell: SQLShell) extends SQLShellCommandHandler
 
     private val completer = new PathnameCompleter
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
-        args.tokenize match
-        {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
+        args.tokenize match {
             case Nil =>
                 logger.error("You must specify a file to be run.")
             case file :: Nil =>
@@ -754,27 +700,22 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
     val variables = shell.settings.variableNames
     val varCompleter = new ListCompleter(variables)
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
         val trimmedArgs = args.trim
         if (trimmedArgs == "")
             showSettings
 
-        else
-        {
+        else {
             val i = args.indexOf('=')
             val chopAt = if (i >= 0) i else args.indexOf(' ')
-            try
-            {
-                if (chopAt < 0)
-                {
+            try {
+                if (chopAt < 0) {
                     val variable = args.trim
                     val value = shell.settings(variable)
                     printf("%s: %s\n", variable, value.toString)
                 }
 
-                else
-                {
+                else {
                     val variable = args.substring(0, chopAt).trim
                     val value = args.substring(chopAt + 1).trim
                     val strippedValue = stripQuotes(value)
@@ -782,8 +723,7 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
                 }
             }
 
-            catch
-            {
+            catch {
                 case e: UnknownVariableException => logger.warning(e.message)
             }
         }
@@ -793,22 +733,17 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
 
     override def complete(token: String,
                           allTokens: List[CompletionToken],
-                          line: String): List[String] =
-    {
-        def varValues(varName: String): List[String] =
-        {
-            try
-            {
+                          line: String): List[String] = {
+        def varValues(varName: String): List[String] = {
+            try {
                 shell.settings.legalValuesFor(varName)
             }
-            catch
-            {
+            catch {
                 case e: UnknownVariableException => Nil
             }
         }
 
-        allTokens match
-        {
+        allTokens match {
             case Nil =>
                 assert(false) // shouldn't happen
                 Nil
@@ -836,11 +771,9 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
         }
     }
 
-    private def stripQuotes(s: String): String =
-    {
+    private def stripQuotes(s: String): String = {
         val ch = s(0)
-        if ("\"'" contains ch)
-        {
+        if ("\"'" contains ch) {
             if (s.length == 1)
                 throw new SQLShellException("Unbalanced quotes in value: " + s)
 
@@ -854,13 +787,11 @@ class SetHandler(val shell: SQLShell) extends SQLShellCommandHandler with Sorter
             s
     }
 
-    private def showSettings =
-    {
+    private def showSettings = {
         val varWidth = max(variables.map(_.length): _*)
         val fmt = "%" + varWidth + "s: %s"
 
-        for (variable <- variables)
-        {
+        for (variable <- variables) {
             val value = shell.settings(variable).toString
             println(fmt format(variable, value))
         }
@@ -891,34 +822,28 @@ class AboutHandler(val shell: SQLShell)
         ("Readline",   getReadline,     "")
     )
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
         showFullInfo
         KeepGoing
     }
 
-    def showAbbreviatedInfo =
-    {
+    def showAbbreviatedInfo = {
         println(aboutInfo.identString)
         println(aboutInfo.copyright)
         println("Using " + getReadline().get)
     }
 
-    def showFullInfo =
-    {
+    def showFullInfo = {
         println(aboutInfo.identString)
         println
 
         // Allow for trailing ":" and space.
-        val maxLabelLength = 2 + Keys.foldLeft(0)
-        {
+        val maxLabelLength = 2 + Keys.foldLeft(0) {
             (sum, entry) => Math.max(sum, entry._1.length)
         }
 
-        for ((label, func, key) <- Keys)
-        {
-            func(key) match
-            {
+        for ((label, func, key) <- Keys) {
+            func(key) match {
                 case None        => 
                 case Some(value) => 
                     wrapPrintln((label + ":").padTo(maxLabelLength, ' '),
@@ -931,8 +856,7 @@ class AboutHandler(val shell: SQLShell)
 /**
  * JDBC helper routines.
  */
-trait JDBCHelper
-{
+trait JDBCHelper {
     /**
      * With a given JDBC connection, open a new statement (via
      * <tt>Connection.createStatement()</tt>), and execute a block of
@@ -943,8 +867,7 @@ trait JDBCHelper
      * @param code        the block to execute with the created statement
      */
     protected def withSQLStatement(connection: Connection)
-                                  (code: Statement => Unit) =
-    {
+                                  (code: Statement => Unit) = {
         val statement = connection.createStatement
         withCloseable(statement)(code)
     }
@@ -963,35 +886,27 @@ trait JDBCHelper
      * @param rs    the <tt>ResultSet</tt>
      * @param code  the code to run with the result set
      */
-    protected def withResultSet(rs: ResultSet)(code: ResultSet => Unit) =
-    {
-        try
-        {
+    protected def withResultSet(rs: ResultSet)(code: ResultSet => Unit) = {
+        try {
             code(rs)
         }
 
-        finally
-        {
+        finally {
             rs.close
         }
     }
 }
 
 abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
-    extends SQLShellCommandHandler
-    with Timer
-    with JDBCHelper
-    with CompleterHelper
-{
+extends SQLShellCommandHandler with Timer with JDBCHelper with CompleterHelper {
+
     override def moreInputNeeded(lineSoFar: String): Boolean =
         (! lineSoFar.ltrim.endsWith(";"))
 
     override def complete(token: String,
-                          allTokens: List[CompletionToken],
-                          line: String): List[String] =
-    {
-        allTokens match
-        {
+                          allTokens: List[CompletionToken], 
+                          line: String): List[String] = {
+        allTokens match {
             case Nil =>
                 assert(false) // shouldn't happen
                 Nil
@@ -1000,20 +915,19 @@ abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
                 Nil
 
             case LineToken(cmd) :: Delim :: rest =>
-                tokenBeforeCursor(rest) match
-                {
+                tokenBeforeCursor(rest) match {
                     case (None | Some(Delim)) =>
                         // All table names
-                        shell.getTableNames(None)
+                        shell.tableNames(None)
                     case Some(LineToken(prefix)) =>
                         // Table names matching the prefix
                         shell.matchTableNames(None, Some(prefix))
                     case _ =>
-                        shell.getTableNames(None)
+                        shell.tableNames(None)
                 }
 
             case _ =>
-                shell.getTableNames(None)
+                shell.tableNames(None)
         }
     }
 
@@ -1049,15 +963,13 @@ abstract class ResultSetStringifier(maxBinary: Int)
      */
     def mapRow(rs: ResultSet,
                metadata: ResultSetMetaData,
-               rowMap: ArrayBuffer[String]): Array[String] =
-    {
+               rowMap: ArrayBuffer[String]): Array[String] = {
         import grizzled.io.implicits._   // for the readSome() method
         import grizzled.io.util.useThenClose
 
         val NULL_STR = "NULL"
 
-        def getDateString(i: Int, dateFromResultSet: (Int) => Date): String =
-        {
+        def getDateString(i: Int, dateFromResultSet: (Int) => Date): String = {
             val date = dateFromResultSet(i)
             if (rs.wasNull)
                 NULL_STR
@@ -1065,27 +977,22 @@ abstract class ResultSetStringifier(maxBinary: Int)
                 DateFormatter.format(date)
         }
 
-        def clobString(i: Int): String =
-        {
+        def clobString(i: Int): String = {
             if (maxBinary == 0)
                 "<clob>"
 
-            else
-            {
+            else {
                 val r = rs.getCharacterStream(i)
                 if (rs.wasNull)
                     NULL_STR
 
-                else
-                {
-                    useThenClose(r)
-                    {
+                else {
+                    useThenClose(r) {
                         // Read one more than the binary length. If we get
                         // that many, then display an ellipsis.
 
                         val buf = r.readSome(maxBinary + 1)
-                        buf.length match
-                        {
+                        buf.length match {
                             case 0 =>                    ""
                             case n if (n > maxBinary) => buf.mkString("") +
                                                          "..."
@@ -1096,29 +1003,24 @@ abstract class ResultSetStringifier(maxBinary: Int)
             }
         }
 
-        def binaryString(i: Int): String =
-        {
+        def binaryString(i: Int): String = {
             if (maxBinary == 0)
                 "<blob>"
 
-            else
-            {
+            else {
                 val is = rs.getBinaryStream(i)
                 if (rs.wasNull)
                     NULL_STR
 
-                else
-                {
-                    useThenClose(is)
-                    {
+                else {
+                    useThenClose(is) {
                         // Read one more than the binary length. If we get
                         // that many, then display an ellipsis.
 
                         val buf = is.readSome(maxBinary + 1)
                         val ellipsis = buf.length > maxBinary
                         val conv = (b: Byte) => 
-                            b.asInstanceOf[Int].toHexString.toList match
-                            {
+                            b.asInstanceOf[Int].toHexString.toList match {
                                 case digit :: Nil => "0" + digit
                                 case digits       => digits mkString ""
                             }
@@ -1130,8 +1032,7 @@ abstract class ResultSetStringifier(maxBinary: Int)
             }
         }
 
-        def objToString(i: Int): String =
-        {
+        def objToString(i: Int): String = {
             val o = rs.getObject(i)
             if (rs.wasNull)
                 NULL_STR
@@ -1139,8 +1040,7 @@ abstract class ResultSetStringifier(maxBinary: Int)
                 o.toString
         }
 
-        def colAsString(i: Int): String =
-        {
+        def colAsString(i: Int): String = {
             // What we'd like to do:
             /*
             rs.getObject(i)
@@ -1153,8 +1053,7 @@ abstract class ResultSetStringifier(maxBinary: Int)
             // retrieve the column value once, which means the null test
             // has to go in multiple places.
 
-            metadata.getColumnType(i) match
-            {
+            metadata.getColumnType(i) match {
                 // Handle just the oddballs. getObject(i).toString should be
                 // sufficient to handle the other column types.
 
@@ -1187,8 +1086,7 @@ abstract class ResultSetStringifier(maxBinary: Int)
  */
 private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
                                             val dataFile: File)
-    extends Iterable[Array[String]]
-{
+    extends Iterable[Array[String]] {
     import java.io.{EOFException,
                     FileInputStream,
                     FileOutputStream,
@@ -1213,34 +1111,28 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
          name = metadata.getColumnName(i)}
         columnData += (name -> name.length)
 
-    class ResultIterator extends Iterator[Array[String]]
-    {
+    class ResultIterator extends Iterator[Array[String]] {
         val in = new CSVReader(
             new InputStreamReader(new FileInputStream(dataFile), "UTF-8")
         )
         val buf = new ArrayBuffer[String]
 
-        def hasNext: Boolean =
-        {
-            try
-            {
+        def hasNext: Boolean = {
+            try {
                 buf.clear
                 val row = deserializeRow(in)
-                if (row == null)
-                {
+                if (row == null) {
                     buf.clear
                     in.close
                     false
                 }
-                else
-                {
+                else {
                     buf ++= row
                     true
                 }
             }
 
-            catch
-            {
+            catch {
                 case _: EOFException =>
                     in.close
                     buf.clear
@@ -1248,8 +1140,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
             }
         }
 
-        def next: Array[String] =
-        {
+        def next: Array[String] = {
             assert(buf.length > 0)
             buf.toArray
         }
@@ -1272,14 +1163,12 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
      * @param out  the <tt>ObjectOutputStream</tt> to which to save the row
      * @param row  the data, converted to a string
      */
-    def saveMappedRow(row: Array[String])
-    {
+    def saveMappedRow(row: Array[String]) {
         serializeRow(row)
         totalRows += 1
 
         for {i <- 1 to metadata.getColumnCount
-             name = metadata.getColumnName(i)}
-        {
+             name = metadata.getColumnName(i)} {
             val value = row(i - 1)
             val size = value.length
             val max = Math.max(columnData(name), size)
@@ -1293,10 +1182,8 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
     private def deserializeRow(in: CSVReader): Array[String] = in.readNext
 }
 
-private[sqlshell] trait SelectResultSetHandler extends ResultSetHandler
-{
+private[sqlshell] trait SelectResultSetHandler extends ResultSetHandler {
     var totalRows = 0
-
     override def handleRow(rs: ResultSet) = totalRows += 1
 }
 
@@ -1305,21 +1192,19 @@ private[sqlshell] trait SelectResultSetHandler extends ResultSetHandler
  */
 private[sqlshell] class ResultSetCacheHandler(tempFile: File,
                                               val maxBinary: Int)
-    extends ResultSetStringifier(maxBinary) with SelectResultSetHandler
-{
+    extends ResultSetStringifier(maxBinary) with SelectResultSetHandler {
+
     import java.io.{FileOutputStream, ObjectOutputStream}
 
     var results: PreprocessedResults = null
     val rowMap = new ArrayBuffer[String]
 
     override def startResultSet(metadata: ResultSetMetaData, 
-                                statement: String): Unit =
-    {
+                                statement: String): Unit = {
         results = new PreprocessedResults(metadata, tempFile)
     }
 
-    override def handleRow(rs: ResultSet)
-    {
+    override def handleRow(rs: ResultSet) {
         super.handleRow(rs)
         rowMap.clear
         results.saveMappedRow(mapRow(rs, results.metadata, rowMap))
@@ -1334,12 +1219,11 @@ private [sqlshell] class ResultSetNoCacheHandler extends SelectResultSetHandler
  * Handles SQL comments.
  */
 class CommentHandler(shell: SQLShell, connection: Connection)
-    extends SQLShellCommandHandler with HiddenCommandHandler
-{
+    extends SQLShellCommandHandler with HiddenCommandHandler {
+
     val CommandName = "--"
 
-    override def matches(candidate: String): Boolean =
-    {
+    override def matches(candidate: String): Boolean = {
         candidate.startsWith("--") && 
         (! candidate.startsWith(Constants.SpecialCommentPrefix))
     }
@@ -1354,10 +1238,10 @@ class CommentHandler(shell: SQLShell, connection: Connection)
 class BlockSQLHandler(shell: SQLShell,
                       val selectHandler: SelectHandler,
                       val updateHandler: UpdateHandler)
-    extends SQLShellCommandHandler
-    with BlockCommandHandler
-    with HiddenCommandHandler
-{
+extends SQLShellCommandHandler 
+with BlockCommandHandler
+with HiddenCommandHandler {
+
     import scala.collection.mutable.ListBuffer
 
     val CommandName = Constants.SpecialCommentPrefix + "block-begin"
@@ -1365,8 +1249,7 @@ class BlockSQLHandler(shell: SQLShell,
                       Constants.SpecialCommentPrefix +
                       """block-end\s*$""").r
 
-    override def doRunCommand(command: String, args: String): CommandAction =
-    {
+    override def doRunCommand(command: String, args: String): CommandAction = {
         assert(command == CommandName)
 
         // The last argument will match EndCommand. Kill it.
@@ -1380,13 +1263,11 @@ class BlockSQLHandler(shell: SQLShell,
 
         // Try it as both a query and an update.
 
-        try
-        {
+        try {
             selectHandler.runCommand("", block)
         }
 
-        catch
-        {
+        catch {
             case _ => updateHandler.runCommand("", block)
         }
     }
@@ -1396,8 +1277,8 @@ class BlockSQLHandler(shell: SQLShell,
  * Handles SQL "SELECT" statements.
  */
 class SelectHandler(shell: SQLShell, connection: Connection)
-    extends SQLHandler(shell, connection) with Timer
-{
+    extends SQLHandler(shell, connection) with Timer {
+
     import java.io.{File, FileOutputStream, ObjectOutputStream}
 
     val tempFile = File.createTempFile("sqlshell", ".dat")
@@ -1417,22 +1298,16 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      *
      * @return KeepGoing, always
      */
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
         val fullStatement = commandName + " " + removeSemicolon(args)
-        withSQLStatement(connection)
-        {
+        withSQLStatement(connection) {
             statement =>
 
-            val (elapsed, rs) =
-                time[ResultSet]
-                {
-                    statement.executeQuery(fullStatement)
-                }
+            val (elapsed, rs) = time[ResultSet] {
+                statement.executeQuery(fullStatement)
+            }
 
-            withResultSet(rs)
-            {
-                rs =>
+            withResultSet(rs) { rs =>
                 dumpResults(elapsed, rs, fullStatement)
             }
         }
@@ -1446,8 +1321,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      * @param key     the key for the handler
      * @param handler the <tt>ResultSetHandler</tt> to add
      */
-    def addResultHandler(key: String, handler: ResultSetHandler) =
-    {
+    def addResultHandler(key: String, handler: ResultSetHandler) = {
         assert(! (resultHandlers contains key))
         resultHandlers += (key -> handler)
     }
@@ -1469,8 +1343,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      *
      * @return <tt>Some(handler)</tt> or <tt>None</tt>
      */
-    def removeResultHandler(key: String): Option[ResultSetHandler] =
-    {
+    def removeResultHandler(key: String): Option[ResultSetHandler] = {
         assert(resultHandlers contains key)
         val result = getResultHandler(key)
         resultHandlers -= key
@@ -1487,8 +1360,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      */
     protected def dumpResults(queryTime: Long,
                               rs: ResultSet,
-                              statement: String): Unit =
-    {
+                              statement: String): Unit = {
         logger.verbose("Processing results...")
 
         val metadata = rs.getMetaData
@@ -1505,28 +1377,23 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         if (shell.settings.booleanSettingIsTrue("showtimings"))
             println("Execution time: " + formatInterval(queryTime))
 
-        val retrievalTime =
-            time
-            {
-                try
-                {
-                    for (h <- handlers)
-                        h.startResultSet(metadata, statement)
+        val retrievalTime = time {
+            try {
+                for (h <- handlers)
+                    h.startResultSet(metadata, statement)
 
-                    while (rs.next)
-                    {
-                        for (h <- handlers)
-                            h.handleRow(rs)
-                    }
-                }
-
-                finally
-                {
-                    rs.close
+                while (rs.next) {
                     for (h <- handlers)
-                        h.endResultSet
+                        h.handleRow(rs)
                 }
             }
+
+            finally {
+                rs.close
+                for (h <- handlers)
+                    h.endResultSet
+            }
+        }
 
         // Now, post-process (i.e., display) the results cached by the
         // cache handler
@@ -1534,8 +1401,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
         if (shell.settings.booleanSettingIsTrue("showtimings"))
             println("Retrieval time: " + formatInterval(retrievalTime))
 
-        if (shell.settings.booleanSettingIsTrue("showrowcount"))
-        {
+        if (shell.settings.booleanSettingIsTrue("showrowcount")) {
             if (resultHandler.totalRows == 0)
                 println("No rows returned.")
             else if (resultHandler.totalRows == 1)
@@ -1544,8 +1410,7 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                 printf("%d rows returned.\n", resultHandler.totalRows)
         }
 
-        if (shell.settings.booleanSettingIsTrue("showresults"))
-        {
+        if (shell.settings.booleanSettingIsTrue("showresults")) {
             val preprocessedResults = cacheHandler.results
 
             // Note: Scala's format method doesn't left-justify.
@@ -1559,29 +1424,26 @@ class SelectHandler(shell: SQLShell, connection: Connection)
                 (columnNames.map(c => (c, "%-" + colNamesAndSizes(c) + "s")))
 
             println()
-            println(
-                columnNames.map(c => formatter.format(columnFormats(c), c))
-                .mkString(ColumnSeparator)
-            )
+            println(columnNames.map(c => formatter.format(columnFormats(c), c))
+                    .mkString(ColumnSeparator))
 
             // ...and a separator.
-            println(
-                {for {col <- columnNames
-                      size = colNamesAndSizes(col)}
-                     yield formatter.format(columnFormats(col), "-" * size)}
-                .toList
-                .mkString(ColumnSeparator)
-            )
+            val seps = columnNames.map { name =>
+                val size = colNamesAndSizes(name)
+                formatter.format(columnFormats(name), "-" * size)
+            }
+
+            println(seps mkString ColumnSeparator)
 
             // Now, load the serialized results and dump them.
 
-            for (resultRow <- preprocessedResults)
-            {
-                val data =
-                    {for {(name, i) <- columnNames.zipWithIndex
-                          size = colNamesAndSizes(name)
-                          fmt = columnFormats(name)}
-                     yield formatter.format(fmt, resultRow(i))}.toList
+            for (resultRow <- preprocessedResults) {
+                val data = {
+                    for {(name, i) <- columnNames.zipWithIndex
+                         size = colNamesAndSizes(name)
+                         fmt = columnFormats(name)}
+                        yield formatter.format(fmt, resultRow(i))
+                }
 
                 println(data mkString ColumnSeparator)
             }
@@ -1595,30 +1457,24 @@ class SelectHandler(shell: SQLShell, connection: Connection)
  * commands (allowing individual help).
  */
 abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection)
-    extends SQLHandler(shell, connection) with Timer
-{
+extends SQLHandler(shell, connection) with Timer {
     val mustRemoveSemiColon = true
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
         val newArgs = 
             if (mustRemoveSemiColon) 
                 removeSemicolon(args)
             else
                 args
 
-        withSQLStatement(connection)
-        {
-            statement =>
+        withSQLStatement(connection) { statement =>
 
             val (elapsed, rows) =
-                time[Int]
-                {
+                time[Int] {
                     statement.executeUpdate(commandName + " " + newArgs)
                 }
 
-            if (shell.settings.booleanSettingIsTrue("showrowcount"))
-            {
+            if (shell.settings.booleanSettingIsTrue("showrowcount")) {
                 if (rows == 0)
                     println("No rows affected.")
                 else if (rows == 1)
@@ -1639,8 +1495,7 @@ abstract class AnyUpdateHandler(shell: SQLShell, connection: Connection)
  * Handles the .capture command
  */
 class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
-    extends SQLShellCommandHandler
-{
+extends SQLShellCommandHandler {
     val CommandName = ".capture"
     val Help =
 """|Captures the results of queries to a CSV file.
@@ -1669,8 +1524,7 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
     private val maxBinary = shell.settings.intSetting("maxbinary")
 
     private class SaveToCSVHandler(path: File)
-        extends ResultSetStringifier(maxBinary) with ResultSetHandler
-    {
+        extends ResultSetStringifier(maxBinary) with ResultSetHandler {
         import java.io.{FileOutputStream, OutputStreamWriter}
 
         val writer = new CSVWriter(
@@ -1680,8 +1534,7 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
         private val rowMap = new ArrayBuffer[String]
 
         override def startResultSet(metadata: ResultSetMetaData,
-                                    statement: String): Unit =
-        {
+                                    statement: String): Unit = {
             this.metadata = metadata
 
             val headers =
@@ -1691,16 +1544,14 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
             writer.writeNext(headers)
         }
 
-        def handleRow(rs: ResultSet): Unit =
-        {
+        def handleRow(rs: ResultSet): Unit = {
             rowMap.clear
             mapRow(rs, metadata, rowMap)
             writer.writeNext(rowMap.toArray)
             rowMap.clear
         }
 
-        override def endResultSet: Unit =
-        {
+        override def endResultSet: Unit = {
             this.metadata = null
             writer.flush
         }
@@ -1708,10 +1559,8 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
         override def closeResultSetHandler: Unit = writer.close
     }
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
-        args.tokenize match
-        {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
+        args.tokenize match {
             case Nil =>
                 usage
 
@@ -1734,10 +1583,8 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
         KeepGoing
     }
 
-    private def installHandler(path: File) =
-    {
-        selectHandler.getResultHandler(HandlerKey) match
-        {
+    private def installHandler(path: File) = {
+        selectHandler.getResultHandler(HandlerKey) match {
             case None =>
                 selectHandler.addResultHandler(HandlerKey,
                                                new SaveToCSVHandler(path))
@@ -1748,10 +1595,8 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
         }
     }
 
-    private def removeHandler =
-    {
-        selectHandler.removeResultHandler(HandlerKey) match
-        {
+    private def removeHandler = {
+        selectHandler.removeResultHandler(HandlerKey) match {
             case None =>
                 logger.error("You're not currently capturing query results.")
 
@@ -1771,8 +1616,7 @@ class CaptureHandler(shell: SQLShell, selectHandler: SelectHandler)
  * Handles a SQL "UPDATE" command.
  */
 class UpdateHandler(shell: SQLShell, connection: Connection)
-    extends AnyUpdateHandler(shell, connection)
-{
+extends AnyUpdateHandler(shell, connection) {
     val CommandName = "update"
     val Help = """Issue a SQL UPDATE statement."""
 }
@@ -1781,8 +1625,7 @@ class UpdateHandler(shell: SQLShell, connection: Connection)
  * Handles a SQL "INSERT" command.
  */
 class InsertHandler(shell: SQLShell, connection: Connection)
-    extends AnyUpdateHandler(shell, connection)
-{
+extends AnyUpdateHandler(shell, connection) {
     val CommandName = "insert"
     val Help = """Issue a SQL INSERT statement."""
 }
@@ -1791,8 +1634,7 @@ class InsertHandler(shell: SQLShell, connection: Connection)
  * Handles a SQL "DELETE" command.
  */
 class DeleteHandler(shell: SQLShell, connection: Connection)
-    extends AnyUpdateHandler(shell, connection)
-{
+extends AnyUpdateHandler(shell, connection) {
     val CommandName = "delete"
     val Help = """Issue a SQL DELETE statement."""
 }
@@ -1801,8 +1643,7 @@ class DeleteHandler(shell: SQLShell, connection: Connection)
  * Handles a SQL "ALTER" command.
  */
 class AlterHandler(shell: SQLShell, connection: Connection)
-    extends AnyUpdateHandler(shell, connection)
-{
+extends AnyUpdateHandler(shell, connection) {
     val CommandName = "alter"
     val Help = """Issue a SQL ALTER statement."""
 }
@@ -1811,8 +1652,7 @@ class AlterHandler(shell: SQLShell, connection: Connection)
  * Handles a SQL "CREATE" command.
  */
 class CreateHandler(shell: SQLShell, connection: Connection)
-    extends AnyUpdateHandler(shell, connection)
-{
+extends AnyUpdateHandler(shell, connection) {
     val CommandName = "create"
     val Help = """Issue a SQL CREATE statement."""
 }
@@ -1821,8 +1661,7 @@ class CreateHandler(shell: SQLShell, connection: Connection)
  * Handles a SQL "DROP" command.
  */
 class DropHandler(shell: SQLShell, connection: Connection)
-    extends AnyUpdateHandler(shell, connection)
-{
+extends AnyUpdateHandler(shell, connection) {
     val CommandName = "drop"
     val Help = """Issue a SQL DROP statement."""
 }
@@ -1830,8 +1669,7 @@ class DropHandler(shell: SQLShell, connection: Connection)
 /**
  * Contains handlers and state for transaction management.
  */
-class TransactionManager(val shell: SQLShell, val connection: Connection)
-{
+class TransactionManager(val shell: SQLShell, val connection: Connection) {
     /**
      * Determines whether a transaction is open or not. If a transaction
      * is open, autocommit will be off. Otherwise, it will be on.
@@ -1840,15 +1678,12 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
      *         was invoked, without yet seeing <tt>COMMIT</tt> or
      *         <tt>ROLLBACK</tt>; <tt>false</tt> if not.
      */
-    def inTransaction: Boolean =
-    {
-        try
-        {
+    def inTransaction: Boolean = {
+        try {
             ! connection.getAutoCommit
         }
 
-        catch
-        {
+        catch {
             case e: SQLException =>
                 logger.error("Cannot determine autocommit status: " +
                              e.getMessage)
@@ -1859,13 +1694,11 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     /**
      * Commit a transaction.
      */
-    def commit(): Unit =
-    {
+    def commit(): Unit = {
         if (! inTransaction)
             logger.warning("Not in a transaction. Commit ignored.")
 
-        else
-        {
+        else {
             connection.commit()
             setAutoCommit(true)
         }
@@ -1874,36 +1707,29 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     /**
      * Roll a transaction back.
      */
-    def rollback(): Unit =
-    {
+    def rollback(): Unit = {
         if (! inTransaction)
             logger.warning("Not in a transaction. Rollback ignored.")
 
-        else
-        {
+        else {
             connection.rollback()
             setAutoCommit(true)
         }
     }
 
-    private def setAutoCommit(onOff: Boolean) =
-    {
-        try
-        {
+    private def setAutoCommit(onOff: Boolean) = {
+        try {
             connection.setAutoCommit(onOff)
         }
 
-        catch
-        {
+        catch {
             case e: SQLException =>
                 logger.error("Cannot change autocommit status: " + e.getMessage)
         }
     }
 
-    trait NoArgChecker
-    {
-        protected def checkForNoArgs(commandName: String, args: String) =
-        {
+    trait NoArgChecker {
+        protected def checkForNoArgs(commandName: String, args: String) = {
             if (args.trim != "")
                 logger.warning("Ignoring arguments to " + commandName +
                                " command.")
@@ -1913,8 +1739,7 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     /**
      * Handles a SQL "BEGIN" pseudo-command.
      */
-    object BeginHandler extends SQLShellCommandHandler with NoArgChecker
-    {
+    object BeginHandler extends SQLShellCommandHandler with NoArgChecker {
         val CommandName = "begin"
         val Help =
 """|Start a new transaction. BEGIN switches disables autocommit for the
@@ -1922,8 +1747,7 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
    |transaction that must either be committed or rolled back. (See the "commit"
    |and "rollback" commands.)""".stripMargin
 
-        def doRunCommand(commandName: String, args: String): CommandAction =
-        {
+        def doRunCommand(commandName: String, args: String): CommandAction = {
             checkForNoArgs(commandName, args)
             if (inTransaction)
                 logger.warning("Already in a transaction. BEGIN ignored.")
@@ -1937,16 +1761,14 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     /**
      * Handles a SQL "COMMIT" command.
      */
-    object CommitHandler extends SQLShellCommandHandler with NoArgChecker
-    {
+    object CommitHandler extends SQLShellCommandHandler with NoArgChecker {
         val CommandName = "commit"
         val Help =
 """|Commits a transaction. This command is only within a transaction (that is,
    |if "begin" has been issued, but neither "commit" nor "rollback" has yet
    |issued. (See the "begin" and "rollback" commands.)""".stripMargin
 
-        def doRunCommand(commandName: String, args: String): CommandAction =
-        {
+        def doRunCommand(commandName: String, args: String): CommandAction = {
             checkForNoArgs(commandName, args)
             commit()
             KeepGoing
@@ -1956,16 +1778,14 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
     /**
      * Handles a SQL "ROLLBACK" command.
      */
-    object RollbackHandler extends SQLShellCommandHandler with NoArgChecker
-    {
+    object RollbackHandler extends SQLShellCommandHandler with NoArgChecker {
         val CommandName = "rollback"
         val Help =
 """|Rolls a transaction back. This command is only within a transaction (that
    |is, if "begin" has been issued, but neither "commit" nor "rollback" has yet
    |issued. (See the "begin" and "commit" commands.)""".stripMargin
 
-        def doRunCommand(commandName: String, args: String): CommandAction =
-        {
+        def doRunCommand(commandName: String, args: String): CommandAction = {
             checkForNoArgs(commandName, args)
             rollback()
             KeepGoing
@@ -1984,29 +1804,23 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
 class UnknownHandler(shell: SQLShell,
                      val selectHandler: SelectHandler,
                      val updateHandler: UpdateHandler)
-    extends SQLShellCommandHandler
-{
+extends SQLShellCommandHandler {
     val CommandName = ""
     val Help = """Issue an unknown SQL statement."""
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
-        if (commandName startsWith Constants.SpecialCommentPrefix)
-        {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
+        if (commandName startsWith Constants.SpecialCommentPrefix) {
             error("Unknown special command.");
         }
 
-        else
-        {
+        else {
             // Try it as both a query and an update.
 
-            try
-            {
+            try {
                 selectHandler.runCommand(commandName, args)
             }
 
-            catch
-            {
+            catch {
                 case _ => updateHandler.runCommand(commandName, args)
             }
         }
@@ -2018,9 +1832,7 @@ class UnknownHandler(shell: SQLShell,
 class DescribeHandler(val shell: SQLShell,
                       val connection: Connection,
                       val transactionManager: TransactionManager)
-    extends SQLShellCommandHandler
-    with Wrapper with JDBCHelper with Sorter
-{
+extends SQLShellCommandHandler with Wrapper with JDBCHelper with Sorter {
     val CommandName = ".desc"
     val Help =
 """|Describe database objects.
@@ -2043,16 +1855,13 @@ class DescribeHandler(val shell: SQLShell,
     private val jdbcTypeNames = getJdbcTypeNames
 
     private val subCommands = List("database")
-    private def subCommandCompleter =
-    {
-        val tables = shell.getTableNames(None)
+    private def subCommandCompleter = {
+        val tables = shell.tableNames(None)
         new ListCompleter(subCommands ++ tables, _.toLowerCase)
     }
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
-        args.tokenize match
-        {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
+        args.tokenize match {
             case "database" :: stuff :: Nil =>
                 describeDatabase
             case "database" :: Nil =>
@@ -2072,10 +1881,8 @@ class DescribeHandler(val shell: SQLShell,
 
     override def complete(token: String,
                           allTokens: List[CompletionToken],
-                          line: String): List[String] =
-    {
-        allTokens match
-        {
+                          line: String): List[String] = {
+        allTokens match {
             case Nil =>
                 assert(false) // shouldn't happen
                 Nil
@@ -2110,17 +1917,14 @@ class DescribeHandler(val shell: SQLShell,
         }
     }
 
-    private def describeDatabase =
-    {
+    private def describeDatabase = {
         val info = shell.connectionInfo.databaseInfo
 
         val inTransactionStr = if (transactionManager.inTransaction) "yes"
                                else "no"
 
-        def toString(opt: Option[String]): String =
-        {
-            opt match
-            {
+        def toString(opt: Option[String]): String = {
+            opt match {
                 case None    => "?"
                 case Some(s) => s
             }
@@ -2143,8 +1947,7 @@ class DescribeHandler(val shell: SQLShell,
         if ((s == null) || (s.trim == "")) null else s
 
     private def nullIfEmpty(os: Option[String]) =
-        os match
-        {
+        os match {
             case None                    => null
             case Some(s) if s == null    => null
             case Some(s) if s.trim == "" => null
@@ -2154,10 +1957,9 @@ class DescribeHandler(val shell: SQLShell,
     private def describeTable(table: String, full: Boolean) =
     {
         def getColumnDescriptions(md: ResultSetMetaData):
-            List[(String, String)] =
-        {
-            def precisionAndScale(i: Int) =
-            {
+            List[(String, String)] = {
+
+            def precisionAndScale(i: Int) = {
                 val precision = md.getPrecision(i)
                 val scale = md.getScale(i)
                 val buf = new ArrayBuffer[String]
@@ -2168,23 +1970,19 @@ class DescribeHandler(val shell: SQLShell,
                 if (scale > 0)
                     buf += scale.toString
 
-                buf.length match
-                {
+                buf.length match {
                     case 0 => ""
                     case _ => "(" + buf.mkString(", ") + ")"
                 }
             }
 
-            def charSize(i: Int) =
-            {
+            def charSize(i: Int) = {
                 val size = md.getColumnDisplaySize(i)
                 if (size > 0) "(" + size.toString + ")" else ""
             }
 
-            def getColumnInfo(i: Int): (String, String) =
-            {
-                val name = md.getColumnLabel(i) match
-                {
+            def getColumnInfo(i: Int): (String, String) = {
+                val name = md.getColumnLabel(i) match {
                     case null => md.getColumnName(i)
                     case s    => s
                 }
@@ -2195,14 +1993,12 @@ class DescribeHandler(val shell: SQLShell,
                 val typeName =
                     if ((_typeName != null) && (_typeName != "null"))
                         _typeName
-                    else
-                    {
+                    else {
                         if (jdbcType == SQLTypes.NULL) "?unknown?"
                         else jdbcTypeNames.getOrElse(jdbcType, "?unknown?")
                     }
 
-                val typeQualifier = jdbcType match
-                {
+                val typeQualifier = jdbcType match {
                     case SQLTypes.CHAR          => charSize(i)
                     case SQLTypes.CLOB          => charSize(i)
                     case SQLTypes.DECIMAL       => precisionAndScale(i)
@@ -2216,8 +2012,7 @@ class DescribeHandler(val shell: SQLShell,
                 }
 
                 val fullTypeName = typeName + typeQualifier
-                val nullable = md.isNullable(i) match
-                {
+                val nullable = md.isNullable(i) match {
                     case ResultSetMetaData.columnNoNulls         => "NOT NULL"
                     case ResultSetMetaData.columnNullable        => "NULL"
                     case ResultSetMetaData.columnNullableUnknown => "NULL?"
@@ -2227,8 +2022,7 @@ class DescribeHandler(val shell: SQLShell,
             }
 
             val colMap = new LinkedHashMap[String,String]
-            for (i <- 1 to md.getColumnCount)
-            {
+            for (i <- 1 to md.getColumnCount) {
                 val (name, info) = getColumnInfo(i)
                 colMap += (name -> info)
             }
@@ -2242,21 +2036,18 @@ class DescribeHandler(val shell: SQLShell,
             keys.map(key => (key, colMap(key)))
         }
 
-        withSQLStatement(connection)
-        {
-            statement =>
+        withSQLStatement(connection) { statement =>
 
-            withResultSet(statement.executeQuery("SELECT * FROM " +
-                                                 table + " WHERE 1 = 0"))
-            {
-                rs =>
+            withResultSet(
+                statement.executeQuery("SELECT * FROM " +
+                                       table + " WHERE 1 = 0")) { rs =>
 
                 val metadata = rs.getMetaData
                 val descriptions = getColumnDescriptions(metadata)
                 if (descriptions == Nil)
                     logger.error("Can't get metadata for table " + table)
-                else
-                {
+
+                else {
                     val width = max(descriptions.map(_._1.length): _*)
                     val fmt = "%-" + width + "s  %s"
                     // Note: Scala's format method doesn't left-justify.
@@ -2272,8 +2063,7 @@ class DescribeHandler(val shell: SQLShell,
                     println(List(hr, header, hr) mkString "\n")
                     println(colLines mkString ",\n")
 
-                    if (full)
-                    {
+                    if (full) {
                         val settings = shell.settings
                         val s = nullIfEmpty(metadata.getSchemaName(1))
                         val schema =
@@ -2287,8 +2077,7 @@ class DescribeHandler(val shell: SQLShell,
                         // Map the table name to what the database engine
                         // thinks the table's name should be. (Necessary
                         // for Oracle.)
-                        findTableName(schema, table) match
-                        {
+                        findTableName(schema, table) match {
                             case None =>
                             case Some(s) =>
                                 showExtraTableData(catalog, schema, s)
@@ -2303,8 +2092,7 @@ class DescribeHandler(val shell: SQLShell,
 
     private def showExtraTableData(catalog: String,
                                    schema: String,
-                                   table: String) =
-    {
+                                   table: String) = {
         val dmd = connection.getMetaData
 
         showPrimaryKeys(dmd, catalog, schema, table)
@@ -2312,17 +2100,14 @@ class DescribeHandler(val shell: SQLShell,
         showConstraints(dmd, catalog, schema, table)
     }
 
-    private def findTableName(schema: String,
-                              table: String): Option[String] =
-    {
+    private def findTableName(schema: String, table: String): Option[String] = {
         val lcTable = table.toLowerCase
-        val tables = shell.getTables(schema)
+        val tables = shell.tables(schema)
         val matching = tables.filter(ts =>
                                      (ts.name != None) &&
                                      (ts.name.get.toLowerCase == lcTable))
 
-        matching.map(_.name.get) match
-        {
+        matching.map(_.name.get) match {
             case tableName :: Nil =>
                 Some(tableName)
 
@@ -2340,23 +2125,20 @@ class DescribeHandler(val shell: SQLShell,
     private def showPrimaryKeys(dmd: DatabaseMetaData,
                                 catalog: String,
                                 schema: String,
-                                table: String) =
-    {
-        def getPrimaryKeyColumns(rs: ResultSet): List[String]  =
-        {
+                                table: String) = {
+
+        def getPrimaryKeyColumns(rs: ResultSet): List[String]  = {
             val result = new ListBuffer[String]
             while (rs.next)
                 result += rs.getString("COLUMN_NAME")
             result.toList
         }
 
-        try
-        {
+        try {
             logger.verbose("Getting primary keys for table " + table + 
                            ", catalog " + catalog + ", schema " + schema)
-            withResultSet(dmd.getPrimaryKeys(catalog, schema, table))
-            {
-                rs =>
+
+            withResultSet(dmd.getPrimaryKeys(catalog, schema, table)) { rs =>
 
                 val columns = getPrimaryKeyColumns(rs)
                 if (columns != Nil)
@@ -2364,8 +2146,7 @@ class DescribeHandler(val shell: SQLShell,
             }
         }
 
-        catch
-        {
+        catch {
             case e: SQLException =>
                 logger.error("Unable to retrieve primary key information: " +
                              e.getMessage)
@@ -2375,8 +2156,7 @@ class DescribeHandler(val shell: SQLShell,
     private def showIndexes(dmd: DatabaseMetaData,
                             catalog: String,
                             schema: String,
-                            table: String) =
-    {
+                            table: String) = {
         class IndexColumn(val columnName: String,
                           val unique: Boolean,
                           val ascending: Option[Boolean],
@@ -2386,13 +2166,10 @@ class DescribeHandler(val shell: SQLShell,
         val nonUniqueIndexes = MutableMap.empty[String,
                                                 ArrayBuffer[IndexColumn]]
 
-        @tailrec def gatherIndexInfo(rs: ResultSet): Unit =
-        {
-            if (rs.next)
-            {
+        @tailrec def gatherIndexInfo(rs: ResultSet): Unit = {
+            if (rs.next) {
                 val indexName = rs.getString("INDEX_NAME")
-                val indexType = rs.getShort("TYPE") match
-                {
+                val indexType = rs.getShort("TYPE") match {
                     case DatabaseMetaData.tableIndexClustered =>
                         "clustered"
                     case DatabaseMetaData.tableIndexHashed =>
@@ -2405,10 +2182,8 @@ class DescribeHandler(val shell: SQLShell,
                         null
                 }
 
-                if (indexType != null)
-                {
-                    val ascending = rs.getString("ASC_OR_DESC") match
-                    {
+                if (indexType != null) {
+                    val ascending = rs.getString("ASC_OR_DESC") match {
                         case "A" => Some(true)
                         case "D" => Some(false)
                         case _   => None
@@ -2431,8 +2206,7 @@ class DescribeHandler(val shell: SQLShell,
             }
         }
 
-        def printIndex(indexName: String, columns: List[IndexColumn])
-        {
+        def printIndex(indexName: String, columns: List[IndexColumn]) {
             val buf = new StringBuilder
             val indexType =
                 if (columns(0).indexType == null)
@@ -2460,17 +2234,14 @@ class DescribeHandler(val shell: SQLShell,
 
         logger.verbose("Getting index information for table " + table + 
                        ", catalog " + catalog + ", schema " + schema)
-        try
-        {
-            withResultSet(dmd.getIndexInfo(catalog, schema, table, false, 
-                                           true))
-            {
-                rs =>
+        try {
+
+            val rs = dmd.getIndexInfo(catalog, schema, table, false, true)
+            withResultSet(rs) { rs =>
                 gatherIndexInfo(rs)
             }
 
-            if ((uniqueIndexes.size + nonUniqueIndexes.size) > 0)
-            {
+            if ((uniqueIndexes.size + nonUniqueIndexes.size) > 0) {
                 println()
                 for (indexName <- sortByName(uniqueIndexes.keysIterator))
                     printIndex(indexName, uniqueIndexes(indexName).toList)
@@ -2479,8 +2250,7 @@ class DescribeHandler(val shell: SQLShell,
             }
         }
 
-        catch
-        {
+        catch {
             case e: SQLException =>
                 logger.error("Unable to retrieve index information: " +
                              e.getMessage)
@@ -2490,14 +2260,12 @@ class DescribeHandler(val shell: SQLShell,
     private def showConstraints(dmd: DatabaseMetaData,
                                 catalog: String,
                                 schema: String,
-                                table: String) =
-    {
+                                table: String) = {
+
         def checkForNull(s: String): String = if (s == null) "?" else s
 
-        @tailrec def printOne(rs: ResultSet): Unit =
-        {
-            if (rs.next)
-            {
+        @tailrec def printOne(rs: ResultSet): Unit = {
+            if (rs.next) {
                 val fk_name = checkForNull(rs.getString("FK_NAME"))
                 printf("Foreign key %s: %s references %s.%s\n",
                        fk_name,
@@ -2514,15 +2282,13 @@ class DescribeHandler(val shell: SQLShell,
             logger.verbose("Getting constraint information for table " +
                            table + ", catalog " + catalog + ", schema " +
                            schema)
-            withResultSet(dmd.getImportedKeys(catalog, schema, table))
-            {
-                rs =>
+            val rs = dmd.getImportedKeys(catalog, schema, table)
+            withResultSet(rs) { rs =>
                 printOne(rs)
             }
         }
 
-        catch
-        {
+        catch {
             case e: SQLException =>
                 logger.error("Unable to retrieve constraint information: " +
                              e.getMessage)
@@ -2546,8 +2312,7 @@ class DescribeHandler(val shell: SQLShell,
 }
 
 class ShowHandler(val shell: SQLShell, val connection: Connection)
-    extends SQLShellCommandHandler with Wrapper with Sorter
-{
+extends SQLShellCommandHandler with Wrapper with Sorter {
     import grizzled.collection.GrizzledLinearSeq.Implicits._
 
     val CommandName = ".show"
@@ -2574,10 +2339,8 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
     private val ShowSchemas = """^\s*(schemas)\s*$""".r
     private val PartialSubCommand = """^\s*([^\s]+)\s*$""".r
 
-    def doRunCommand(commandName: String, args: String): CommandAction =
-    {
-        args.tokenize match
-        {
+    def doRunCommand(commandName: String, args: String): CommandAction = {
+        args.tokenize match {
             case ShowTables(schema) :: Nil =>
                 showTables(schema, ".*")
             case ShowTables(schema) :: pattern :: Nil =>
@@ -2595,10 +2358,8 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
 
     override def complete(token: String,
                           allTokens: List[CompletionToken],
-                          line: String): List[String] =
-    {
-        allTokens match
-        {
+                          line: String): List[String] = {
+        allTokens match {
             case Nil =>
                 assert(false) // shouldn't happen
                 Nil
@@ -2642,8 +2403,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
     }
 
     // Extract the schema from something matched by the ShowTables regex
-    private def extractSchema(regexField: String): Option[String] =
-    {
+    private def extractSchema(regexField: String): Option[String] = {
         if (regexField == null)
             None
         else if (regexField(0) == '/')
@@ -2652,12 +2412,10 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
             Some(regexField)
     }
 
-    private def showTables(schema: String, pattern: String) =
-    {
+    private def showTables(schema: String, pattern: String) = {
         val nameFilter = new Regex("(?i)" + pattern) // case insensitive
 
-        val schemaOption = schema match
-        {
+        val schemaOption = schema match {
             case null => None
             case _    => if (schema.startsWith("/"))
                              Some(schema.substring(1))
@@ -2665,7 +2423,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
                              Some(schema)
         }
 
-        val tables: List[TableSpec] = shell.getTables(schemaOption, nameFilter)
+        val tables: List[TableSpec] = shell.tables(schemaOption, nameFilter)
         val tableNames = tables.filter(_.name != None).map(_.name.get)
         val sorted = sortByName(tableNames)
         print(sorted.columnarize(shell.OutputWidth))
@@ -2673,8 +2431,7 @@ class ShowHandler(val shell: SQLShell, val connection: Connection)
         KeepGoing
     }
 
-    private def showSchemas =
-    {
+    private def showSchemas = {
         val schemas = shell.getSchemas
         val sorted = sortByName(schemas)
         print(sorted.columnarize(shell.OutputWidth))
