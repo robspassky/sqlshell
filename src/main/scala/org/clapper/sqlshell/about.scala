@@ -41,8 +41,7 @@ package org.clapper.sqlshell
  * Contains information about the utility. The available keys are defined in
  * the project build script.
  */
-class AboutInfo
-{
+class AboutInfo {
     import java.util.Properties
 
     private val aboutInfo: Properties = loadAboutInfo
@@ -100,26 +99,23 @@ class AboutInfo
      */
     def javaVirtualMachine = get("java.vm")
 
-    private def get(key: String): Option[String] =
-    {
-        val s = 
-            key match
-            {
-                case "java.vm" => getJavaVM
-                case _         => aboutInfo.getProperty(key)
-            }
-
-        if (s == null)
-            None
-        else
-            Some(s)
+    private def get(key: String): Option[String] = {
+        key match {
+            case "java.vm" => getJavaVM
+            case _         => getAboutInfoProperty(key)
+        }
     }
 
-    private def getJavaVM =
-    {
+    private def getAboutInfoProperty(key: String) = {
+        aboutInfo.getProperty(key) match {
+            case null          => None
+            case value: String => Some(value)
+        }
+    }
+
+    private def getJavaVM = {
         val javaVM = System.getProperty("java.vm.name")
-        if (javaVM != null)
-        {
+        if (javaVM != null) {
             val buf = new StringBuilder
             buf.append(javaVM)
             val vmVersion = System.getProperty("java.vm.version")
@@ -128,31 +124,27 @@ class AboutInfo
             val vmVendor = System.getProperty("java.vm.vendor")
             if (vmVendor != null)
                 buf.append(" from " + vmVendor)
-            buf.toString
+            Some(buf.toString)
         }
-        else
-        {
-            null
+
+        else {
+            None
         }
     }
 
-    private def loadAboutInfo =
-    {
+    private def loadAboutInfo = {
         val classLoader = getClass.getClassLoader
         val AboutInfoURL = classLoader.getResource(
             "org/clapper/sqlshell/SQLShell.properties")
 
         val aboutInfo = new Properties
-        if (AboutInfoURL != null)
-        {
+        if (AboutInfoURL != null) {
             val is = AboutInfoURL.openStream
-            try
-            {
+            try {
                 aboutInfo.load(is)
             }
 
-            finally
-            {
+            finally {
                 is.close
             }
         }

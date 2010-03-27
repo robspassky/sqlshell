@@ -54,16 +54,14 @@ private[tool] class Params(val configFile: String,
                            val useAnsiColors: Boolean,
                            val showStackTraces: Boolean,
                            val verbose: Boolean,
-                           val fileToRun: Option[File])
-{
+                           val fileToRun: Option[File]) {
     def this() = this(null, null, Nil, true, false, false, None)
 }
 
 /**
  * The main program.
  */
-object Tool
-{
+object Tool {
     import grizzled.file.util.joinPath
     import scala.io.Source
     import joptsimple._
@@ -73,24 +71,20 @@ object Tool
     private val NoParams = new Params
     private val aboutInfo = new AboutInfo
 
-    def main(args: Array[String]): Unit =
-    {
+    def main(args: Array[String]): Unit = {
         val params: Params =
-            try
-            {
+            try {
                 parseParams(args)
             }
 
-            catch
-            {
+            catch {
                 case e: CommandLineException =>
                     System.err.println("\n" + e.getMessage)
                     System.exit(1)
                     NoParams
             }
 
-        try
-        {
+        try {
             val source = Source.fromFile(new File(params.configFile))
             val config = Configuration(source)
             val shell = new SQLShell(config, 
@@ -103,8 +97,7 @@ object Tool
             shell.mainLoop
         }
 
-        catch
-        {
+        catch {
             case e: SQLShellException =>
                 System.err.println("\n" + e.getMessage)
                 if (params.showStackTraces)
@@ -115,8 +108,7 @@ object Tool
         System.exit(0)
     }
 
-    private def parseParams(args: Array[String]): Params =
-    {
+    private def parseParams(args: Array[String]): Params = {
         import java.util.Arrays.asList
         import java.util.{List => JList}
         import scala.collection.JavaConversions._
@@ -149,8 +141,7 @@ object Tool
         parser.acceptsAll(asList("V", "version"), "Show version and exit.")
         parser.acceptsAll(asList("?", "h", "help"), "Show this usage message.")
 
-        try
-        {
+        try {
             val options = parser.parse(args: _*)
 
             val config =
@@ -160,8 +151,7 @@ object Tool
                     DefaultConfig
 
             val abort = options.has("?") || options.has("version")
-            if (options.has("version"))
-            {
+            if (options.has("version")) {
                 println(aboutInfo.identString)
                 println(aboutInfo.copyright)
             }
@@ -176,11 +166,7 @@ object Tool
             val verbose = options.has("v")
             val showAnsi = ! options.has("n")
 
-            val positionalParams =
-                {
-                    for (s <- JListWrapper(options.nonOptionArguments)) 
-                        yield s
-                }.toList
+            val positionalParams = JListWrapper(options.nonOptionArguments)
 
             if (positionalParams.length == 0)
                 throw new CommandLineException("Missing parameter(s).")
@@ -196,8 +182,7 @@ object Tool
             val fileToRun =
                 if (path == None)
                     None
-                else
-                {
+                else {
                     if (path.get.length == 0)
                         throw new CommandLineException("Missing path after " +
                                                        "\"@\".")
@@ -212,8 +197,7 @@ object Tool
             // Otherwise, let the library choose its own default.
 
             val readlineLibNames =
-                if (options.has("r"))
-                {
+                if (options.has("r")) {
                     val names: scala.collection.mutable.Buffer[String] = 
                         options.valuesOf("r").asInstanceOf[JList[String]]
                     names.toList
@@ -223,8 +207,7 @@ object Tool
 
             val readlineLibs = mapReadlineLibNames(readlineLibNames)
 
-            val dbInfo = dbParams match
-            {
+            val dbInfo = dbParams.toList match {
                 case Nil =>
                     throw new CommandLineException("Missing parameter(s).")
 
@@ -259,8 +242,7 @@ object Tool
             result
         }
 
-        catch
-        {
+        catch {
             case e: OptionException =>
                 System.err.println(e.getMessage)
                 printHelp(parser)
@@ -273,13 +255,10 @@ object Tool
         }
     }
 
-    private def mapReadlineLibNames(names: List[String]): List[ReadlineType] =
-    {
-        names match
-        {
+    private def mapReadlineLibNames(names: List[String]): List[ReadlineType] = {
+        names match {
             case name :: tail =>
-                val lib = name match
-                {
+                val lib = name match {
                     case "gnu"      => ReadlineType.GNUReadline
                     case "editline" => ReadlineType.EditLine
                     case "getline"  => ReadlineType.GetLine
@@ -295,8 +274,7 @@ object Tool
         }
     }
 
-    private def printHelp(parser: OptionParser) =
-    {
+    private def printHelp(parser: OptionParser) = {
         println()
         println("Usage: sqlshell [OPTIONS] db [@file]")
         println("       sqlshell [OPTIONS] driver url [user [pw]] [@file]")

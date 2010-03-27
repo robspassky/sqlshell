@@ -45,8 +45,7 @@ import grizzled.string.implicits._
  * returns the result as an <tt>Any</tt>. This trait is broken out from
  * <tt>Setting</tt>, to permit creating subtraits that can be shared.
  */
-trait ValueConverter
-{
+trait ValueConverter {
     /**
      * Convert a string value into some other type, returning it as an
      * <tt>Any</tt>.
@@ -68,8 +67,7 @@ trait ValueConverter
 /**
  * Defines what a setting looks like.
  */
-private[sqlshell] trait Setting extends ValueConverter
-{
+private[sqlshell] trait Setting extends ValueConverter {
     /**
      * Get the value of a setting.
      *
@@ -89,8 +87,8 @@ private[sqlshell] trait Setting extends ValueConverter
 /**
  * ValueConverter that converts from a string to a boolean.
  */
-private[sqlshell] trait BooleanValueConverter extends ValueConverter
-{
+private[sqlshell] trait BooleanValueConverter extends ValueConverter {
+
     val legalValues = List("true", "false", "on", "off", "0", "1")
 
     /**
@@ -101,16 +99,13 @@ private[sqlshell] trait BooleanValueConverter extends ValueConverter
      *
      * @return the converted boolean value, as an <tt>Any</tt>
      */
-    override def convertString(newValue: String): Any =
-    {
-        try
-        {
+    override def convertString(newValue: String): Any = {
+        try {
             val boolValue: Boolean = newValue
             boolValue
         }
 
-        catch
-        {
+        catch {
             case e: IllegalArgumentException =>
                 throw new SQLShellException("Cannot convert value \"" + 
                                             newValue + "\" to a boolean: " +
@@ -123,9 +118,8 @@ private[sqlshell] trait BooleanValueConverter extends ValueConverter
 /**
  * ValueConverter that converts from a string to a integer.
  */
-private[sqlshell] trait IntValueConverter
-    extends ValueConverter
-{
+private[sqlshell] trait IntValueConverter extends ValueConverter {
+
     val legalValues = Nil
 
     /**
@@ -147,10 +141,8 @@ private[sqlshell] trait IntValueConverter
      *
      * @return the converted integer value, as an <tt>Any</tt>
      */
-    override def convertString(newValue: String): Any =
-    {
-        try
-        {
+    override def convertString(newValue: String): Any = {
+        try {
             val result = newValue.toInt
             if ((result < minimum) || (result > maximum))
                 throw new SQLShellException("Value " + result + " is not " +
@@ -159,8 +151,7 @@ private[sqlshell] trait IntValueConverter
             result
         }
 
-        catch
-        {
+        catch {
             case e: NumberFormatException =>
                 throw new SQLShellException("Cannot convert value \"" + 
                                             newValue + "\" to a number.")
@@ -172,9 +163,8 @@ private[sqlshell] trait IntValueConverter
  * A setting that stores its value internally (as opposed to retrieving it
  * from someplace).
  */
-private[sqlshell] abstract class VarSetting(initialValue: Any)
-    extends Setting
-{
+private[sqlshell] abstract class VarSetting(initialValue: Any) extends Setting {
+
     private var value = initialValue
 
     def get = value
@@ -186,20 +176,20 @@ private[sqlshell] abstract class VarSetting(initialValue: Any)
  * A setting that stores its value internally as a boolean.
  */
 private[sqlshell] class BooleanSetting(initialValue: Boolean)
-    extends VarSetting(initialValue) with BooleanValueConverter
+extends VarSetting(initialValue) with BooleanValueConverter
 
 /**
  * A setting that stores its value internally as an integer.
  */
 private[sqlshell] class IntSetting(initialValue: Int)
-    extends VarSetting(initialValue) with IntValueConverter
+extends VarSetting(initialValue) with IntValueConverter
 
 /**
  * A setting that stores its value internally as a string.
  */
 private[sqlshell] class StringSetting(initialValue: String)
-    extends VarSetting(initialValue)
-{
+extends VarSetting(initialValue) {
+
     val legalValues = Nil
 }
 
@@ -210,9 +200,8 @@ private[sqlshell] class StringSetting(initialValue: String)
  * means. ("autocommit" is an example of the second variable; its value is
  * stored in the JDBC driver.)
  */
-private[sqlshell] class Settings(values: (String, Setting)*)
-    extends Sorter
-{
+private[sqlshell] class Settings(values: (String, Setting)*) extends Sorter {
+
     private val settingsMap = MutableMap.empty[String, Setting]
 
     for ((name, handler) <- values)
@@ -232,12 +221,10 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      *
      * @return the list of legal values, or Nil
      */
-    def legalValuesFor(variableName: String): List[String] =
-    {
+    def legalValuesFor(variableName: String): List[String] = {
         if (! (settingsMap contains variableName))
             throw new UnknownVariableException("Unknown setting: \"" +
                                                variableName + "\"")
-
         settingsMap(variableName).legalValues
     }
 
@@ -248,12 +235,10 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      *
      * @return its value, as an <tt>Any</tt>.
      */
-    def apply(variableName: String): Any =
-    {
+    def apply(variableName: String): Any = {
         if (! (settingsMap contains variableName))
             throw new UnknownVariableException("Unknown setting: \"" +
                                                variableName + "\"")
-
         settingsMap(variableName).get
     }
 
@@ -265,8 +250,7 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      *
      * @return the value of the setting
      */
-    def booleanSettingIsTrue(variableName: String): Boolean =
-    {
+    def booleanSettingIsTrue(variableName: String): Boolean = {
         if (! (settingsMap contains variableName))
             throw new UnknownVariableException("Unknown setting: \"" +
                                                variableName + "\"")
@@ -283,8 +267,7 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      *
      * @return the value of the setting
      */
-    def intSetting(variableName: String): Int =
-    {
+    def intSetting(variableName: String): Int = {
         if (! (settingsMap contains variableName))
             throw new UnknownVariableException("Unknown setting: \"" +
                                                variableName + "\"")
@@ -300,8 +283,7 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      *
      * @return the value of the setting
      */
-    def stringSetting(variableName: String): Option[String] =
-    {
+    def stringSetting(variableName: String): Option[String] = {
         if (! (settingsMap contains variableName))
             throw new UnknownVariableException("Unknown setting: \"" +
                                                variableName + "\"")
@@ -320,8 +302,7 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      *
      * @return the value of the setting, or the default
      */
-    def stringSetting(variableName: String, default: String): String =
-    {
+    def stringSetting(variableName: String, default: String): String = {
         if (! (settingsMap contains variableName))
             throw new UnknownVariableException("Unknown setting: \"" +
                                                variableName + "\"")
@@ -341,9 +322,7 @@ private[sqlshell] class Settings(values: (String, Setting)*)
      * @param value     the new value, as a string; it will be converted.
      */
     def changeSetting(variable: String, value: String) =
-    {
-        settingsMap.get(variable) match
-        {
+        settingsMap.get(variable) match {
             case None =>
                 throw new UnknownVariableException("Unknown setting: \"" +
                                                    variable + "\"")
@@ -351,5 +330,4 @@ private[sqlshell] class Settings(values: (String, Setting)*)
             case Some(handler) =>
                 handler.set(handler.convertString(value))
         }
-    }
 }

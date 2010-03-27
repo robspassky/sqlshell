@@ -40,41 +40,34 @@ package org.clapper.sqlshell.log
 import org.clapper.sqlshell._
 import grizzled.string.WordWrapper
 
-abstract sealed class LogLevel(val value: Int)
-{
+abstract sealed class LogLevel(val value: Int) {
     def matches(s: String): Boolean = s.toLowerCase == toString
 }
 
-case object Debug extends LogLevel(40)
-{
+case object Debug extends LogLevel(40) {
     override def toString = "debug"
 }
 
-case object Verbose extends LogLevel(30)
-{
+case object Verbose extends LogLevel(30) {
     override def toString = "verbose"
 }
 
-case object Info extends LogLevel(20)
-{
+case object Info extends LogLevel(20) {
     override def toString = "info"
 }
 
-case object Warning extends LogLevel(10)
-{
+case object Warning extends LogLevel(10) {
     override def toString = "warning"
 }
 
-case object Error extends LogLevel(0)
-{
+case object Error extends LogLevel(0) {
     override def toString = "error"
 }
 
 /**
  * Simple messaging/logging singleton.
  */
-object logger
-{
+object logger {
     private var theLevel: LogLevel = Info
     var useAnsi = true
 
@@ -83,10 +76,8 @@ object logger
 
     def level = theLevel
 
-    def level_=(newLevel: Any): Unit =
-    {
-        newLevel match
-        {
+    def level_=(newLevel: Any): Unit = {
+        newLevel match {
             case l: LogLevel =>
                 theLevel = l
 
@@ -151,8 +142,7 @@ object logger
     def error(msg: => String) =
         emit("Error: " + msg, Console.RED + Console.BOLD)
 
-    private def emit(msg: String, ansiModifiers: => String) =
-    {
+    private def emit(msg: String, ansiModifiers: => String) = {
         val wrappedMsg = wrapper.wrap(msg)
         if (useAnsi)
             println(ansiModifiers + wrappedMsg + Console.RESET)
