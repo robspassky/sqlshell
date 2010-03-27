@@ -13,12 +13,12 @@ import org.clapper.sbtplugins.izpack._
  * To build SQLShell via SBT.
  */
 class SQLShellProject(info: ProjectInfo)
-    extends DefaultProject(info)
-    with MarkdownPlugin
-    with EditSourcePlugin
-    with IzPackPlugin
-    with posterous.Publish
-{
+extends DefaultProject(info)
+with MarkdownPlugin
+with EditSourcePlugin
+with IzPackPlugin
+with posterous.Publish {
+
     /* ---------------------------------------------------------------------- *\
                          Compiler and SBT Options
     \* ---------------------------------------------------------------------- */
@@ -87,27 +87,13 @@ class SQLShellProject(info: ProjectInfo)
                          .describedAs("Build installer.")
 
     // Create the target/docs directory
-    lazy val makeTargetDocsDir = task 
-    {
+    lazy val makeTargetDocsDir = task {
         FileUtilities.createDirectory(targetDocsDir, log)
     }
 
     // Generate HTML docs from Markdown sources
-    lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownSources)
-    { 
-        val markdownCSS = Some(sourceDocsDir / "markdown.css")
-        def markdownWithTOC(src: Path, target: Path) =
-            markdown(src, target, log, markdownCSS, Some("toc.js"))
-        def markdownWithoutTOC(src: Path, target: Path) =
-            markdown(src, target, log, markdownCSS, None)
-
-        markdownWithoutTOC("README.md", targetDocsDir / "README.html")
-        markdownWithoutTOC("BUILDING.md", targetDocsDir / "BUILDING.html")
-        markdownWithoutTOC("LICENSE.md", targetDocsDir / "LICENSE.html")
-        markdownWithTOC(usersGuide, targetDocsDir / "users-guide.html")
-        copyFile("FAQ", targetDocsDir / "FAQ")
-        copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
-        None
+    lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownSources) { 
+        makeHTMLDocs
     } 
     .dependsOn(makeTargetDocsDir)
 
@@ -160,105 +146,21 @@ class SQLShellProject(info: ProjectInfo)
      * @param targetHTML      the path to the output file
      * @param useToc          whether or not to include the table of contents
      */
-    private def markdown(markdownSource: Path, 
-                         targetHTML: Path, 
-                         useToc: Boolean) =
-    {
-        // Use Rhino to run the Showdown (Javascript) Markdown converter.
-        // MarkdownJ has issues and appears to be unmaintained.
-        //
-        // Showdown is here: http://attacklab.net/showdown/
-        //
-        // This code was adapted from various examples, including the one
-        // at http://blog.notdot.net/2009/10/Server-side-JavaScript-with-Rhino
+    private def runMarkdown(markdownSource: Path, 
+                            targetHTML: Path, 
+                            useToc: Boolean) = {
 
-        import org.mozilla.javascript.{Context, Function}
-        import java.io.{FileOutputStream, FileReader, OutputStreamWriter}
-        import java.text.SimpleDateFormat
-        import java.util.Date
-        import scala.xml.parsing.XhtmlParser
+        import scala.xml.Comment
 
-        val Encoding = "ISO-8859-1"
+        val cssLines = fileLines(sourceDocsDir / "markdown.css")
+        val css = <style type="text/css">{cssLines mkString ""}</style>
+        val toc =
+            if (useToc)
+                <script text="text/javascript" src={"toc.js"}/>
+            else
+                new Comment("No table of contents Javascript")
 
-        log.info("Generating \"" + targetHTML + "\" from \"" +
-                 markdownSource + "\"")
-
-        // Initialize the Javascript environment
-        val ctx = Context.enter
-        try
-        {
-            val scope = ctx.initStandardObjects
-
-            // Open the Showdown script and evaluate it in the Javascript
-            // context.
-
-            val scriptPath = ShowdownLocal
-            val showdownScript = loadFile(scriptPath)
-            ctx.evaluateString(scope, showdownScript, "showdown", 1, null)
-
-            // Instantiate a new Showdown converter.
-
-            val converterCtor = ctx.evaluateString(scope, "Showdown.converter",
-                                                   "converter", 1, null)
-                                .asInstanceOf[Function]
-            val converter = converterCtor.construct(ctx, scope, null)
-
-            // Get the function to call.
-
-            val makeHTML = converter.get("makeHtml", 
-                                         converter).asInstanceOf[Function]
-
-            // Load the markdown source into a string, and convert it to HTML.
-
-            val markdownSourceLines = fileLines(markdownSource).toList
-            val markdownSourceString = markdownSourceLines mkString ""
-            val htmlBody = makeHTML.call(ctx, scope, converter,
-                                         Array[Object](markdownSourceString))
-
-            // Prepare the final HTML.
-
-            val cssLines = fileLines(sourceDocsDir / "markdown.css")
-            val css = cssLines mkString ""
-            val tocFile = if (useToc) "toc.js" else "no-toc.js"
-
-            // Title is first line.
-            val title = markdownSourceLines.head
-
-            // Can't parse the body into something that can be interpolated
-            // unless it's inside a single element. So, stuff it inside a
-            // <div>. Use the id "body", which is necessary for the table
-            // of contents stuff to work.
-            val sHTML = "<div id=\"body\">" + htmlBody.toString + "</div>"
-            val body = XhtmlParser(Source.fromString(sHTML))
-            val out = new PrintWriter(
-                          new OutputStreamWriter(
-                              new FileOutputStream(targetHTML.absolutePath), 
-                              Encoding))
-            val contentType = "text/html; charset=" + Encoding
-            val html = 
-<html>
-<head>
-<title>{title}</title>
-<style type="text/css">
-{css}
-</style>
-<script type="text/javascript" src={tocFile}/>
-<meta http-equiv="content-type" content={contentType}/>
-</head>
-<body onLoad="createTOC()">
-{body}
-<hr/>
-<i>Generated {new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date)}</i>
-</body>
-</html>
-            out.println(html.toString)
-            out.close
-        }
-
-        finally
-        {
-            Context.exit
-        }
+        markdown(markdownSource, targetHTML, css :: toc :: Nil, log)
     }
 
     /**
@@ -520,5 +422,21 @@ class SQLShellProject(info: ProjectInfo)
                 new File(path("CHANGELOG"), "$INSTALL_PATH/docs")
             }
         }
+    }
+
+    private def makeHTMLDocs = {
+        val markdownCSS = Some(sourceDocsDir / "markdown.css")
+        def markdownWithTOC(src: Path, target: Path) =
+            runMarkdown(src, target, true)
+        def markdownWithoutTOC(src: Path, target: Path) =
+            runMarkdown(src, target, false)
+
+        markdownWithoutTOC("README.md", targetDocsDir / "README.html")
+        markdownWithoutTOC("BUILDING.md", targetDocsDir / "BUILDING.html")
+        markdownWithoutTOC("LICENSE.md", targetDocsDir / "LICENSE.html")
+        markdownWithTOC(usersGuide, targetDocsDir / "users-guide.html")
+        copyFile("FAQ", targetDocsDir / "FAQ")
+        copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
+        None
     }
 }

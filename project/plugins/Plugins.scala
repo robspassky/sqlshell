@@ -1,7 +1,6 @@
 import sbt._
 
-class Plugins(info: ProjectInfo) extends PluginDefinition(info)
-{
+class Plugins(info: ProjectInfo) extends PluginDefinition(info) {
     // Managed dependencies that are used by the project file itself.
     // Putting them here allows them to be imported in the project class.
 
