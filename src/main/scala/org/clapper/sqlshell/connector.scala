@@ -56,7 +56,8 @@ private[sqlshell] class DatabaseInfo(val dbName: Option[String],
                                      val dbDriver: Option[String],
                                      val dbURL: Option[String],
                                      val dbUser: Option[String],
-                                     val dbPassword: Option[String]) {
+                                     val dbPassword: Option[String])
+{
     def this() = this(None, None, None, None, None)
 
     def this(dbName: Option[String]) =
@@ -92,27 +93,31 @@ private[sqlshell] class DatabaseMetadata(val productName: Option[String],
 private[sqlshell] class ConnectionInfo(val connection: SQLConnection,
                                        val configInfo: Map[String, String],
                                        configSectionName: Option[String],
-                                       val jdbcURL: String) {
+                                       val jdbcURL: String)
+{
     private val DbSectionName = """^db_(.*)$""".r
 
     /**
      * Get the DB name, which is the section name, with "db_" stripped off.
      * Returns None if name is unknown.
      */
-    val dbName = configSectionName match {
+    val dbName = configSectionName match
+    {
         case None                   => None
         case Some(DbSectionName(s)) => Some(s)
         case Some(s)                => Some(s)
     }
 
-    def databaseInfo: DatabaseMetadata = {
+    def databaseInfo: DatabaseMetadata =
+    {
         def toOption(s: String): Option[String] =
             if ((s == null) || (s.trim == "")) None else Some(s)
 
         val metadata = connection.getMetaData
 
         val isolation =
-            connection.getTransactionIsolation match {
+            connection.getTransactionIsolation match
+            {
                 case SQLConnection.TRANSACTION_READ_UNCOMMITTED =>
                     "read uncommitted"
                 case SQLConnection.TRANSACTION_READ_COMMITTED =>
@@ -140,7 +145,8 @@ private[sqlshell] class ConnectionInfo(val connection: SQLConnection,
 /**
  * Handles connecting to a database.
  */
-private[sqlshell] class DatabaseConnector(val config: Configuration) {
+private[sqlshell] class DatabaseConnector(val config: Configuration)
+{
     /**
      * Connect to the database specified in a <tt>DatabaseInfo</tt>
      * object, consulting the configuration, if necessary.
@@ -150,11 +156,13 @@ private[sqlshell] class DatabaseConnector(val config: Configuration) {
      * @return a <tt>ConnectionInfo</tt> object, containing the connection
      *         and the configuration data for the database
      */
-    def connect(info: DatabaseInfo): ConnectionInfo = {
+    def connect(info: DatabaseInfo): ConnectionInfo =
+    {
         if (info.dbName != None)
             connectByName(info.dbName.get)
 
-        else {
+        else
+        {
             // The driver name might be an alias. If it is, get the real
             // class name.
 
@@ -176,12 +184,13 @@ private[sqlshell] class DatabaseConnector(val config: Configuration) {
         }
     }
 
-    private def connectByName(dbName: String): ConnectionInfo = {
-
+    private def connectByName(dbName: String): ConnectionInfo =
+    {
         def option(sectionName: String, 
                    optionName: String,
                    required: Boolean): Option[String] =
-            config.option(sectionName, optionName, "") match {
+            config.option(sectionName, optionName, "") match
+            {
                 case "" if (! required) =>
                     None
 
@@ -195,7 +204,8 @@ private[sqlshell] class DatabaseConnector(val config: Configuration) {
                     Some(s)
             }
 
-        matchingSections(dbName) match {
+        matchingSections(dbName) match
+        {
             case Nil =>
                 throw new SQLShellException("No databases match \"" +
                                             dbName + "\"")
@@ -224,14 +234,16 @@ private[sqlshell] class DatabaseConnector(val config: Configuration) {
     def connectJDBC(driverClassName: String,
                     url: String,
                     user: Option[String],
-                    password: Option[String]): SQLConnection = {
+                    password: Option[String]): SQLConnection =
+    {
         val properties = new java.util.Properties
         if (user != None)
             properties.setProperty("user", user.get)
         if (password != None)
             properties.setProperty("password", password.get)
 
-        try {
+        try
+        {
             val cls = Class.forName(driverClassName)
             val driver = cls.newInstance.asInstanceOf[JDBCDriver]
             val connection = driver.connect(url, properties)
@@ -243,7 +255,8 @@ private[sqlshell] class DatabaseConnector(val config: Configuration) {
             connection
         }
 
-        catch {
+        catch
+        {
             case e: ClassNotFoundException =>
                 val ex = new SQLShellException("JDBC driver class " +
                                                "\"" + driverClassName +
@@ -253,18 +266,21 @@ private[sqlshell] class DatabaseConnector(val config: Configuration) {
         }
     }
 
-    private def getDriver(driverName: String): String = {
+    private def getDriver(driverName: String): String =
+    {
         val configDriverClass = config.option("drivers", driverName, null)
         if (configDriverClass != null) configDriverClass else driverName
     }
 
     private def optionToString(option: Option[String]): String =
-        option match {
+        option match
+        {
             case None    => ""
             case Some(s) => s
         }
 
-    private def matchingSections(dbName: String): List[String] = {
+    private def matchingSections(dbName: String): List[String] =
+    {
         val f = (s: String) => (s.startsWith("db_") && (s.length > 3))
         val dbSections = config.sectionNames.filter(f).toList
 

@@ -17,7 +17,8 @@ extends DefaultProject(info)
 with MarkdownPlugin
 with EditSourcePlugin
 with IzPackPlugin
-with posterous.Publish {
+with posterous.Publish
+{
 
     /* ---------------------------------------------------------------------- *\
                          Compiler and SBT Options
@@ -87,12 +88,14 @@ with posterous.Publish {
                          .describedAs("Build installer.")
 
     // Create the target/docs directory
-    lazy val makeTargetDocsDir = task {
+    lazy val makeTargetDocsDir = task
+    {
         FileUtilities.createDirectory(targetDocsDir, log)
     }
 
     // Generate HTML docs from Markdown sources
-    lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownSources) { 
+    lazy val htmlDocs = fileTask(markdownHtmlFiles from markdownSources) 
+    { 
         makeHTMLDocs
     } 
     .dependsOn(makeTargetDocsDir)
@@ -148,7 +151,8 @@ with posterous.Publish {
      */
     private def runMarkdown(markdownSource: Path, 
                             targetHTML: Path, 
-                            useToc: Boolean) = {
+                            useToc: Boolean) = 
+    {
 
         import scala.xml.Comment
 
@@ -424,7 +428,8 @@ with posterous.Publish {
         }
     }
 
-    private def makeHTMLDocs = {
+    private def makeHTMLDocs =
+    {
         val markdownCSS = Some(sourceDocsDir / "markdown.css")
         def markdownWithTOC(src: Path, target: Path) =
             runMarkdown(src, target, true)

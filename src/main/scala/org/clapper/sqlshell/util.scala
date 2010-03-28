@@ -45,7 +45,8 @@ import grizzled.string.implicits._
 /**
  * Useful place to stash some sorting stuff.
  */
-trait Sorter {
+trait Sorter
+{
     def sortByName(list: List[String]): List[String] =
         list.sortWith {_.toLowerCase < _.toLowerCase}
 
@@ -55,7 +56,8 @@ trait Sorter {
 /**
  * Convenient wrapper functions
  */
-trait Wrapper {
+trait Wrapper
+{
     val wordWrapper = new WordWrapper
 
     def wrapPrintln(s: String) = println(wordWrapper.wrap(s))
@@ -70,7 +72,8 @@ trait Wrapper {
 /**
  * Timer mix-in.
  */
-trait Timer {
+trait Timer
+{
     import org.joda.time.Period
     import org.joda.time.format.PeriodFormatterBuilder
 
@@ -91,7 +94,8 @@ trait Timer {
      * @return a (time, result) tuple, consisting of the number of
      * milliseconds it took to run (time) and the result from the block.
      */
-    def time[T](block: => T): (Long, T) = {
+    def time[T](block: => T): (Long, T) =
+    {
         val start = System.currentTimeMillis
         val result = block
         (System.currentTimeMillis - start, result)
@@ -105,7 +109,8 @@ trait Timer {
      *
      * @return the number of milliseconds it took to run the block
      */
-    def time(block: => Unit): Long = {
+    def time(block: => Unit): Long =
+    {
         val start = System.currentTimeMillis
         block
         System.currentTimeMillis - start
@@ -119,7 +124,8 @@ trait Timer {
      *
      * @return the string
      */
-    def formatInterval(elapsed: Long): String = {
+    def formatInterval(elapsed: Long): String =
+    {
         val buf = new StringBuffer
         formatter.printTo(buf, new Period(elapsed))
         buf.toString
@@ -142,7 +148,8 @@ trait Timer {
  * Wraps a source in something that can be pushed onto the command
  * interpreter's reader stack.
  */
-class SourceReader(source: Source) {
+class SourceReader(source: Source)
+{
     // lines iterator
     private val itLines = source.getLines()
 
