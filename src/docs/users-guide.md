@@ -1,18 +1,16 @@
-SQLShell: A Cross-platform, Cross-database SQL Command Line Tool
-================================================================
+---
+title: SQLShell, a cross-platform, cross-database SQL command tool
+layout: users-guide
+---
 
 ## User's Guide
 
 This is the SQLShell User's Guide.
 
-## Table of Contents
-
-<div id="toc"/>
-
 ## Introduction
 
 SQLShell is a SQL command line tool, similar in concept to tools like
-Oracle's [SQL*Plus][sqlplus], the [PostgreSQL][postgresql] `psql` command,
+Oracle's [SQL Plus][sqlplus], the [PostgreSQL][postgresql] `psql` command,
 and the [MySQL][mysql] `mysql` tool.
 
 [sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html
@@ -67,11 +65,11 @@ necessary to find it in the configuration file.
 
 ### Command Line
 
-> sqlshell [OPTIONS] *db* \[*@file*\]
+> sqlshell \[OPTIONS\] *db* \[*@file*\]
 
 or
 
-> sqlshell [OPTIONS] *driver* *url* \[*user* \[*pw*\]\] \[*@file*\]
+> sqlshell \[OPTIONS\] *driver* *url* \[*user* \[*pw*\]\] \[*@file*\]
 
 #### Options
 
@@ -336,7 +334,7 @@ Notes and caveats:
   backslash, e.g., "var=value with \$ dollar sign", or use the `->` assignment
   operator.
 
-#### The [settings] Section
+#### The *settings* Section
 
 The optional `settings` section can contain initial values for any of the
 settings that are understood by the `.set` command. See the description of
@@ -346,7 +344,7 @@ settings that are understood by the `.set` command. See the description of
     # Show up to 20 characters of CLOB and BLOB data
     maxbinary: 20
 
-#### The [drivers] section
+#### The *drivers* section
 
 The optional `drivers` section contains alias names for JDBC drivers. Using
 this section, you can assign short names to the JDBC driver class names,
@@ -365,7 +363,7 @@ For example:
     oracle = oracle.jdbc.driver.OracleDriver
     access = sun.jdbc.odbc.JdbcOdbcDriver
 
-#### The [db_] Sections
+#### The *db_* Sections
 
 A `db_` section contains the connection definition for a particular
 database. The `db_` prefix must be followed by the primary name of the
@@ -469,7 +467,7 @@ following values from each `db_` configuration section:
 * The section name, minus the `db_` prefix. This is the primary name of
   the database, from SQLShell's perspective.
 * Any names in the `aliases` variable within that section (if there is
-  an `aliases` variable`).
+  an `aliases` variable).
 
 You only need to specify as many characters as are necessary to uniquely
 identify the database.
@@ -591,8 +589,10 @@ possible. It does **not** wrap its output, however.
 
 SQLShell has explicit support for the following kinds of SQL statements.
 Note that "explicit support" means SQLShell can do table-name completion
-for those commands (see `Command Completion`_), not that SQLShell understands
+for those commands (see [Command Completion][]), not that SQLShell understands
 the SQL syntax.
+
+[Command Completion]: #command_completion
 
 - `ALTER` (e.g., `ALTER TABLE`, `ALTER INDEX`)
 - `CREATE` (e.g., `CREATE TABLE`, `CREATE INDEX`)
@@ -967,7 +967,7 @@ See **Command History** for a complete explanation of SQLShell's
 >   - `%user%`: The name of the user connected to the database.
 >   - `%SP%`: A space
 >
-> * `schema': The schema to use when resolving table names. If omitted,
+> * `schema`: The schema to use when resolving table names. If omitted,
 >   then SQLShell considers all tables that are visible to the connected
 >   user. This variable just sets the initial value for this setting. This 
 >   value may also be initialized in the configuration section for the database.
@@ -985,7 +985,7 @@ See **Command History** for a complete explanation of SQLShell's
 >   **Default:**: off
 >
 > * `stacktrace`: Whether or not to display Scala stack traces when internal
->   exceptions occur. Useful mostly for debugging. **Default:* off
+>   exceptions occur. Useful mostly for debugging. **Default:** off
 
 `.show`
 
