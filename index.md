@@ -116,7 +116,7 @@ under a [BSD license][license]. See the accompanying [license][] file.
 [PostgreSQL]: http://www.postgresql.org/
 [MySQL]: http://www.mysql.org/
 [Java 6]: http://java.sun.com/
-[downloads area]: http://www.clapper.org/software/scala/sqlshell/downloads/
+[downloads area]: http://github.com/bmc/sqlshell/downloads/
 [my PGP key]: http://www.clapper.org/bmc/pgp.html
 [izpack]: http://izpack.org/
 [sbt]: http://code.google.com/p/simple-build-tool
