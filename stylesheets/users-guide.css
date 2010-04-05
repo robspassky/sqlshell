@@ -1,0 +1,74 @@
+// Style sheet for Markdown-generated HTML.
+
+body
+{
+    background-color: white;
+    font-family: Arial, Helvetica, Verdana, sans-serif;
+}
+
+pre
+{ 
+    margin-left: 0.5in;
+}
+
+// Table of contents stuff. See toc.js
+
+li.tocH1
+{
+    margin-left: 2em
+}
+
+li.tocH2
+{ 
+    margin-left: 3em
+}
+
+li.tocH3
+{ 
+    margin-left: 4em
+}
+
+li.tocH4
+{ 
+    margin-left: 5em
+}
+
+li.tocH5
+{
+    margin-left: 6em
+}
+
+li.tocH6
+{
+    margin-left: 7em
+}
+
+h2
+{
+    background-color: #aaaaaa;
+    border: 1px solid black;
+}
+
+h3
+{
+    background-color: #dddddd;
+    border: 1px solid black;
+}
+
+h4
+{ 
+    font-style: italic;
+}
+
+h5
+{ 
+    font-style: italic;
+    text-decoration: underline;
+}
+
+h6
+{ 
+    font-style: italic;
+    text-decoration: underline;
+}
+
