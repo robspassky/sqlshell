@@ -1041,7 +1041,8 @@ abstract class ResultSetStringifier(maxBinary: Int)
                metadata: ResultSetMetaData,
                rowMap: ArrayBuffer[String]): Array[String] =
     {
-        import grizzled.io.implicits._   // for the readSome() method
+        import grizzled.io.RichReader._       // for the readSome() method
+        import grizzled.io.RichInputStream._  // for the readSome() method
         import grizzled.io.util.useThenClose
 
         val NULL_STR = "NULL"

@@ -7,6 +7,7 @@ Version 0.5.2 (...)
 - Now uses Markdown plugin, instead of doing Markdown inline.
 - Uses new org.clapper IzPack plugin to build installer, instead of using
   an external XML configuration file.
+- Removed no-longer-necessary dependency on IzPack standalone compiler.
 - Updated to version 0.4.2 of the Grizzled Scala library.
 
 ---------------------------------------------------------------------------

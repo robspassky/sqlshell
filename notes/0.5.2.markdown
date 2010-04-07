@@ -3,9 +3,12 @@
   software shipped with SQLShell.
 * Some internal cosmetic code changes.
 * Now uses Markdown plugin, instead of doing Markdown inline.
-* Uses new `org.clapper` IzPack plugin to build installer, instead of using
-  an external XML configuration file.
+* Uses new `org.clapper` [IzPack][] plugin to build installer, instead of
+  using an external XML configuration file.
+- Removed no-longer-necessary dependency on [IzPack][] standalone compiler.
 * Updated to version 0.4.2 of the [Grizzled Scala][] library.
+
 
 [SBT]: http://code.google.com/p/simple-build-tool
 [Grizzled Scala]: http://bmc.github.com/grizzled-scala/
+[IzPack]: http://izpack.org/
