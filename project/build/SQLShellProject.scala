@@ -254,6 +254,23 @@ with posterous.Publish
         None
     }
 
+    private def makeHTMLDocs =
+    {
+        val markdownCSS = Some(sourceDocsDir / "markdown.css")
+        def markdownWithTOC(src: Path, target: Path) =
+            runMarkdown(src, target, true)
+        def markdownWithoutTOC(src: Path, target: Path) =
+            runMarkdown(src, target, false)
+
+        markdownWithoutTOC("README.md", targetDocsDir / "README.html")
+        markdownWithoutTOC("BUILDING.md", targetDocsDir / "BUILDING.html")
+        markdownWithoutTOC("LICENSE.md", targetDocsDir / "LICENSE.html")
+        markdownWithTOC(usersGuide, targetDocsDir / "users-guide.html")
+        copyFile("FAQ", targetDocsDir / "FAQ")
+        copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
+        None
+    }
+
     /* ---------------------------------------------------------------------- *\
                         Installation Configuration
     \* ---------------------------------------------------------------------- */
@@ -271,7 +288,7 @@ with posterous.Publish
             appVersion = projectVersion.value.toString
             appSubPath = "clapper.org/sqlshell"
             author("Brian M. Clapper", "bmc@clapper.org")
-            url = "http://www.clapper.org/software/scala/sqlshell"
+            url = "http://bmc.github.com/sqlshell/"
             javaVersion = "1.6"
             writeInstallationInfo = true
         }
@@ -425,22 +442,5 @@ with posterous.Publish
                 new File(path("CHANGELOG"), "$INSTALL_PATH/docs")
             }
         }
-    }
-
-    private def makeHTMLDocs =
-    {
-        val markdownCSS = Some(sourceDocsDir / "markdown.css")
-        def markdownWithTOC(src: Path, target: Path) =
-            runMarkdown(src, target, true)
-        def markdownWithoutTOC(src: Path, target: Path) =
-            runMarkdown(src, target, false)
-
-        markdownWithoutTOC("README.md", targetDocsDir / "README.html")
-        markdownWithoutTOC("BUILDING.md", targetDocsDir / "BUILDING.html")
-        markdownWithoutTOC("LICENSE.md", targetDocsDir / "LICENSE.html")
-        markdownWithTOC(usersGuide, targetDocsDir / "users-guide.html")
-        copyFile("FAQ", targetDocsDir / "FAQ")
-        copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
-        None
     }
 }
