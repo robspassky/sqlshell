@@ -75,6 +75,7 @@ import scala.collection.mutable.{ArrayBuffer,
 import scala.io.Source
 import scala.util.matching.Regex
 import scala.annotation.tailrec
+import scala.math
 
 import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
 
@@ -904,7 +905,7 @@ class AboutHandler(val shell: SQLShell)
         // Allow for trailing ":" and space.
         val maxLabelLength = 2 + Keys.foldLeft(0)
         {
-            (sum, entry) => Math.max(sum, entry._1.length)
+            (sum, entry) => math.max(sum, entry._1.length)
         }
 
         for ((label, func, key) <- Keys)
@@ -1273,7 +1274,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
         {
             val value = row(i - 1)
             val size = value.length
-            val max = Math.max(columnData(name), size)
+            val max = math.max(columnData(name), size)
             columnData(name) = max
         }
     }
