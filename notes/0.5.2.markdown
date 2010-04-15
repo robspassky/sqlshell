@@ -9,7 +9,7 @@
 * Uses new `org.clapper` [IzPack][] plugin to build installer, instead of
   using an external XML configuration file.
 * Removed no-longer-necessary dependency on [IzPack][] standalone compiler.
-* Updated to version 0.4.2 of the [Grizzled Scala][] library.
+* Updated to version 0.5 of the [Grizzled Scala][] library.
 
 
 [SBT]: http://code.google.com/p/simple-build-tool
