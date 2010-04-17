@@ -630,21 +630,17 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
     private def loadSettings(config: Configuration,
                              connectionInfo: ConnectionInfo) =
     {
-        if (config.hasSection("settings"))
-        {
-            logger.verbose("Loading settings from configuration.")
-            for ((variable, value) <- config.options("settings"))
-                try
-                {
-                    settings.changeSetting(variable, value)
-                    logger.verbose("+ " + setHandler.CommandName + " " +
-                                   variable + "=" + value)
-                }
-                catch
-                {
-                    case e: UnknownVariableException => warning(e.message)
-                }
-        }
+        for ((variable, value) <- config.options("settings"))
+            try
+            {
+                settings.changeSetting(variable, value)
+                logger.verbose("+ " + setHandler.CommandName + " " +
+                               variable + "=" + value)
+            }
+            catch
+            {
+                case e: UnknownVariableException => warning(e.message)
+            }
 
         connectionInfo.configInfo.get("schema") match
         {

@@ -189,19 +189,19 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
         def option(sectionName: String, 
                    optionName: String,
                    required: Boolean): Option[String] =
-            config.option(sectionName, optionName, "") match
+            config.get(sectionName, optionName) match
             {
-                case "" if (! required) =>
+                case None if (! required) =>
                     None
 
-                case "" if (required) =>
+                case None =>
                     throw new SQLShellConfigException(
                         "Missing required \"" + optionName + "\" option " +
                         "in configuration file section \"" + sectionName +
                         "\"")
 
-                case s  => 
-                    Some(s)
+                case Some(value) => 
+                    Some(value)
             }
 
         matchingSections(dbName) match
@@ -268,8 +268,11 @@ private[sqlshell] class DatabaseConnector(val config: Configuration)
 
     private def getDriver(driverName: String): String =
     {
-        val configDriverClass = config.option("drivers", driverName, null)
-        if (configDriverClass != null) configDriverClass else driverName
+        config.get("drivers", driverName) match
+        {
+            case None            => driverName
+            case Some(className) => className
+        }
     }
 
     private def optionToString(option: Option[String]): String =

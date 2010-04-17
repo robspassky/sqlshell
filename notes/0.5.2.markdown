@@ -10,6 +10,8 @@
   using an external XML configuration file.
 * Removed no-longer-necessary dependency on [IzPack][] standalone compiler.
 * Updated to version 0.5 of the [Grizzled Scala][] library.
+* Updated usage of `grizzled.config.Configuration` to remove uses of newly
+  deprecated methods.
 
 
 [SBT]: http://code.google.com/p/simple-build-tool
