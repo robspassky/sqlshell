@@ -12,6 +12,8 @@
 * Updated to version 0.5 of the [Grizzled Scala][] library.
 * Updated usage of `grizzled.config.Configuration` to remove uses of newly
   deprecated methods.
+* Corrected SBT build's retrieval of 2.7.7 (old) Grizzled-Scala, needed for
+  SBT build file to compile.
 
 
 [SBT]: http://code.google.com/p/simple-build-tool
