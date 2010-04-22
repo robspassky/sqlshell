@@ -109,6 +109,16 @@ via the binary graphical installer.
 SQLShell is copyright &copy; 2009-2010 [Brian M. Clapper][] is released
 under a [BSD license][license]. See the accompanying [license][] file.
 
+## Patches
+
+I gladly accept patches from their original authors. Feel free to email
+patches to me or to fork the [GitHub repository][] and send me a pull
+request. Along with any patch you send:
+
+* Please state that the patch is your original work.
+* Please indicate that you license the work to the SQLShell project
+  under a [BSD License][license].
+
 [User's Guide]: users-guide.html
 [GitHub repository]: http://github.com/bmc/sqlshell
 [Scala]: http://www.scala-lang.org/
