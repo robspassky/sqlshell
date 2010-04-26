@@ -221,17 +221,21 @@ is described below. All section names must be unique within the file.
 Blank lines and comment lines are ignored; comment lines start with a "#"
 character.
 
-SQLShell uses the a Win.INI-style configuration file, with several enhancements.
-The configuration file format supports:
+SQLShell uses the [Grizzled Scala][] library's `grizzled.config` module to
+parse its configuration, so it supports all the capabilities that module
+provides. The configuration file is a Win.INI-style file, with several
+enhancements, and supports:
 
 * Sections, like traditional Windows INI files
-* "Include" directives, so you can include other files within the configuration
+* Include directives, so you can include other files within the configuration
 * Variable substitutions, allowing you to put common definitions in one section,
   to be used throughout other sections.
 * Special `env` and `system` pseudo-sections. See `Variable Substitution`,
   below.
 * Java-style metacharacters like `\t`, `\n` and `\u00a9`.
 * Comment lines, starting with a "#" character
+
+[Grizzled Scala]: http://bmc.github.com/grizzled-scala/
 
 Each section consists of a set of variable/value pairs. Variable names can
 consist of alphanumerics and underscores; values can contain anything. SQLShell
@@ -255,7 +259,7 @@ not
 
     foo = $bar
 
-SQLShell looks for several "special" sections, based on their names or prefixes.
+SQLShell looks for several special sections, based on their names or prefixes.
 Other sections are permitted, but SQLShell doesn't explicitly use them. You
 can use other sections for common variable definitions; a section called
 "common" or "vars" is often useful for that.
@@ -280,7 +284,7 @@ is relative to the file that's trying to include it.
 The included file may contain any content that is valid for this parser. It
 may contain just variable definitions (i.e., the contents of a section,
 without the section header), or it may contain a complete configuration
-file, with individual sections. Since Configuration recognizes a variable
+file, with individual sections. Since SQLShell recognizes a variable
 syntax that is essentially identical to Java's properties file syntax, it's
 also legal to include a properties file, provided it's included within a
 valid section.
