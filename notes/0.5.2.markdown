@@ -1,4 +1,5 @@
 * Updated to Scala 2.8.0.RC1.
+* Updated to posterous-sbt 0.1.5.
 * Replaced uses of now-deprecated `Math` functions with corresponding functions
   from `scala.math`.
 * Updated to [SBT][] version 0.7.3
