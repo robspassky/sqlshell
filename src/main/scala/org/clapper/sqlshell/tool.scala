@@ -109,7 +109,6 @@ object Tool
                 System.err.println("\n" + e.getMessage)
                 if (params.showStackTraces)
                     e.printStackTrace(System.err)
-                System.exit(1)
         }
 
         System.exit(0)
