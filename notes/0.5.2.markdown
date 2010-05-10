@@ -3,7 +3,7 @@
 * Replaced uses of now-deprecated `Math` functions with corresponding functions
   from `scala.math`.
 * Updated to [SBT][] version 0.7.3
-* Updated to [Grizzled Scala][] version 0.5.1, to pick up changes to
+* Updated to [Grizzled Scala][] version 0.6, to pick up changes to
   `grizzled.cmd.CommandInterpreter` that address [Issue #3][issue 3]
   (unknown database name on command line causes SQLShell to leave the terminal
   in a weird state when it exits, when using the EditLine package).
