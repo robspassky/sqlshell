@@ -1,4 +1,6 @@
-* Updated to Scala 2.8.0.RC1.
+* Fixed bug: Assertion failure when you type ".capture off", but you're not
+  currently capturing anything.
+* Updated to Scala 2.8.0.RC2.
 * Updated to posterous-sbt 0.1.5.
 * Replaced uses of now-deprecated `Math` functions with corresponding functions
   from `scala.math`.

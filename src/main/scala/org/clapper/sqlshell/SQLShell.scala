@@ -1455,10 +1455,14 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      */
     def removeResultHandler(key: String): Option[ResultSetHandler] =
     {
-        assert(resultHandlers contains key)
-        val result = getResultHandler(key)
-        resultHandlers -= key
-        result
+        getResultHandler(key) match
+        {
+            case None =>
+                None
+            case Some(result) =>
+                resultHandlers -= key
+                Some(result)
+        }
     }
 
     /**
