@@ -66,8 +66,6 @@ with posterous.Publish
 
     val newReleaseToolsRepository = "Scala Tools Repository" at
         "http://nexus.scala-tools.org/content/repositories/snapshots/"
-    val scalatest = "org.scalatest" % "scalatest" %
-        "1.0.1-for-scala-2.8.0.Beta1-with-test-interfaces-0.3-SNAPSHOT"
 
     val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
     val jodaTime = "joda-time" % "joda-time" % "1.6"
