@@ -16,7 +16,7 @@
 * Uses new `org.clapper` [IzPack][] plugin to build installer, instead of
   using an external XML configuration file.
 * Removed no-longer-necessary dependency on [IzPack][] standalone compiler.
-* Updated to version 0.5 of the [Grizzled Scala][] library.
+* Updated to version 0.6.1 of the [Grizzled Scala][] library.
 * Updated usage of `grizzled.config.Configuration` to remove uses of newly
   deprecated methods.
 * Corrected SBT build's retrieval of 2.7.7 (old) Grizzled-Scala, needed for

@@ -38,7 +38,7 @@
 package org.clapper.sqlshell
 
 import scala.collection.mutable.{Map => MutableMap}
-import grizzled.string.implicits._
+import grizzled.string.GrizzledString._
 
 /**
  * Trait for a class that converts a string value to something else, then
@@ -105,8 +105,9 @@ private[sqlshell] trait BooleanValueConverter extends ValueConverter
     {
         try
         {
-            val boolValue: Boolean = newValue
-            boolValue
+            import grizzled.string.util
+
+            util.stringToBoolean(newValue)
         }
 
         catch

@@ -50,7 +50,7 @@ import grizzled.readline.{ListCompleter,
 import grizzled.readline.Readline
 import grizzled.readline.Readline.ReadlineType
 import grizzled.readline.Readline.ReadlineType._
-import grizzled.string.implicits._
+import grizzled.string.GrizzledString._
 import grizzled.string.WordWrapper
 import grizzled.config.Configuration
 import grizzled.math.util._
@@ -2524,7 +2524,7 @@ extends SQLShellCommandHandler with Wrapper with JDBCHelper with Sorter
 class ShowHandler(val shell: SQLShell, val connection: Connection)
 extends SQLShellCommandHandler with Wrapper with Sorter
 {
-    import grizzled.collection.GrizzledLinearSeq.Implicits._
+    import grizzled.collection.GrizzledLinearSeq._
 
     val CommandName = ".show"
     val Help =

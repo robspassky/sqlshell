@@ -40,7 +40,7 @@ package org.clapper.sqlshell
 import scala.io.Source
 
 import grizzled.string.WordWrapper
-import grizzled.string.implicits._
+import grizzled.string.GrizzledString._
 
 /**
  * Useful place to stash some sorting stuff.
