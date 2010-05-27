@@ -31,14 +31,13 @@ with posterous.Publish
                              Various settings
     \* ---------------------------------------------------------------------- */
 
-    val LocalLibDir = "local_lib"
-
     // Use the "##" base path construct to indicate that "target/classes"
     // must be stripped off before this file is packaged.
     val aboutInfoPath = ("target" / "classes" ##) / "org" / "clapper" /
                          "sqlshell" / "SQLShell.properties"
     val sourceDocsDir = "src" / "docs"
     val targetDocsDir = "target" / "doc"
+    val changeLog = "target" / "CHANGELOG.md" // Generated
     val usersGuide = sourceDocsDir / "users-guide.md"
     val markdownFiles = (path(".") * "*.md") +++ usersGuide
     val markdownHtmlFiles = transformPaths(targetDocsDir,
@@ -71,9 +70,9 @@ with posterous.Publish
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val opencsv = "net.sf.opencsv" % "opencsv" % "1.8"
 
-    val orgClapperRepo = "clapper.org Maven Repository" at
+    val clapperRepo = "clapper.org Maven Repository" at
         "http://maven.clapper.org"
-    val grizzled = "org.clapper" %% "grizzled-scala" % "0.6.1"
+    val grizzled = "org.clapper" %% "grizzled-scala" % "0.7"
 
     /* ---------------------------------------------------------------------- *\
                          Custom tasks and actions
@@ -104,7 +103,7 @@ with posterous.Publish
     lazy val targetDocs = task {None} dependsOn(htmlDocs, markdownDocs)
 
     // Override the "doc" action to depend on additional doc targets
-    override def docAction = super.docAction dependsOn(targetDocs)
+    override def docAction = super.docAction dependsOn(changelog, targetDocs)
 
     // Dependency should point the other way, but overriding compileAction
     // somehow causes createAboutInfo to run BEFORE the clean action (when
@@ -120,10 +119,6 @@ with posterous.Publish
     lazy val projectConsole = task {Run.projectConsole(this)}
 
     override def disableCrossPaths = true
-
-    override def cleanLibAction = super.cleanLibAction
-                                       .dependsOn(localCleanLib)
-    lazy val localCleanLib = task { doLocalCleanLib }
 
     /* ---------------------------------------------------------------------- *\
                           Private Helper Methods
@@ -241,17 +236,6 @@ with posterous.Publish
                          "Automatically generated SQLShell build information")
     }
 
-    private def doLocalCleanLib: Option[String] =
-    {
-        if (ShowdownLocal.exists)
-        {
-            log.info("Deleting " + LocalLibDir);
-            FileUtilities.clean(LocalLibDir, log);
-        }
-
-        None
-    }
-
     private def makeHTMLDocs =
     {
         val markdownCSS = Some(sourceDocsDir / "markdown.css")
@@ -263,6 +247,7 @@ with posterous.Publish
         markdownWithoutTOC("README.md", targetDocsDir / "README.html")
         markdownWithoutTOC("BUILDING.md", targetDocsDir / "BUILDING.html")
         markdownWithoutTOC("LICENSE.md", targetDocsDir / "LICENSE.html")
+        markdownWithoutTOC(changeLog, targetDocsDir / "CHANGELOG.html")
         markdownWithTOC(usersGuide, targetDocsDir / "users-guide.html")
         copyFile("FAQ", targetDocsDir / "FAQ")
         copyFile(sourceDocsDir / "toc.js", targetDocsDir / "toc.js")
@@ -437,7 +422,7 @@ with posterous.Publish
                             (TargetDocDir * "*.css") +++
                             (TargetDocDir * "FAQ"),
                             "$INSTALL_PATH/docs")
-                new File(path("CHANGELOG"), "$INSTALL_PATH/docs")
+                new File(changeLog, "$INSTALL_PATH/docs")
             }
         }
     }

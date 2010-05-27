@@ -1,18 +1,15 @@
 * Fixed bug: Assertion failure when you type ".capture off", but you're not
   currently capturing anything.
-* Updated to Scala 2.8.0.RC2.
-* Updated to posterous-sbt 0.1.5.
 * Replaced uses of now-deprecated `Math` functions with corresponding functions
   from `scala.math`.
-* Updated to [SBT][] version 0.7.3
-* Updated to [Grizzled Scala][] version 0.6, to pick up changes to
+* Updated to [Grizzled Scala][] version 0.7, to pick up changes to
   `grizzled.cmd.CommandInterpreter` that address [Issue #3][issue 3]
   (unknown database name on command line causes SQLShell to leave the terminal
   in a weird state when it exits, when using the EditLine package).
 * Updated license to include license terms and copyrights for all third-party
   software shipped with SQLShell.
 * Some internal cosmetic code changes.
-* Now uses Markdown plugin, instead of doing Markdown inline.
+* Now uses [Markdown plugin][], instead of doing Markdown inline.
 * Uses new `org.clapper` [IzPack][] plugin to build installer, instead of
   using an external XML configuration file.
 * Removed no-longer-necessary dependency on [IzPack][] standalone compiler.
@@ -21,8 +18,12 @@
   deprecated methods.
 * Corrected SBT build's retrieval of 2.7.7 (old) Grizzled-Scala, needed for
   SBT build file to compile.
+* Updated to Scala 2.8.0.RC3.
+* Updated to posterous-sbt 0.1.5.
+* Updated to [SBT][] version 0.7.4.
 
 [issue 3]: http://github.com/bmc/sqlshell/issues#issue/3
 [SBT]: http://code.google.com/p/simple-build-tool
 [Grizzled Scala]: http://bmc.github.com/grizzled-scala/
 [IzPack]: http://izpack.org/
+[Markdown plugin][]: http://bmc.github.com/sbt-plugins/markdown.html
