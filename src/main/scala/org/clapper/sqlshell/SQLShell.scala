@@ -553,6 +553,31 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
     }
 
     /**
+     * Get table data for a specific named table.
+     *
+     * @param tableName  the table name, in any mixture of case
+     * @param schema the schema to use, or None for the default
+     *
+     * @return `Some(TableSpec)` or `None` if not found.
+     */
+    private[sqlshell] def tableSpec(tableName: String, 
+                                    schema: Option[String]): Option[TableSpec] =
+    {
+        // Convert the name to a case-blind regular expression.
+
+        tables(schema, ("^(?i)" + tableName + "$").r) match
+        {
+            case Nil =>
+                None
+            case ts :: Nil =>
+                Some(ts)
+            case ts :: rest =>
+                logger.error("Multiple tables match \"" + tableName + "\"")
+                None
+        }
+    }
+
+    /**
      * Get the names of all tables in a given schema.
      *
      * @param schema the schema to use, or None for the default
@@ -2268,24 +2293,42 @@ extends SQLShellCommandHandler with Wrapper with JDBCHelper with Sorter
             }
         }
 
-        withSQLStatement(connection)
+        def doDescribe(table: String, schema: Option[String]): Unit =
         {
-            statement =>
-
-            val metadata = connection.getMetaData
-            val schema = shell.settings.stringSetting("schema", null)
-            val catalog = shell.settings.stringSetting("catalog", null)
-            withResultSet(metadata.getColumns(catalog, schema, table, null))
+            withSQLStatement(connection)
             {
-                rs =>
+                statement =>
 
-                // Everything should be in the same schema.
-                val descriptions = columnDescriptions(rs)
-                if (descriptions == Nil)
-                    logger.error("Can't get metadata for table " + table)
-                else
-                    printDescriptions(descriptions)
+                val metadata = connection.getMetaData
+                val catalog = shell.settings.stringSetting("catalog", null)
+                val jdbcSchema = schema.getOrElse(null)
+                withResultSet(metadata.getColumns(catalog,
+                                                  jdbcSchema,
+                                                  table,
+                                                  null))
+                {
+                    rs =>
+
+                    // Everything should be in the same schema.
+                    columnDescriptions(rs) match
+                    {
+                        case Nil =>
+                            logger.error("Can't get info for table " + table)
+                        case descriptions =>
+                            printDescriptions(descriptions)
+                    }
+                }
             }
+        }
+
+        val schema = shell.settings.stringSetting("schema")
+        shell.tableSpec(table, schema) match
+        {
+            case None =>
+                logger.error("No such table.")
+
+            case Some(ts) =>
+                doDescribe(ts.name.get, schema)
         }
 
         KeepGoing
