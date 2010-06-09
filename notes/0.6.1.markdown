@@ -1,4 +1,4 @@
-* Fixed [Issued #5][issue-5]: `.desc` command did not honor `schema` setting.
+* Fixed [Issue #5][issue-5]: `.desc` command did not honor `schema` setting.
 * Updated to [Grizzled Scala][] version 0.7.2
 
 [issue-5]: http://github.com/bmc/sqlshell/issues#issue/5

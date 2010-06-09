@@ -960,6 +960,23 @@ trait JDBCHelper
             rs.close
         }
     }
+
+    /**
+     * Get a value from a result set, returning it as an option.
+     *
+     * @param columnKey column key (name, whatever)
+     * @param get       function to retrieve value (e.g., `rs.getInt`)
+     *
+     * @return Some(value) or None
+     */
+    protected def rsGetOpt[T](columnKey: String, get: String => T): Option[T] =
+    {
+        get(columnKey) match
+        {
+            case null => None
+            case v    => Some(v)
+        }
+    }
 }
 
 abstract class SQLHandler(val shell: SQLShell, val connection: Connection)
@@ -2018,6 +2035,12 @@ extends SQLShellCommandHandler with Wrapper with JDBCHelper with Sorter
    |
    |    See ".set schema" for more information.""".stripMargin
 
+    private case class ColumnInfo(val columnName: String,
+                                  val typeString: String,
+                                  val ordinalPosition: Int,
+                                  val schema: Option[String],
+                                  val catalog: Option[String])
+
     private val jdbcTypeNames = getJdbcTypeNames
 
     private val subCommands = List("database")
@@ -2117,162 +2140,151 @@ extends SQLShellCommandHandler with Wrapper with JDBCHelper with Sorter
         wrapPrintln("Open transaction?      ", inTransactionStr)
     }
 
-    private def nullIfEmpty(s: String) =
-        if ((s == null) || (s.trim == "")) null else s
-
-    private def nullIfEmpty(os: Option[String]) =
-        os match
+    private def numSize(columnSize: Int, decimalDigits: Option[Int]) =
+    {
+        // Column size is precision, decimal digits defines scale.
+        val s = (columnSize, decimalDigits) match
         {
-            case None                    => null
-            case Some(s) if s == null    => null
-            case Some(s) if s.trim == "" => null
-            case Some(s)                 => s.trim
+            case (p, None)     => p.toString
+            case (p, Some(sc)) => p.toString + "," + sc.toString
         }
+
+        "(" + s + ")"
+    }
+
+    private def charSize(size: Int) =
+        if (size > 0) "(" + size.toString + ")" else ""
+
+    /**
+     * Get info about a column. The result set is assumed to be positioned
+     * at a row returned by DatabaseMetaData.getColumns.
+     *
+     * @param rs  the result set
+     *
+     * @return ColumnInfo
+     */
+    private def columnInfo(rs: ResultSet): ColumnInfo =
+    {
+        val columnName = rs.getString("COLUMN_NAME")
+        val columnSize = rs.getInt("COLUMN_SIZE")
+        val decimalDigits = rsGetOpt("DECIMAL_DIGITS", rs.getInt)
+        val jdbcType = rs.getInt("DATA_TYPE")
+        val ordinalPosition = rs.getInt("ORDINAL_POSITION")
+        val schema = util.noneIfEmpty(rs.getString("TABLE_SCHEM"))
+        val catalog = util.noneIfEmpty(rs.getString("TABLE_CAT"))
+
+        // This weirdness handles SQLite, among other things.
+        val typeName = rsGetOpt("TYPE_NAME", rs.getString) match
+        {
+            case None if (jdbcType == SQLTypes.NULL) =>
+                "?unknown?"
+            case None =>
+                jdbcTypeNames.getOrElse(jdbcType, "?unknown?")
+            case Some(t) =>
+                t
+        }
+
+        val typeQualifier = jdbcType match
+        {
+            case SQLTypes.CHAR          => charSize(columnSize)
+            case SQLTypes.CLOB          => charSize(columnSize)
+            case SQLTypes.DECIMAL       => numSize(columnSize, decimalDigits)
+            case SQLTypes.DOUBLE        => numSize(columnSize, decimalDigits)
+            case SQLTypes.FLOAT         => numSize(columnSize, decimalDigits)
+            case SQLTypes.LONGVARCHAR   => charSize(columnSize)
+            case SQLTypes.NUMERIC       => numSize(columnSize, decimalDigits)
+            case SQLTypes.REAL          => numSize(columnSize, decimalDigits)
+            case SQLTypes.VARCHAR       => charSize(columnSize)
+            case _                      => ""
+        }
+
+        val fullTypeName = typeName + typeQualifier
+        val nullable = rs.getInt("NULLABLE") match
+        {
+            case ResultSetMetaData.columnNoNulls         => "NOT NULL"
+            case ResultSetMetaData.columnNullable        => "NULL"
+            case ResultSetMetaData.columnNullableUnknown => "NULL?"
+        }
+
+        ColumnInfo(columnName,
+                   fullTypeName + " " + nullable,
+                   ordinalPosition,
+                   schema,
+                   catalog)
+    }
 
     private def describeTable(table: String, full: Boolean) =
     {
-        def getColumnDescriptions(md: ResultSetMetaData):
-            List[(String, String)] =
+        def columnDescriptions(rs: ResultSet): List[ColumnInfo] =
         {
-            def precisionAndScale(i: Int) =
+            def nextDesc: List[ColumnInfo] =
             {
-                val precision = md.getPrecision(i)
-                val scale = md.getScale(i)
-                val buf = new ArrayBuffer[String]
-
-                if (precision > 0)
-                    buf += precision.toString
-
-                if (scale > 0)
-                    buf += scale.toString
-
-                buf.length match
-                {
-                    case 0 => ""
-                    case _ => "(" + buf.mkString(", ") + ")"
-                }
-            }
-
-            def charSize(i: Int) =
-            {
-                val size = md.getColumnDisplaySize(i)
-                if (size > 0) "(" + size.toString + ")" else ""
-            }
-
-            def getColumnInfo(i: Int): (String, String) =
-            {
-                val name = md.getColumnLabel(i) match
-                {
-                    case null => md.getColumnName(i)
-                    case s    => s
-                }
-
-                val _typeName = md.getColumnTypeName(i)
-                val jdbcType = md.getColumnType(i)
-                // This weirdness handles SQLite, among other things.
-                val typeName =
-                    if ((_typeName != null) && (_typeName != "null"))
-                        _typeName
-                    else
-                    {
-                        if (jdbcType == SQLTypes.NULL) "?unknown?"
-                        else jdbcTypeNames.getOrElse(jdbcType, "?unknown?")
-                    }
-
-                val typeQualifier = jdbcType match
-                {
-                    case SQLTypes.CHAR          => charSize(i)
-                    case SQLTypes.CLOB          => charSize(i)
-                    case SQLTypes.DECIMAL       => precisionAndScale(i)
-                    case SQLTypes.DOUBLE        => precisionAndScale(i)
-                    case SQLTypes.FLOAT         => precisionAndScale(i)
-                    case SQLTypes.LONGVARCHAR   => charSize(i)
-                    case SQLTypes.NUMERIC       => precisionAndScale(i)
-                    case SQLTypes.REAL          => precisionAndScale(i)
-                    case SQLTypes.VARCHAR       => charSize(i)
-                    case _                   => ""
-                }
-
-                val fullTypeName = typeName + typeQualifier
-                val nullable = md.isNullable(i) match
-                {
-                    case ResultSetMetaData.columnNoNulls         => "NOT NULL"
-                    case ResultSetMetaData.columnNullable        => "NULL"
-                    case ResultSetMetaData.columnNullableUnknown => "NULL?"
-                }
-
-                (name, (fullTypeName + " " + nullable))
-            }
-
-            val colMap = new LinkedHashMap[String,String]
-            for (i <- 1 to md.getColumnCount)
-            {
-                val (name, info) = getColumnInfo(i)
-                colMap += (name -> info)
-            }
-
-            val keys =
-                if (shell.settings.booleanSettingIsTrue("sortcolnames"))
-                    sortByName(colMap.keysIterator)
+                if (rs.next)
+                    columnInfo(rs) :: nextDesc
                 else
-                    colMap.keysIterator.toList
+                    Nil
+            }
 
-            keys.map(key => (key, colMap(key)))
+            val descriptions = nextDesc
+            if (shell.settings.booleanSettingIsTrue("sortcolnames"))
+                descriptions.sortWith(_.columnName < _.columnName)
+            else
+                descriptions.sortWith(_.ordinalPosition < _.ordinalPosition)
+        }
+
+        def printDescriptions(descriptions: List[ColumnInfo]): Unit =
+        {
+            require(descriptions != Nil)
+
+            val width = max(descriptions.map(_.columnName.length): _*)
+            val fmt = "%-" + width + "s  %s"
+            // Note: Scala's format method doesn't left-justify.
+            def formatter = new java.util.Formatter
+
+            val colLines = descriptions.map(
+                info => formatter.format(fmt, info.columnName, info.typeString)
+            )
+
+            // Use the table name returned from the driver.
+            val header = "Table " + table
+            val hr = "-" * header.length
+            println(List(hr, header, hr) mkString "\n")
+            println(colLines mkString ",\n")
+
+            if (full)
+            {
+                // Map the table name to what the database engine thinks
+                // the table's name should be. (Necessary for Oracle.)
+                val first = descriptions(0)
+                val schema = first.schema.getOrElse(null)
+                findTableName(schema, table) match
+                {
+                    case None =>
+                        ()
+                    case Some(tableName) =>
+                        showExtraTableData(first.catalog.getOrElse(null),
+                                           schema, tableName)
+                }
+            }
         }
 
         withSQLStatement(connection)
         {
             statement =>
 
-            withResultSet(
-                statement.executeQuery("SELECT * FROM " +
-                                       table + " WHERE 1 = 0")) { rs =>
+            val metadata = connection.getMetaData
+            val schema = shell.settings.stringSetting("schema", null)
+            val catalog = shell.settings.stringSetting("catalog", null)
+            withResultSet(metadata.getColumns(catalog, schema, table, null))
+            {
+                rs =>
 
-                val metadata = rs.getMetaData
-                val descriptions = getColumnDescriptions(metadata)
+                // Everything should be in the same schema.
+                val descriptions = columnDescriptions(rs)
                 if (descriptions == Nil)
                     logger.error("Can't get metadata for table " + table)
-
                 else
-                {
-                    val width = max(descriptions.map(_._1.length): _*)
-                    val fmt = "%-" + width + "s  %s"
-                    // Note: Scala's format method doesn't left-justify.
-                    def formatter = new java.util.Formatter
-
-                    val colLines =
-                        {for ((colName, colTypeName) <- descriptions)
-                             yield(formatter.format(fmt, colName, colTypeName))}
-
-                    // Use the table name returned from the driver.
-                    val header = "Table " + table
-                    val hr = "-" * header.length
-                    println(List(hr, header, hr) mkString "\n")
-                    println(colLines mkString ",\n")
-
-                    if (full)
-                    {
-                        val settings = shell.settings
-                        val s = nullIfEmpty(metadata.getSchemaName(1))
-                        val schema =
-                            if (s == null)
-                                nullIfEmpty(settings.stringSetting("schema"))
-                            else
-                                s
-
-                        val catalog = nullIfEmpty(metadata.getCatalogName(1))
-
-                        // Map the table name to what the database engine
-                        // thinks the table's name should be. (Necessary
-                        // for Oracle.)
-                        findTableName(schema, table) match
-                        {
-                            case None =>
-                            case Some(s) =>
-                                showExtraTableData(catalog, schema, s)
-                        }
-                    }
-                }
+                    printDescriptions(descriptions)
             }
         }
 

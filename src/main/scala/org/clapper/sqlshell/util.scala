@@ -167,3 +167,24 @@ class SourceReader(source: Source)
         else
             None
 }
+
+object util
+{
+    def isEmpty(s: String) = (s == null) || (s.trim == "")
+    def nullIfEmpty(s: String) = if (isEmpty(s)) null else s
+
+    def nullIfEmpty(os: Option[String]) =
+        os match
+        {
+            case None                  => null
+            case Some(s) if isEmpty(s) => null
+            case Some(s)               => s.trim
+        }
+
+    def noneIfNull(s: String) = if (s == null) None else Option(s)
+
+    def noneIfEmpty(s: String) = if (isEmpty(s)) None else Option(s)
+
+    def defaultIfEmpty(s: String, default: String) =
+        if (isEmpty(s)) default else s
+}
