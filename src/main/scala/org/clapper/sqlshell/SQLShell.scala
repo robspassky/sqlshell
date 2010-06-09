@@ -498,11 +498,7 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
 
         try
         {
-            val jdbcSchema =
-                if (schema == None)
-                    settings.stringSetting("schema", null)
-                else
-                    schema.get
+            val jdbcSchema = getSchema(schema).getOrElse(null)
             val catalog = settings.stringSetting("catalog", null)
             val metadata = connection.getMetaData
             logger.verbose("Getting list of tables. schema=" + jdbcSchema +
@@ -2224,7 +2220,9 @@ extends SQLShellCommandHandler with Wrapper with JDBCHelper with Sorter
             keys.map(key => (key, colMap(key)))
         }
 
-        withSQLStatement(connection) { statement =>
+        withSQLStatement(connection)
+        {
+            statement =>
 
             withResultSet(
                 statement.executeQuery("SELECT * FROM " +
