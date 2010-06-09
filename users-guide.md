@@ -1307,7 +1307,7 @@ see the *editrc*(5) man page.
 
 These instructions differ, depending on the Linux distribution.
 
-##### Ubuntu
+#### Ubuntu
 
 * Via *apt*, install the `libreadline-java` package.
 * Ensure that `/usr/share/java/libreadline-java.jar` is in your `CLASSPATH`.
