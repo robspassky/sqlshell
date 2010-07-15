@@ -72,7 +72,7 @@ with posterous.Publish
 
     val clapperRepo = "clapper.org Maven Repository" at
         "http://maven.clapper.org"
-    val grizzled = "org.clapper" %% "grizzled-scala" % "0.7.2"
+    val grizzled = "org.clapper" %% "grizzled-scala" % "0.7.3"
 
     /* ---------------------------------------------------------------------- *\
                          Custom tasks and actions
