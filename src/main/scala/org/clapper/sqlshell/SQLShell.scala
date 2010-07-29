@@ -272,11 +272,13 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
             }
         }
 
-        settings.stringSetting("prompt") match
-        {
-            case None    => Constants.DefaultPrimaryPrompt
-            case Some(s) => new Template(resolveVar, true).substitute(s)
-        }
+        // If the prompt is set, map it to a template and resolve it.
+        // Otherwise, just use the default prompt.
+        settings.stringSetting("prompt").
+                 flatMap(s => Some(new Template(resolveVar, 
+                                                true).substitute(s))).
+                 getOrElse(Constants.DefaultPrimaryPrompt)
+                         
     }
 
     /**
@@ -296,13 +298,12 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
      */
     override def preLoop: Unit =
     {
-        historyPath match
+        historyPath.foreach
         {
-            case None =>
-                return
-            case Some(path) =>
-                logger.verbose("Loading history from \"" + path + "\"...")
-                history.load(path)
+            path =>
+
+            logger.verbose("Loading history from \"" + path + "\"...")
+            history.load(path)
         }
     }
 
@@ -318,13 +319,12 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
             transactionManager.rollback()
         }
 
-        historyPath match
+        historyPath.foreach
         {
-            case None =>
-                return
-            case Some(path) =>
-                logger.verbose("Saving history to \"" + path + "\"...")
-                history.save(path)
+            path =>
+
+            logger.verbose("Saving history to \"" + path + "\"...")
+            history.save(path)
         }
     }
 
@@ -444,13 +444,7 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
      */
     private[sqlshell] def getSchema(schema: Option[String]): Option[String] =
     {
-        val actualSchema = schema match
-        {
-            case None =>
-                settings.stringSetting("schema")
-            case Some(s) =>
-                Some(s)
-        }
+        val actualSchema = schema.orElse(settings.stringSetting("schema"))
 
         if (actualSchema == None)
             wrapPrintln("No schema specified, and no default schema set. " +
@@ -603,21 +597,18 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
                                           prefix: Option[String]):
         List[String] =
     {
-
-        prefix match
+        def handlePrefix(p: String): List[String] =
         {
-            case None =>
-                tableNames(schema)
-
-            case Some(p) =>
-                val theTables = tables(schema)
-                val lcPrefix = p.toLowerCase
-                theTables.filter { ts =>
-                    (ts.name != None) &&
-                    (ts.name.get.toLowerCase.startsWith(lcPrefix))
-                }
-                .map(_.name.get)
+            val theTables = tables(schema)
+            val lcPrefix = p.toLowerCase
+            theTables.filter { ts =>
+                (ts.name != None) &&
+                (ts.name.get.toLowerCase.startsWith(lcPrefix))
+            }
+            .map(_.name.get)
         }
+
+        prefix.map(handlePrefix _).getOrElse(tableNames(schema))
     }
 
     /**
