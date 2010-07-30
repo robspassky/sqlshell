@@ -275,8 +275,7 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
         // If the prompt is set, map it to a template and resolve it.
         // Otherwise, just use the default prompt.
         settings.stringSetting("prompt").
-                 flatMap(s => Some(new Template(resolveVar, 
-                                                true).substitute(s))).
+                 map(s => new Template(resolveVar, true).substitute(s)).
                  getOrElse(Constants.DefaultPrimaryPrompt)
                          
     }
@@ -654,13 +653,12 @@ extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
                 case e: UnknownVariableException => warning(e.message)
             }
 
-        connectionInfo.configInfo.get("schema") match
+        connectionInfo.configInfo.get("schema").foreach
         {
-            case None =>
-            case Some(schema) =>
-                settings.changeSetting("schema", schema)
-                logger.verbose("+ " + setHandler.CommandName + " schema=" +
-                               schema)
+            schema =>
+
+            settings.changeSetting("schema", schema)
+            logger.verbose("+ " + setHandler.CommandName + " schema=" + schema)
         }
     }
 }
@@ -918,12 +916,11 @@ class AboutHandler(val shell: SQLShell)
 
         for ((label, func, key) <- Keys)
         {
-            func(key) match
+            func(key).foreach
             {
-                case None        =>
-                case Some(value) =>
-                    wrapPrintln((label + ":").padTo(maxLabelLength, ' '),
-                                value)
+                value =>
+
+                wrapPrintln((label + ":").padTo(maxLabelLength, ' '), value)
             }
         }
     }
@@ -1484,14 +1481,9 @@ class SelectHandler(shell: SQLShell, connection: Connection)
      */
     def removeResultHandler(key: String): Option[ResultSetHandler] =
     {
-        getResultHandler(key) match
-        {
-            case None =>
-                None
-            case Some(result) =>
-                resultHandlers -= key
-                Some(result)
-        }
+        val handler = getResultHandler(key)
+        handler.foreach {r => resultHandlers -= key}
+        handler
     }
 
     /**
@@ -2134,14 +2126,7 @@ extends SQLShellCommandHandler with Wrapper with JDBCHelper with Sorter
         val inTransactionStr = if (transactionManager.inTransaction) "yes"
                                else "no"
 
-        def toString(opt: Option[String]): String =
-        {
-            opt match
-            {
-                case None    => "?"
-                case Some(s) => s
-            }
-        }
+        def toString(opt: Option[String]): String = opt.getOrElse("?")
 
         wrapPrintln("Database name:         ",
                     toString(shell.connectionInfo.dbName))
@@ -2273,13 +2258,12 @@ extends SQLShellCommandHandler with Wrapper with JDBCHelper with Sorter
                 // the table's name should be. (Necessary for Oracle.)
                 val first = descriptions(0)
                 val schema = first.schema.getOrElse(null)
-                findTableName(schema, table) match
+                findTableName(schema, table).foreach
                 {
-                    case None =>
-                        ()
-                    case Some(tableName) =>
-                        showExtraTableData(first.catalog.getOrElse(null),
-                                           schema, tableName)
+                    tableName =>
+
+                    showExtraTableData(first.catalog.getOrElse(null),
+                                       schema, tableName)
                 }
             }
         }
