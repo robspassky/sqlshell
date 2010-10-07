@@ -193,7 +193,7 @@ object Tool
             "driver class name, or a driver alias from the configuration " +
             "file. The user and password are optional, since some databases " +
             "(like SQLite) don't require them at all.",
-            false)
+            optional=false)
         {
             (s, opt) =>
 
@@ -223,7 +223,7 @@ object Tool
 
 
         val runFile = parser.parameter[File](
-            "@file", "Path of file of commands to run", false
+            "@file", "Path of file of commands to run", optional=true
         )
         {
             (s, opt) =>
