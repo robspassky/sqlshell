@@ -66,13 +66,11 @@ with posterous.Publish
     val newReleaseToolsRepository = "Scala Tools Repository" at
         "http://nexus.scala-tools.org/content/repositories/snapshots/"
 
-    val joptSimple = "net.sf.jopt-simple" % "jopt-simple" % "3.1"
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val opencsv = "net.sf.opencsv" % "opencsv" % "1.8"
 
-    val clapperRepo = "clapper.org Maven Repository" at
-        "http://maven.clapper.org"
-    val grizzled = "org.clapper" %% "grizzled-scala" % "0.7.3"
+    val grizzled = "org.clapper" %% "grizzled-scala" % "1.0.1"
+    val argot = "org.clapper" %% "argot" % "0.1"
 
     /* ---------------------------------------------------------------------- *\
                          Custom tasks and actions

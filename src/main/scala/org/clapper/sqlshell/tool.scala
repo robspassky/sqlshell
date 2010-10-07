@@ -38,6 +38,7 @@
 package org.clapper.sqlshell.tool
 
 import org.clapper.sqlshell._
+import org.clapper.argot._
 
 import grizzled.config.{Configuration, ConfigException}
 import grizzled.readline.Readline.ReadlineType._
@@ -48,7 +49,7 @@ import java.io.File
 /**
  * Holds the parsed parameters.
  */
-private[tool] class Params(val configFile: String,
+private[tool] class Params(val configFile: File,
                            val dbInfo: DatabaseInfo,
                            val readlineLibs: List[ReadlineType],
                            val useAnsiColors: Boolean,
@@ -66,7 +67,6 @@ object Tool
 {
     import grizzled.file.util.joinPath
     import scala.io.Source
-    import joptsimple._
 
     val DefaultConfig = joinPath(System.getProperty("user.home"),
                                  ".sqlshell", "config")
@@ -91,7 +91,7 @@ object Tool
 
         try
         {
-            val source = Source.fromFile(new File(params.configFile))
+            val source = Source.fromFile(params.configFile)
             val config = Configuration(source)
             val shell = new SQLShell(config,
                                      params.dbInfo,
@@ -119,110 +119,86 @@ object Tool
         import java.util.Arrays.asList
         import java.util.{List => JList}
         import scala.collection.JavaConversions._
+        import org.clapper.argot._
+        import ArgotConverters._
 
-        val parser = new OptionParser
+        val parser = new ArgotParser("sqlshell",
+                                     preUsage=Some(aboutInfo.identString))
 
-        parser.acceptsAll(asList("c", "config"),
-                          "Specify configuration file. Defaults to: " +
-                          DefaultConfig)
-              .withRequiredArg
-              .describedAs("config_file")
-        parser.acceptsAll(asList("n", "no-ansi", "noansi"),
-                          "Disable the use of ANSI terminal sequences. This " +
-                          "option just sets the initial value for this " +
-                          "setting. The value can be changed later from " +
-                          "within SQLShell itself.")
-        parser.acceptsAll(asList("r", "readline"),
-                          "Specify readline libraries to use. Legal values: " +
-                          "editline, getline, gnu, jline, simple. May be " +
-                          "specified more than once.")
-              .withRequiredArg
-              .describedAs("lib_name")
-        parser.acceptsAll(asList("s", "stack"),
-                          "Show all exception stack traces.")
-        parser.acceptsAll(asList("v", "verbose"),
-                          "Enable various verbose messages. This option just " +
-                          "sets the initial value for this setting. The " +
-                          "value can be changed later from within SQLShell " +
-                          "itself.")
-        parser.acceptsAll(asList("V", "version"), "Show version and exit.")
-        parser.acceptsAll(asList("?", "h", "help"), "Show this usage message.")
-
-        try
+        val config = parser.option[File](
+            List("c", "config"), "config_file",
+            "Specify configuration file. Defaults to: " + DefaultConfig
+        )
         {
-            val options = parser.parse(args: _*)
+            (s, opt) =>
 
-            val config =
-                if (options.has("c"))
-                    options.valueOf("c").asInstanceOf[String]
-                else
-                    DefaultConfig
+            val f = new File(s)
+            ensureFileExists(f)
+            f
+        }
 
-            val abort = options.has("?") || options.has("version")
-            if (options.has("version"))
+        val noAnsi = parser.flag[Boolean](
+            List("n", "no-ansi", "noansi"),
+            "Disable the use of ANSI terminal sequences. This " +
+            "option just sets the initial value for this " +
+            "setting. The value can be changed later from " +
+            "within SQLShell itself."
+        )
+
+        val readlineLibNames = parser.multiOption[String](
+            List("r", "readline"), "lib_name",
+            "Specify readline libraries to use. Legal values: " +
+            "editline, getline, gnu, jline, simple."
+        )
+
+        val showStackTraces = parser.flag[Boolean](
+            List("s", "stack"), "Show all exception stack traces."
+        )
+
+        val verbose = parser.flag[Boolean](
+            List("v", "verbose"),
+            "Enable various verbose messages. This option just sets the " +
+            "initial verbosity value. The value can be changed later from " +
+            "within SQLShell itself."
+        )
+
+        val showVersion = parser.flag[Boolean](List("V", "version"), 
+                                               "Show version and exit.")
+        {
+            (onOff, opt) =>
+
+            println(aboutInfo.identString)
+            println(aboutInfo.copyright)
+            System.exit(1)
+            true
+        }
+
+        val showHelp = parser.flag[Boolean](List("?", "h", "help"),
+                                            "Show this usage message.")
+        {
+            (onOff, opt) =>
+
+            parser.usage()
+        }
+
+        val dbInfo = parser.parameter[DatabaseInfo](
+            "db", 
+            "Name of database to which to connect, or an on-the-fly database " +
+            "specification, of the form:\n\n" +
+            "    driver,url,[user[,password]]\n\n" +
+            "If the name of a database is specified, sqlshell will look " +
+            "in the configuration file for the corresponding connection " +
+            "parameters. If a database specification is specified, " +
+            "the specification must one argument; The driver can be a full " +
+            "driver class name, or a driver alias from the configuration " +
+            "file. The user and password are optional, since some databases " +
+            "(like SQLite) don't require them at all.",
+            false)
+        {
+            (s, opt) =>
+
+            s.split(",").map(_.trim).toList match
             {
-                println(aboutInfo.identString)
-                println(aboutInfo.copyright)
-            }
-
-            if (options.has("?"))
-                printHelp(parser)
-
-            if (abort)
-                System.exit(1)
-
-            val showStackTraces = options.has("s")
-            val verbose = options.has("v")
-            val showAnsi = ! options.has("n")
-
-            val positionalParams = JListWrapper(options.nonOptionArguments)
-
-            if (positionalParams.length == 0)
-                throw new CommandLineException("Missing parameter(s).")
-
-            val (dbParams, path) =
-                if (positionalParams.last.startsWith("@"))
-                    // Extract @file argument.
-                    (positionalParams.slice(0, positionalParams.length - 1),
-                     Some(positionalParams.last.substring(1)))
-                else
-                    (positionalParams, None)
-
-            val fileToRun =
-                if (path == None)
-                    None
-                else
-                {
-                    if (path.get.length == 0)
-                        throw new CommandLineException("Missing path after " +
-                                                       "\"@\".")
-                    val f = new File(path.get)
-                    if (! f.exists)
-                        throw new CommandLineException("File \"" + f.getPath +
-                                                       "\" does not exist.")
-                    Some(f)
-                }
-
-            // If specific readline implementations are indicated, try them.
-            // Otherwise, let the library choose its own default.
-
-            val readlineLibNames =
-                if (options.has("r"))
-                {
-                    val names: scala.collection.mutable.Buffer[String] =
-                        options.valuesOf("r").asInstanceOf[JList[String]]
-                    names.toList
-                }
-                else
-                    Nil
-
-            val readlineLibs = mapReadlineLibNames(readlineLibNames)
-
-            val dbInfo = dbParams.toList match
-            {
-                case Nil =>
-                    throw new CommandLineException("Missing parameter(s).")
-
                 case dbName :: Nil =>
                     new DatabaseInfo(Some(dbName))
 
@@ -239,38 +215,85 @@ object Tool
                                      Some(password))
 
                 case _ =>
-                    throw new CommandLineException("Wrong number of "+
-                                                   " parameter(s).")
+                    throw new ArgotConversionException(
+                        "Badly formatted database argument: \"" + s + "\""
+                    )
             }
+        }
 
-            val result = new Params(config,
-                                    dbInfo,
-                                    readlineLibs,
-                                    showAnsi,
-                                    showStackTraces,
-                                    verbose,
-                                    fileToRun)
+
+        val runFile = parser.parameter[File](
+            "@file", "Path of file of commands to run", false
+        )
+        {
+            (s, opt) =>
+
+            if (! s.startsWith("@"))
+                throw new ArgotConversionException(
+                    "File \"" + s + "\" must start with an '@'."
+                )
+
+            if (s.trim.length == 1)
+                throw new ArgotConversionException(
+                    "Missing path after '@' in run_file argument."
+                )
+
+            val f = new File(s drop 1)
+            ensureFileExists(f)
+            f
+        }
+
+        try
+        {
+            parser.parse(args)
+
+            // If specific readline implementations are indicated, try them.
+            // Otherwise, let the library choose its own default.
+
+            val readlineLibs = mapReadlineLibNames(readlineLibNames.value)
+
+            val result = new Params(
+                config.value.getOrElse(new File(DefaultConfig)),
+                dbInfo.value.get,
+                readlineLibs,
+                ! noAnsi.value.getOrElse(false),
+                showStackTraces.value.getOrElse(false),
+                verbose.value.getOrElse(false),
+                runFile.value
+            )
 
             result
         }
 
         catch
         {
-            case e: OptionException =>
-                System.err.println(e.getMessage)
-                printHelp(parser)
+            case e: ArgotUsageException =>
+                println(e.message)
                 throw new CommandLineException(aboutInfo.name + " aborted.")
 
             case e: CommandLineException =>
                 System.err.println(e.getMessage)
-                printHelp(parser)
+                println(parser.usageString())
                 throw new CommandLineException(aboutInfo.name + " aborted.")
         }
     }
 
-    private def mapReadlineLibNames(names: List[String]): List[ReadlineType] =
+    private def ensureFileExists(f: File) =
     {
-        names match
+        if (! f.exists)
+            throw new ArgotConversionException(
+                "File \"" + f + "\" does not exist."
+            )
+
+        if (! f.isFile)
+            throw new ArgotConversionException(
+                "File \"" + f + "\" is not a regular file."
+            )
+    }
+
+    private def mapReadlineLibNames(names: Seq[String]): List[ReadlineType] =
+    {
+        names.toList match
         {
             case name :: tail =>
                 val lib = name match
@@ -288,13 +311,5 @@ object Tool
 
             case Nil => Nil
         }
-    }
-
-    private def printHelp(parser: OptionParser) =
-    {
-        println()
-        println("Usage: sqlshell [OPTIONS] db [@file]")
-        println("       sqlshell [OPTIONS] driver url [user [pw]] [@file]")
-        parser.printHelpOn(System.err)
     }
 }

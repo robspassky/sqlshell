@@ -1,7 +1,10 @@
 * Fixed [Issue #5][issue-5]: `.desc` command did not honor `schema` setting.
 * Updated to [Grizzled Scala][] version 0.7.2
 * Now compiles against Scala 2.8.0 final.
+* Now uses [Argot][] for command-line parsing, instead of [jopt-simple][].
 
+[Argot][]: http://bmc.github.com/argot/
+[jopt-simple][]: http://jopt-simple.sourceforge.net/
 [issue-5]: http://github.com/bmc/sqlshell/issues#issue/5
 [SBT]: http://code.google.com/p/simple-build-tool
 [Grizzled Scala]: http://bmc.github.com/grizzled-scala/
