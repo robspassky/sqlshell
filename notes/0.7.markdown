@@ -1,7 +1,8 @@
 * Fixed [Issue #5][issue-5]: `.desc` command did not honor `schema` setting.
-* Updated to [Grizzled Scala][] version 0.7.2
-* Now compiles against Scala 2.8.0 final.
 * Now uses [Argot][] for command-line parsing, instead of [jopt-simple][].
+  This change alters the usage output somewhat.
+* Updated to [Grizzled Scala][] version 1.0.2
+* Now compiles against Scala 2.8.0.
 
 [Argot][]: http://bmc.github.com/argot/
 [jopt-simple][]: http://jopt-simple.sourceforge.net/
