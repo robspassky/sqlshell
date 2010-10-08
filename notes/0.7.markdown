@@ -4,8 +4,8 @@
 * Updated to [Grizzled Scala][] version 1.0.2
 * Now compiles against Scala 2.8.0.
 
-[Argot][]: http://bmc.github.com/argot/
-[jopt-simple][]: http://jopt-simple.sourceforge.net/
+[Argot]: http://bmc.github.com/argot/
+[jopt-simple]: http://jopt-simple.sourceforge.net/
 [issue-5]: http://github.com/bmc/sqlshell/issues#issue/5
 [SBT]: http://code.google.com/p/simple-build-tool
 [Grizzled Scala]: http://bmc.github.com/grizzled-scala/
