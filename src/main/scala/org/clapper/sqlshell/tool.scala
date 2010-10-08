@@ -186,10 +186,10 @@ object Tool
             "Name of database to which to connect, or an on-the-fly database " +
             "specification, of the form:\n\n" +
             "    driver,url,[user[,password]]\n\n" +
-            "If the name of a database is specified, sqlshell will look " +
-            "in the configuration file for the corresponding connection " +
-            "parameters. If a database specification is specified, " +
-            "the specification must one argument; The driver can be a full " +
+            "If the name of a database is specified, " + aboutInfo.name +
+            "will look in the configuration file for the corresponding " +
+            "connection parameters. If a database specification is used, the " +
+            "specification must one argument. The driver can be a full " +
             "driver class name, or a driver alias from the configuration " +
             "file. The user and password are optional, since some databases " +
             "(like SQLite) don't require them at all.",

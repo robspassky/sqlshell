@@ -73,50 +73,58 @@ or
 
 #### Options
 
-    -?, -h, --help                Show this usage message.
+    -?
+    -h
+    --help                Show this usage message.
 
-    -c, --config <config_file>    Specify configuration file. Defaults to
-                                  $HOME/.sqlshell/config
+    -V
+    --version             Show version and exit.
 
-    -n, --no-ansi, --noansi       Disable the use of ANSI terminal sequences.
-                                  This option just sets the initial value for
-                                  this setting. The value can be changed later
-                                  from within SQLShell itself.
+    -c config_file
+    --config config_file  Specify configuration file. Defaults to:
+                          $HOME/.sqlshell/config
 
-    -r, --readline <lib_name>     Specify readline libraries to try to use.
-                                  Legal values: editline, getline, gnu, jline, 
-                                                simple
-                                  May be specified more than once.
+    -n
+    --no-ansi
+    --noansi              Disable the use of ANSI terminal sequences. This
+                          option just sets the initial value for this
+                          setting. The value can be changed later from
+                          within SQLShell itself.
 
-    -s, --stack                   Show all exception stack traces.
+    -r lib_name
+    --readline lib_name   Specify readline libraries to use. Legal values:
+                          editline, getline, gnu, jline, simple. (May be 
+                          specified multiple times.)
 
-    -v, --verbose                 Enable various verbose messages. This
-                                  option just sets the initial value for this
-                                  setting. The value can be changed later from
-                                  within SQLShell itself.
+    -s
+    --stack               Show all exception stack traces.
 
-    -V, --version                 Show version and exit.
+    -v
+    --verbose             Enable various verbose messages. This option just sets
+                          the initial verbosity value. The value can be changed
+                          later from within SQLShell itself.
 
 #### Parameters
 
-* The *db* parameter identifies an alias for the database in the
-  configuration file. The configuration section for the specified database
-  is assumed to contain all the parameters necessary to connect to the database.
+The *db* parameter identifies an either alias for the database in the
+configuration file or an on-the-fly database specification, of the form:
 
-* The optional *@file* parameter specifies the path to a file containing
-  SQL and SQLShell commands to be executed. If this parameter is specified,
-  SQLShell executes the commands in the file, then exits.
+    driver,url,[user[,password]]
 
-* The *driver* parameter specifies either a fully-qualified JDBC driver
-  class name, or an alias defined in the `drivers` section of the
-  configuration file. When *driver* is specified, *url* is required.
+If the name of a database is specified, SQLShell will look in the
+configuration file for the corresponding connection parameters. If an
+on-the-fly database specification is used, the specification must one
+argument:
 
-* The *url* parameter is the JDBC URL of the database to which to connect.
-  It is only used when *driver* is specified.
+* *driver* can be a full driver class name, or a driver alias from the
+  configuration file, as described below.
+* *url* is the JDBC URL for the database.
+* *user* and *password* specify how to log into the database; they're optional,
+  since some databases (like SQLite) don't require them at all.
 
-* The *user* and *password* parameters are optional and are necessary for
-  certain kinds of databases. *user* and *password* are only used when the
-  *driver* and *url* parameters are used.
+The optional *@file* parameter specifies the path to a file containing
+SQL and SQLShell commands to be executed. If this parameter is specified,
+SQLShell executes the commands in the file, then exits.
 
 #### Specifying a Database
 
@@ -139,24 +147,24 @@ section looks like this:
 With those aliases in place, you can connect to a SQLite3 database named
 "test.db" using one of the following commands:
 
-    $ sqlshell org.sqlite.JDBC jdbc:sqlite:test.db
-    $ sqlshell sqlite jdbc:sqlite:test.db
+    $ sqlshell org.sqlite.JDBC,jdbc:sqlite:test.db
+    $ sqlshell sqlite,jdbc:sqlite:test.db
 
 ##### Examples
 
 Connect to a SQLite3 database residing in file `/tmp/test.db`:
 
-    $ sqlshell org.sqlite.JDBC jdbc:sqlite:/tmp/test.db
+    $ sqlshell org.sqlite.JDBC,jdbc:sqlite:/tmp/test.db
 
 Connect to an Oracle database named "customers" on host `db.example.com`,
 using user "scott" and password "tiger":
 
-    $ sqlshell oracle jdbc:oracle:thin:@db.example.com:1521:customers scott tiger
+    $ sqlshell oracle,jdbc:oracle:thin:@db.example.com:1521:customers,scott,tiger
 
 Connect to a PostgreSQL database named "mydb" on the current host, using user
 "psql" and password "foo.bar"::
 
-    $ sqlshell postgres jdbc:postgresql://localhost/mydb psql foo.bar
+    $ sqlshell postgres,jdbc:postgresql://localhost/mydb,psql,foo.bar
 
 ## Configuration File
 
@@ -521,7 +529,7 @@ Before going into each specific type of command, here's a brief SQLShell
 transcript, to whet your appetite:
 
     $ sqlshell mydb
-    SQLShell, version 0.4 (2010/02/20 16:13:25)
+    SQLShell, version 0.7 (2010/10/07 22:02:30)
     Using Java EditLine
     Type "help" for help. Type ".about" for more information.
 
