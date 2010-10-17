@@ -86,6 +86,7 @@ private[sqlshell] object Constants
 {
     val SpecialCommentPrefix = "--sqlshell-"
     val DefaultPrimaryPrompt = "sqlshell> "
+    val TokenDelims = """ \t(),"""
 }
 
 /**
@@ -159,7 +160,8 @@ class SQLShell(val config: Configuration,
                showStackTraces: Boolean,
                beVerbose: Boolean,
                fileToRun: Option[File])
-extends CommandInterpreter("sqlshell", readlineLibs) with Wrapper with Sorter
+extends CommandInterpreter("sqlshell", readlineLibs, Constants.TokenDelims)
+with Wrapper with Sorter
 {
     val connector = new DatabaseConnector(config)
     val connectionInfo = connector.connect(dbInfo)

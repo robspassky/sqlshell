@@ -1,0 +1,5 @@
+* Completion handling now tokenizes the input line using white space,
+  parentheses and commas as delimiters, not just white space. Required
+  updating to [Grizzled Scala][] 1.0.3.
+
+[Grizzled Scala]: http://bmc.github.com/grizzled-scala/
