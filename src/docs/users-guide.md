@@ -525,25 +525,25 @@ Before going into each specific type of command, here's a brief SQLShell
 transcript, to whet your appetite:
 
     $ sqlshell mydb
-    SQLShell, version 0.7 (2010/10/07 22:02:30)
+    SQLShell, version 0.7.1 (2010/10/21 20:35:59)
     Using Java EditLine
     Type "help" for help. Type ".about" for more information.
 
     sqlshell> .set
-             ansi: true
-          catalog: 
-             echo: false
-          logging: info
-        maxbinary: 20
-   maxcompletions: 30
-       maxhistory: 2147483647
-           prompt: sqlshell>
-           schema: public
-      showresults: true
-     showrowcount: true
-      showtimings: true
-     sortcolnames: false
-       stacktrace: false
+              ansi: true
+           catalog: 
+              echo: false
+           logging: info
+         maxbinary: 20
+    maxcompletions: 30
+        maxhistory: 2147483647
+            prompt: sqlshell>
+            schema: public
+       showresults: true
+      showrowcount: true
+       showtimings: true
+      sortcolnames: false
+        stacktrace: false
 
     sqlshell> .desc database
     Connected to database: jdbc:postgresql://localhost:5432/bmc
