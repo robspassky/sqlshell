@@ -1432,10 +1432,10 @@ BSD-style license and is copyright &copy; 2002-2006, Marc Prud'hommeaux.
 ### Grizzled Scala Library
 
 SQLShell ships with the [Grizzled Scala][grizzled-scala] library, which is
-licensed under a BSD-style license and is copyright &copy; 2009-2010
+licensed under a BSD license and is copyright &copy; 2009-2010
 Brian M. Clapper.
 
-[grizzled-scala]: http://www.clapper.org/software/scala/grizzled-scala/
+[grizzled-scala]: http://bmc.github.com/grizzled-scala/
 
 ### opencsv
 
@@ -1454,13 +1454,12 @@ under the [Apache 2.0 license][apache-license] and is copyright &copy;
 
 [joda-time]: http://joda-time.sourceforge.net/index.html
 
-### jopt-simple
+### argot
 
-SQLShell ships with the [jopt-simple][jopt-simple] library, which is licensed
-under the [Apache 2.0 license][apache-license] and is copyright &copy;
-2004-2009 Paul R. Holser, Jr.
+SQLShell ships with the [Argot][] command line parsing library, which is
+licensed under a BSD license and is copyright &copy; 2010 Brian M. Clapper.
 
-[jopt-simple]: http://jopt-simple.sourceforge.net/index.html
+[Argot]: http://bmc.github.com/argot/
 
 ### IzPack
 
