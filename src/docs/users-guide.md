@@ -65,11 +65,7 @@ necessary to find it in the configuration file.
 
 ### Command Line
 
-> sqlshell \[OPTIONS\] *db* \[*@file*\]
-
-or
-
-> sqlshell \[OPTIONS\] *driver* *url* \[*user* \[*pw*\]\] \[*@file*\]
+    sqlshell [OPTIONS] db [@file]
 
 #### Options
 
