@@ -1415,7 +1415,7 @@ copyright &copy; 1998-2001 Bernhard Bablok.
 
 SQLShell ships with the [Java EditLine][javaeditline] library, a JNI
 wrapper around the BSD [Editline][editline] library. Java EditLine is released
-under a BSD-style license and is copyright &copy; 2010 Brian M. Clapper.
+under a BSD license and is copyright &copy; 2010 Brian M. Clapper.
 
 [javaeditline]: http://www.clapper.org/software/java/javaeditline/
 [editline]: http://www.thrysoee.dk/editline/
