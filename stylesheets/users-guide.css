@@ -18,34 +18,52 @@ pre
 
 // Table of contents stuff. See toc.js
 
+div#toc-heading
+{
+    font-family: Arial, Helvetica, Verdana, sans-serif;
+    background-color: #aaaaaa;
+    border: 1px solid black;
+}
+
+div#toc
+{
+    font-family: Arial, Helvetica, Verdana, sans-serif;
+}
+
 li.tocH1
 {
-    margin-left: 2em
+    margin-left: 2em;
+    font-family: Arial, Helvetica, Verdana, sans-serif;
 }
 
 li.tocH2
 { 
-    margin-left: 3em
+    margin-left: 3em;
+    font-family: Arial, Helvetica, Verdana, sans-serif;
 }
 
 li.tocH3
 { 
-    margin-left: 4em
+    margin-left: 4em;
+    font-family: Arial, Helvetica, Verdana, sans-serif;
 }
 
 li.tocH4
 { 
-    margin-left: 5em
+    margin-left: 5em;
+    font-family: Arial, Helvetica, Verdana, sans-serif;
 }
 
 li.tocH5
 {
-    margin-left: 6em
+    margin-left: 6em;
+    font-family: Arial, Helvetica, Verdana, sans-serif;
 }
 
 li.tocH6
 {
-    margin-left: 7em
+    margin-left: 7em;
+    font-family: Arial, Helvetica, Verdana, sans-serif;
 }
 
 h2

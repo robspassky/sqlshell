@@ -52,7 +52,7 @@ SQLShell.
 Install SQLShell via the graphical installer jar, available in the
 [downloads area][]:
 
-    java -jar sqlshell-0.6-installer.jar
+    java -jar sqlshell-0.7.1-installer.jar
 
 This command will install SQLShell, a front-end Unix shell script or
 Windows BAT file, and all the dependencies. The installer jar file is signed

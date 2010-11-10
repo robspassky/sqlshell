@@ -1,11 +1,1679 @@
-{% include ug-header.html %}
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1"></meta>
+<title>---
+</title>
+<style type="text/css">// Style sheet for Markdown-generated HTML.
 
-<h1>{{ page.title }}</h1>
+body
+{
+    background-color: white;
+    font-family: Arial, Helvetica, Verdana, sans-serif;
+}
 
-<div id="content" class="site">
- 
-{{ content }}
- 
-</div>
+pre
+{ 
+    margin-left: 0.5in;
+}
 
-{% include ug-footer.html %}
+// Table of contents stuff. See toc.js
+
+li.tocH1
+{
+    margin-left: 2em
+}
+
+li.tocH2
+{ 
+    margin-left: 3em
+}
+
+li.tocH3
+{ 
+    margin-left: 4em
+}
+
+li.tocH4
+{ 
+    margin-left: 5em
+}
+
+li.tocH5
+{
+    margin-left: 6em
+}
+
+li.tocH6
+{
+    margin-left: 7em
+}
+
+h2
+{
+    background-color: #aaaaaa;
+    border: 1px solid black;
+}
+
+h3
+{
+    background-color: #dddddd;
+    border: 1px solid black;
+}
+
+h4
+{ 
+    font-style: italic;
+}
+
+h5
+{ 
+    font-style: italic;
+    text-decoration: underline;
+}
+
+h6
+{ 
+    font-style: italic;
+    text-decoration: underline;
+}
+
+</style><script text="text/javascript" src="toc.js"></script>
+</head>
+<body onLoad="createTOC()">
+<div id="body"><hr></hr>
+
+<p>title: SQLShell, a cross-platform, cross-database SQL command tool</p>
+
+<h2>layout: users-guide</h2>
+
+<h2>User's Guide</h2>
+
+<p>This is the SQLShell User's Guide.</p>
+
+<h2>Introduction</h2>
+
+<p>SQLShell is a SQL command line tool, similar in concept to tools like
+Oracle's <a href="http://www.oracle.com/technology/docs/tech/sql_plus/index.html">SQL Plus</a>, the <a href="http://www.postgresql.org/">PostgreSQL</a> <code>psql</code> command,
+and the <a href="http://www.mysql.com/">MySQL</a> <code>mysql</code> tool.</p>
+
+<p>SQLShell is a <a href="http://www.scala-lang.org/">Scala</a> rewrite of my Python <em>sqlcmd</em> tool (rewritten
+because, as it turns out, I think JDBC is more consistent and portable than
+Python's DB API).</p>
+
+<h3>Some features at a glance</h3>
+
+<ul>
+<li>Connection parameters for individual databases can be kept in a
+configuration file in your home directory, allowing you to specify a
+short logical name for the database when you connect to it. (Multiple
+logical names are permitted for each database.)</li>
+<li>SQLShell has command history management, with GNU Readline-like
+support. Each database has its own history file.</li>
+<li>SQLShell supports retrieving and displaying database metadata (e.g.,
+getting a list of tables, querying the table's columns and their
+data types, listing the indexes and foreign keys for a table, etc.).</li>
+<li>SQLShell provides a standard interface that looks and behaves the same
+no matter what database you're using.</li>
+<li>SQLShell supports any database engine for which a JDBC driver exists.</li>
+<li>SQLShell is written in <a href="http://www.scala-lang.org/">Scala</a> and uses some third-party, open-source
+Scala and Java libraries.</li>
+<li>SQLShell is open source, and is licensed under a liberal BSD license.</li>
+</ul>
+
+<p>In short, SQLShell is a SQL command tool that attempts to provide the same
+interface for all supported databases and across all platforms.</p>
+
+<h2>Prerequisites</h2>
+
+<p>SQLShell requires the following:</p>
+
+<ul>
+<li>An installed Java runtime, version 1.5 or better.</li>
+<li>Appropriate JDBC drivers for the database(s) you want to use.</li>
+</ul>
+
+<p>SQLShell comes bundled with an appropriate version of the <a href="http://www.scala-lang.org/">Scala</a>
+runtime, so you do <em>not</em> need to have Scala installed to use SQLShell.</p>
+
+<h2>Usage</h2>
+
+<p>SQLShell is invoked from the command line. You specify the database either
+via a logical name that refers to an entry in your configuration file, or
+by passing explicit parameters on the command line. The configuration file
+allows you to record the connection information for multiple databases,
+then specify a single database via a the least number of unique characters
+necessary to find it in the configuration file.</p>
+
+<h3>Command Line</h3>
+
+<pre><code>sqlshell [OPTIONS] db [@file]
+</code></pre>
+
+<h4>Options</h4>
+
+<pre><code>-?
+-h
+--help                Show this usage message.
+
+-V
+--version             Show version and exit.
+
+-c config_file
+--config config_file  Specify configuration file. Defaults to:
+                      $HOME/.sqlshell/config
+
+-n
+--no-ansi
+--noansi              Disable the use of ANSI terminal sequences. This
+                      option just sets the initial value for this
+                      setting. The value can be changed later from
+                      within SQLShell itself.
+
+-r lib_name
+--readline lib_name   Specify readline libraries to use. Legal values:
+                      editline, getline, gnu, jline, simple. (May be 
+                      specified multiple times.)
+
+-s
+--stack               Show all exception stack traces.
+
+-v
+--verbose             Enable various verbose messages. This option just sets
+                      the initial verbosity value. The value can be changed
+                      later from within SQLShell itself.
+</code></pre>
+
+<h4>Parameters</h4>
+
+<p>The <em>db</em> parameter identifies an either alias for the database in the
+configuration file or an on-the-fly database specification, of the form:</p>
+
+<pre><code>driver,url,[user[,password]]
+</code></pre>
+
+<p>If the name of a database is specified, SQLShell will look in the
+configuration file for the corresponding connection parameters. If an
+on-the-fly database specification is used, the specification must one
+argument:</p>
+
+<ul>
+<li><em>driver</em> can be a full driver class name, or a driver alias from the
+configuration file, as described below.</li>
+<li><em>url</em> is the JDBC URL for the database.</li>
+<li><em>user</em> and <em>password</em> specify how to log into the database; they're optional,
+since some databases (like SQLite) don't require them at all.</li>
+</ul>
+
+<p>The optional <em>@file</em> parameter specifies the path to a file containing
+SQL and SQLShell commands to be executed. If this parameter is specified,
+SQLShell executes the commands in the file, then exits.</p>
+
+<h4>Specifying a Database</h4>
+
+<p>When specifying the <em>driver</em> and <em>url</em> (and, optionally, <em>user</em> and
+<em>password</em>) on the command line, you can abbreviate the JDBC driver class,
+provided the <code>drivers</code> section of your configuration file contains an alias
+for the driver. For example, suppose your configuration file's <code>drivers</code>
+section looks like this:</p>
+
+<pre><code>[drivers]
+# Driver aliases.
+postgresql = org.postgresql.Driver
+postgres = org.postgresql.Driver
+mysql = com.mysql.jdbc.Driver
+sqlite = org.sqlite.JDBC
+sqlite3 = org.sqlite.JDBC
+oracle = oracle.jdbc.driver.OracleDriver
+access = sun.jdbc.odbc.JdbcOdbcDriver
+</code></pre>
+
+<p>With those aliases in place, you can connect to a SQLite3 database named
+&quot;test.db&quot; using one of the following commands:</p>
+
+<pre><code>$ sqlshell org.sqlite.JDBC,jdbc:sqlite:test.db
+$ sqlshell sqlite,jdbc:sqlite:test.db
+</code></pre>
+
+<h5>Examples</h5>
+
+<p>Connect to a SQLite3 database residing in file <code>/tmp/test.db</code>:</p>
+
+<pre><code>$ sqlshell org.sqlite.JDBC,jdbc:sqlite:/tmp/test.db
+</code></pre>
+
+<p>Connect to an Oracle database named &quot;customers&quot; on host <code>db.example.com</code>,
+using user &quot;scott&quot; and password &quot;tiger&quot;:</p>
+
+<pre><code>$ sqlshell oracle,jdbc:oracle:thin:@db.example.com:1521:customers,scott,tiger
+</code></pre>
+
+<p>Connect to a PostgreSQL database named &quot;mydb&quot; on the current host, using user
+&quot;psql&quot; and password &quot;foo.bar&quot;::</p>
+
+<pre><code>$ sqlshell postgres,jdbc:postgresql://localhost/mydb,psql,foo.bar
+</code></pre>
+
+<h2>Configuration File</h2>
+
+<p>Specifying the database connection parameters on the command line is both
+tedious and error prone, even with a good shell history mechanism. So,
+SQLShell permits you to store your database connection information in a
+configuration file.</p>
+
+<h3>A Brief Overview of the Configuration File</h3>
+
+<p>Things will be a little clearer if we look at a sample configuration file.
+The following file specifies the same databases as in the examples, above:</p>
+
+<pre><code># sqlshell initialization file
+
+[settings]
+maxbinary: 20
+
+[db.testdb]
+aliases: sqlite, test
+url: jdbc:sqlite:/tmp/test.db
+driver: sqlite
+history: ${env.HOME}/.sqlshell/test.hist
+
+[db.customers]
+aliases: oracle
+url: jdbc:oracle:thin:@db.example.com:1521:customers scott tiger
+driver: oracle
+user: scott
+password: tiger
+
+[db.mydb]
+aliases=postgres
+url=jdbc:postgresql://localhost/mydb
+driver=postgresql
+user=psql
+password=foo.bar
+</code></pre>
+
+<p>If you store that file in <code>$HOME/.sqlshell/config</code> (the default place
+SQLShell searches for it), connecting to each of the databases is much simpler:</p>
+
+<pre><code>$ sqlshell testdb
+$ sqlshell customers
+$ sqlshell mydb
+</code></pre>
+
+<p>You can store the file somewhere else, of course; you just have to tell
+SQLShell where it is:</p>
+
+<pre><code>$ sqlshell -c /usr/local/etc/sqlshell.cfg testdb
+$ sqlshell -c /usr/local/etc/sqlshell.cfg customers
+$ sqlshell -c /usr/local/etc/sqlshell.cfg mydb
+</code></pre>
+
+<p>See the next section for details on the specific sections and options in the
+SQLShell configuration file.</p>
+
+<h3>Configuration File in Depth</h3>
+
+<p>A SQLShell configuration file, typically stored in <code>$HOME/.sqlshell/config</code>,
+is an INI-style file divided into logical sections. Each of those sections
+is described below. All section names must be unique within the file.</p>
+
+<p>Blank lines and comment lines are ignored; comment lines start with a &quot;#&quot;
+character.</p>
+
+<p>SQLShell uses the <a href="http://bmc.github.com/grizzled-scala/">Grizzled Scala</a> library's <code>grizzled.config</code> module to
+parse its configuration, so it supports all the capabilities that module
+provides. The configuration file is a Win.INI-style file, with several
+enhancements, and supports:</p>
+
+<ul>
+<li>Sections, like traditional Windows INI files</li>
+<li>Include directives, so you can include other files within the configuration</li>
+<li>Variable substitutions, allowing you to put common definitions in one section,
+to be used throughout other sections.</li>
+<li>Special <code>env</code> and <code>system</code> pseudo-sections. See <code>Variable Substitution</code>,
+below.</li>
+<li>Java-style metacharacters like <code>\t</code>, <code>\n</code> and <code>\u00a9</code>.</li>
+<li>Comment lines, starting with a &quot;#&quot; character</li>
+</ul>
+
+<p>Each section consists of a set of variable/value pairs. Variable names can
+consist of alphanumerics and underscores; values can contain anything. SQLShell
+strips leading and trailing white space from the values.</p>
+
+<p>Variables and values are separated either by &quot;=&quot; or &quot;:&quot;. For example, the 
+following settings are identical:</p>
+
+<pre><code>foo: bar
+foo=bar
+foo:bar
+foo = bar
+</code></pre>
+
+<p>There's also a special &quot;raw&quot; assignment operator, <code>-&gt;</code> that suppresses variable
+and metacharacter expansion. Thus, to assign the literal value of &quot;$bar&quot; to
+variable <code>foo</code>, use</p>
+
+<pre><code>foo -&gt; $bar
+</code></pre>
+
+<p>not</p>
+
+<pre><code>foo = $bar
+</code></pre>
+
+<p>SQLShell looks for several special sections, based on their names or prefixes.
+Other sections are permitted, but SQLShell doesn't explicitly use them. You
+can use other sections for common variable definitions; a section called
+&quot;common&quot; or &quot;vars&quot; is often useful for that.</p>
+
+<h4>Including other configuration files</h4>
+
+<p>A special <code>include</code> directive permits inline inclusion of another
+configuration file. The include directive takes two forms:</p>
+
+<pre><code> %include &quot;path&quot;
+ %include &quot;URL&quot;
+</code></pre>
+
+<p>For example:</p>
+
+<pre><code> %include &quot;common.cfg&quot;
+ %include &quot;/etc/sqlshell/common.cfg&quot;
+ %include &quot;http://configs.example.com/mytools/common.cfg&quot;
+</code></pre>
+
+<p>If the include path is not a URL, and is not an absolute path, its location 
+is relative to the file that's trying to include it.</p>
+
+<p>The included file may contain any content that is valid for this parser. It
+may contain just variable definitions (i.e., the contents of a section,
+without the section header), or it may contain a complete configuration
+file, with individual sections. Since SQLShell recognizes a variable
+syntax that is essentially identical to Java's properties file syntax, it's
+also legal to include a properties file, provided it's included within a
+valid section.</p>
+
+<h4>Variable Substitution</h4>
+
+<p>A variable value can interpolate the values of other variables, using a
+variable substitution syntax. The general form of a variable reference is
+<code>${sectionName.varName}</code>. In many cases, the braces can be omitted (e.g.,
+<code>$sectionName.varName</code>.</p>
+
+<ul>
+<li><code>sectionName</code> is the name of the section containing the variable to
+substitute; if omitted, it defaults to the current section.</li>
+<li><code>varName</code> is the name of the variable to substitute. </li>
+</ul>
+
+<p>If a variable reference specifies a section name, the referenced section
+must precede the current section. It is not possible to substitute the
+value of a variable in a section that occurs later in the file.</p>
+
+<p>SQLShell's configuration supports two special pseudo-sections. These
+sections don't really exist, but they can be referenced in variable
+substitutions.</p>
+
+<p><code>env</code></p>
+
+<blockquote>
+  <p>The <code>env</code> pseudo-section contains all the environment variables available
+  to SQLShell. For example, on a Unix-like system, you can refer to
+  <code>${env.HOME}</code> (or <code>$env.HOME</code>) to get the home directory of the user
+  who's running SQLShell. On some versions of Windows, <code>${env.USERNAME}</code>
+  will substitute the name of the user running SQLShell. Note: On UNIX
+  systems, environment variable names are typically case-sensitive; for
+  instance, <code>${env.USER}</code> and <code>${env.user}</code> refer to different environment
+  variables. On Windows systems, environment variable names are typically
+  case-insensitive, so <code>${env.USERNAME}</code> and <code>${env.username}</code> are
+  equivalent.</p>
+</blockquote>
+
+<p><code>system</code></p>
+
+<blockquote>
+  <p>The <code>system</code> pseudo-section contains all the Java and Scala properties.
+  For example, <code>${system.user.name}</code> (or <code>$system.user.name</code>) gets the
+  Java property corresponding to the user's name.</p>
+</blockquote>
+
+<p>Notes and caveats:</p>
+
+<ul>
+<li>Variable substitutions are only permitted within variable values. They
+are ignored in variable names, section names, include directives and
+comments.</li>
+<li>Variable substitution is performed after metacharacter expansion (so
+don't include metacharacter sequences in your variable names).</li>
+<li>To include a literal &quot;$&quot; character in a variable value, escape it with a
+backslash, e.g., &quot;var=value with \$ dollar sign&quot;, or use the <code>-&gt;</code> assignment
+operator.</li>
+</ul>
+
+<h4>The <em>settings</em> Section</h4>
+
+<p>The optional <code>settings</code> section can contain initial values for any of the
+settings that are understood by the <code>.set</code> command. See the description of
+<code>.set</code>, below, for a full explanation of each setting. Here's an example:</p>
+
+<pre><code>[settings]
+# Show up to 20 characters of CLOB and BLOB data
+maxbinary: 20
+</code></pre>
+
+<h4>The <em>drivers</em> section</h4>
+
+<p>The optional <code>drivers</code> section contains alias names for JDBC drivers. Using
+this section, you can assign short names to the JDBC driver class names,
+allowing you to refer to the short names--both in the configuration file and
+on the command line--rather than the longer Java class names.</p>
+
+<p>For example:</p>
+
+<pre><code>[drivers]
+# Driver aliases.
+postgresql = org.postgresql.Driver
+postgres = org.postgresql.Driver
+mysql = com.mysql.jdbc.Driver
+sqlite = org.sqlite.JDBC
+sqlite3 = org.sqlite.JDBC
+oracle = oracle.jdbc.driver.OracleDriver
+access = sun.jdbc.odbc.JdbcOdbcDriver
+</code></pre>
+
+<h4>The <em>db_</em> Sections</h4>
+
+<p>A <code>db_</code> section contains the connection definition for a particular
+database. The <code>db_</code> prefix must be followed by the primary name of the
+database. Multiple <code>db_</code> sections can exist in the configuration file; each
+section supports the following parameters.</p>
+
+<p><code>aliases</code></p>
+
+<blockquote>
+  <p>A white space- or comma-delimited list of alternate names for the database.
+  These are other names by which you can identify the database to SQLShell,
+  on the command line. For example:</p>
+</blockquote>
+
+<pre><code>[db_employees]
+aliases: payroll, people
+</code></pre>
+
+<blockquote>
+  <p>With that set of alias definitions, you could connect to the database using
+  any of the following command lines (among others), provided that the alias
+  names don't conflict with those of other databases in the configuration file:</p>
+</blockquote>
+
+<pre><code>$ sqlshell employees
+$ sqlshell payroll
+$ sqlshell people
+$ sqlshell emp
+</code></pre>
+
+<p><code>driver</code></p>
+
+<blockquote>
+  <p>Either the JDBC driver class to use to connect to the database, or the name
+  of a driver alias specified in the <code>[drivers]</code> section. For example:</p>
+</blockquote>
+
+<pre><code>[db_employees]
+aliases: payroll, people
+driver: org.postgresql.Driver
+</code></pre>
+
+<blockquote>
+  <p>or</p>
+</blockquote>
+
+<pre><code>[drivers]
+postgres = org.postgresql.Driver
+
+[db_employees]
+aliases: payroll, people
+driver: postgres
+</code></pre>
+
+<p><code>url</code></p>
+
+<blockquote>
+  <p>The JDBC URL used to connect to the database. For example:</p>
+</blockquote>
+
+<pre><code>[db_employees]
+aliases: payroll, people
+driver: postgres
+url: jdbc:postgresql://db.example.com/empdb
+</code></pre>
+
+<p><code>schema</code></p>
+
+<blockquote>
+  <p>The schema to use when resolving table names. If omitted, then SQLShell
+  considers all tables that are visible to the connected user. This
+  variable just sets the initial value for this setting. The value can be
+  changed later from within SQLShell itself.</p>
+</blockquote>
+
+<p><code>user</code></p>
+
+<blockquote>
+  <p>The user name to use when authenticating to the database. Some database
+  types, such as SQLite, don't require a user or password.</p>
+</blockquote>
+
+<p><code>password</code></p>
+
+<blockquote>
+  <p>The password to use when authenticating to the database. Some database
+  types, such as SQLite, don't require a user or password.</p>
+</blockquote>
+
+<p><code>history</code></p>
+
+<blockquote>
+  <p>The full path to the history file for this database. If no history file
+  is specified, then SQLShell will not save the command history for this
+  database. If you <em>do</em> specify a history file for the database, then SQLShell
+  saves the command history (that is, what you've typed in SQLShell), up to
+  <code>maxhistory</code> commands, so you can use them the next time to connect to this
+  database. <code>maxhistory</code> is a SQLShell setting, described below.</p>
+  
+  <p>For example:</p>
+</blockquote>
+
+<pre><code>[common]
+historyDir: ${env.HOME}/.sqlshell
+
+[drivers]
+postgres = org.postgresql.Driver
+
+[db_employees]
+aliases: payroll, people
+driver: postgres
+url: jdbc:postgresql://db.example.com/empdb
+user: admin
+password: foobar1
+history: $common.historyDir/employees.hist
+</code></pre>
+
+<h3>A Note about Database Names</h3>
+
+<p>When you specify the name of a database on the SQLShell command line,
+SQLShell attempts to match that name against the names of all databases in
+the configuration file. SQLShell compares the name you specify against the
+following values from each <code>db_</code> configuration section:</p>
+
+<ul>
+<li>The section name, minus the <code>db_</code> prefix. This is the primary name of
+the database, from SQLShell's perspective.</li>
+<li>Any names in the <code>aliases</code> variable within that section (if there is
+an <code>aliases</code> variable).</li>
+</ul>
+
+<p>You only need to specify as many characters as are necessary to uniquely
+identify the database.</p>
+
+<p>Thus, given this configuration file:</p>
+
+<pre><code>[common]
+historyDir: ${env.HOME}/.sqlshell
+
+[drivers]
+postgres = org.postgresql.Driver
+
+[db_employees]
+aliases: payroll, people
+driver: postgres
+url: jdbc:postgresql://db.example.com/empdb
+user: admin
+password: foobar1
+history: $common.historyDir/employees.hist
+</code></pre>
+
+<p>You can connect to the <code>employees</code> database using any of the following
+names:</p>
+
+<ul>
+<li><code>employees</code>: the section name, minus the &quot;db_&quot; prefix.</li>
+<li><code>payroll</code>: one of the aliases</li>
+<li><code>people</code>: the other alias</li>
+<li><code>emp</code>: a unique abbreviation of <code>employees</code>, the database name</li>
+<li><code>pay</code>: a unique abbreviation of <code>payroll</code>, a database alias</li>
+</ul>
+
+<h2>Using SQLShell</h2>
+
+<p>When invoked, SQLShell prompts on standard input with &quot;sqlshell&gt;&quot; and waits
+for commands to be entered, executing each one as it's entered. It
+continues to prompt for commands until either:</p>
+
+<ul>
+<li>it encounters an end-of-file condition (Ctrl-D on Unix systems, Ctrl-Z
+on Windows), or</li>
+<li>you type the <code>exit</code> command.</li>
+</ul>
+
+<p>Some commands (e.g., all SQL commands, and some others) are not executed until
+a final &quot;;&quot; character is seen on the input; this permits multi-line commands.
+Other commands, such as internal commands like <code>.set</code>, are single-line
+commands and do not require a semi-colon.</p>
+
+<p>Before going into each specific type of command, here's a brief SQLShell
+transcript, to whet your appetite:</p>
+
+<pre><code>$ sqlshell mydb
+SQLShell, version 0.7.1 (2010/11/09 22:53:14)
+Using Java EditLine
+Type &quot;help&quot; for help. Type &quot;.about&quot; for more information.
+
+sqlshell&gt; .set
+          ansi: true
+       catalog: 
+          echo: false
+       logging: info
+     maxbinary: 20
+maxcompletions: 30
+    maxhistory: 2147483647
+        prompt: sqlshell&gt;
+        schema: public
+   showresults: true
+  showrowcount: true
+   showtimings: true
+  sortcolnames: false
+    stacktrace: false
+
+sqlshell&gt; .desc database
+Connected to database: jdbc:postgresql://localhost:5432/bmc
+Connected as user:     moe
+Database vendor:       PostgreSQL
+Database version:      8.3.4
+JDBC driver:           PostgreSQL Native Driver
+JDBC driver version:   PostgreSQL 8.2 JDBC3 with SSL (build 505)
+Transaction isolation: read committed
+Open transaction?      no
+
+sqlshell&gt; .show tables;
+users    customers
+
+sqlshell&gt; .desc users
+-----------
+Table users
+-----------
+Id                  int4 NOT NULL,
+CompanyId           int4 NOT NULL,
+EmployerAssignedId  varchar(100) NULL,
+LastName            varchar(254) NOT NULL,
+FirstName           varchar(254) NOT NULL,
+MiddleInitial       bpchar(1) NULL,
+AddressId           int4 NULL,
+Email               varchar(254) NOT NULL,
+Telephone           varchar(30) NULL,
+Department          varchar(254) NULL,
+IsEnabled           bpchar(1) NOT NULL,
+CreationDate        timestamp NOT NULL
+
+sqlshell&gt; select id, companyid, lastname, firstname, middleinitial, employer from users;
+Execution time: 0.1 seconds
+Retreival time: 0.2 seconds
+2 rows returned.
+
+Id  CompanyId  LastName  FirstName  MiddleInitial  EmployerAssignedId
+--  ---------  --------  ---------  -------------  ------------------
+1   1          Clapper   Brian      M              1                 
+2   1          User      Joe        NULL           1                 
+</code></pre>
+
+<h3>SQL</h3>
+
+<p>SQLShell will issue any valid SQL command. It does not interpret the SQL
+command at all, beyond recognizing the initial <code>SELECT</code>, <code>INSERT</code>,
+<code>UPDATE</code>, etc., statement. Thus, RDBMS-specific SQL is perfectly permissable.</p>
+
+<p>For SQL commands that produce results, such as <code>SELECT</code>, SQLShell displays
+the result in a tabular form, using as little horizontal real estate as
+possible. It does <strong>not</strong> wrap its output, however.</p>
+
+<p>SQLShell has explicit support for the following kinds of SQL statements.
+Note that &quot;explicit support&quot; means SQLShell can do table-name completion
+for those commands (see <a href="#command_completion">Command Completion</a>), not that SQLShell understands
+the SQL syntax.</p>
+
+<ul>
+<li><code>ALTER</code> (e.g., <code>ALTER TABLE</code>, <code>ALTER INDEX</code>)</li>
+<li><code>CREATE</code> (e.g., <code>CREATE TABLE</code>, <code>CREATE INDEX</code>)</li>
+<li><code>DELETE</code></li>
+<li><code>DROP</code> (e.g., <code>DROP TABLE</code>, <code>DROP INDEX</code>)</li>
+<li><code>INSERT</code></li>
+<li><code>UPDATE</code></li>
+</ul>
+
+<p>Within those SQL commands, tab completion completes table names.</p>
+
+<h3>Timings</h3>
+
+<p>By default, SQLShell times how long it takes to execute a SQL statement
+and prints the resulting times on the screen. To suppress this behavior,
+set the <code>timings</code> setting to <code>false</code>:</p>
+
+<pre><code>.set showtimings off
+</code></pre>
+
+<h3>SQL Echo</h3>
+
+<p>By default, SQLShell does <em>not</em> echo commands to the screen. That's a
+reasonable behavior when you're using SQLShell interactively. However, when
+you're loading a file full of SQLShell statements, you might want each
+statement to be echoed before it is run. To enable command echo, set the
+<code>echo</code> setting to <code>true</code>:</p>
+
+<pre><code>.set echo on
+</code></pre>
+
+<p>Example of use:</p>
+
+<pre><code>.set echo on
+.run /tmp/foo.sql
+.set echo off
+</code></pre>
+
+<h3>Comments</h3>
+
+<p>SQLShell honors two kinds of comments:</p>
+
+<ul>
+<li>normal SQL comments</li>
+<li>SQLShell comment-commands</li>
+</ul>
+
+<h4>Normal SQL Comments</h4>
+
+<p>SQLShell honors (and ignores) SQL comments, as long as each comment is on a
+line by itself. A SQL comment begins with &quot;--&quot;.</p>
+
+<p>Example of supported syntax:</p>
+
+<pre><code>-- This is a SQL comment.
+-- And so is this.
+</code></pre>
+
+<p>Example of <em>unsupported</em> syntax:</p>
+
+<pre><code>INSERT INTO foo VALUES (1); -- initialize foo
+</code></pre>
+
+<h4>SQLShell Comment-commands</h4>
+
+<p>SQLShell implements some SQL-related commands as special comments. All
+such comments start with <code>--sqlshell-</code>.</p>
+
+<h5>Defining a block of SQL (e.g., to create a stored procedure)</h5>
+
+<p>SQLShell is RDBMS-agnostic. It doesn't actually parse the SQL it sends to the
+remote database. With normal SQL commands like <code>SELECT</code> and <code>INSERT</code>, SQLShell
+simply looks for the final semicolon (&quot;;&quot;), and passes everything up to that
+semicolon to the database, allowing the database engine to do the parsing.</p>
+
+<p>This strategy works fine for normal SQL command, which can be treated as a
+single line. But what about stored procedure definitions?</p>
+
+<p>These (and anything else requiring a block of SQL, possibly with embedded
+semicolons) causes problems for SQLShell, because it can't tell where the
+command is supposed to end. To solve this problem the &quot;right&quot; way would
+require adding more sophisticated parsing logic to SQLShell--parsing logic
+that would necessarily be different for every back-end database engine.</p>
+
+<p>SQLShell takes a simpler approach. It allows you to signify the start and
+end of a block of SQL, using two special comment lines:</p>
+
+<pre><code>--sqlshell-block-begin
+... SQL ...
+--sqlshell-block-end
+</code></pre>
+
+<p>When SQLShell sees <code>--sqlshell-block-begin</code>, on a line by itself, it looks
+ahead, for a matching <code>--sqlshell-block-end</code> command (also on a line by
+itself). SQLShell then issues everything between those commands as one SQL
+statement. For example, consider the following <a href="http://www.postgresql.org/">PostgreSQL</a>
+function definition (using the PL/pgSQL language):</p>
+
+<pre><code>--sqlshell-block-begin
+CREATE OR REPLACE FUNCTION totalfoo() RETURNS integer AS $$
+DECLARE
+    q int;
+BEGIN
+SELECT COUNT(*) INTO q FROM foo;
+RETURN q;
+END;
+$$ LANGUAGE plpgsql;
+--sqlshell-block-end
+</code></pre>
+
+<p>SQLShell will issue the entire function definition as one statement.</p>
+
+<p>Because SQLShell's special &quot;block begin&quot; and &quot;block end&quot; command are implemented
+as structured comments, the same script you run through SQLShell will also work
+in other database tools.</p>
+
+<h3>Other SQLShell-specific Commands</h3>
+
+<p>These internal SQLShell commands are one-line commands that do not require
+a trailing semi-colon and cannot be on multiple lines. Most (but not all)
+of these commands start with a dot (&quot;.&quot;) character, to distinguish them
+from commands that are processed by the connected database engine.</p>
+
+<p><code>.about</code></p>
+
+<blockquote>
+  <p>Displays information about SQLShell.</p>
+</blockquote>
+
+<p><code>begin</code></p>
+
+<blockquote>
+  <p>Start a new transaction. This command is not permitted unless
+  <code>autocommit</code> is on. <code>begin</code> is essentially a no-op: It's ignored in
+  autocommit mode, and irrelevant when autocommit mode is off. It's there
+  primarily for SQL scripts.</p>
+  
+  <p>Example of use:</p>
+</blockquote>
+
+<pre><code>begin
+update foo set bar = 1;
+commit
+</code></pre>
+
+<blockquote>
+  <p>For compatibility with SQL scripts, this command does not begin with a &quot;.&quot;.</p>
+</blockquote>
+
+<p><code>.capture</code></p>
+
+<blockquote>
+  <p>Captures the results of queries to a CSV file.</p>
+  
+  <p>To turn capture on:</p>
+</blockquote>
+
+<pre><code>.capture to /path/to/file  -- captures to specified file
+.capture on                -- captures to a temporary file
+</code></pre>
+
+<blockquote>
+  <p>To turn capture off:</p>
+</blockquote>
+
+<pre><code>.capture off
+</code></pre>
+
+<blockquote>
+  <p>Example:</p>
+</blockquote>
+
+<pre><code>.capture to /tmp/results.csv
+SELECT * from foo;
+SELECT * from bar;
+.capture off
+</code></pre>
+
+<blockquote>
+  <p>SQLShell opens the file for writing (truncating it, if it already exists).
+  Then, SQLShell writes each result set to the file, along with column
+  headers, until it sees &quot;.capture off&quot;.</p>
+</blockquote>
+
+<p><code>commit</code></p>
+
+<blockquote>
+  <p>Commit the current transaction. Ignored if <code>autocommit</code> is enabled. For
+  compatibility with SQL scripts, this command does not begin with a &quot;.&quot;.</p>
+</blockquote>
+
+<p><code>.desc</code></p>
+
+<blockquote>
+  <p>The <code>.desc</code> (for &quot;describe&quot;) command takes two forms:</p>
+</blockquote>
+
+<pre><code>.desc database
+</code></pre>
+
+<blockquote>
+  <p>This form displays some information about the connected database.</p>
+</blockquote>
+
+<pre><code>.desc table [full]
+</code></pre>
+
+<blockquote>
+  <p>This form describes a table, showing the columns and their types. The
+  <code>table</code> parameter is the table name to describe. If the optional <code>full</code>
+  parameter is specified, SQLShell also displays the table's indexes and
+  foreign key constraints (if any). For example:</p>
+</blockquote>
+
+<pre><code>sqlshell&gt; .desc users
+-----------
+Table users
+-----------
+Id                  int4 NOT NULL,
+CompanyId           int4 NOT NULL,
+EmployerAssignedId  varchar(100) NULL,
+LastName            varchar(254) NOT NULL,
+FirstName           varchar(254) NOT NULL,
+MiddleInitial       bpchar(1) NULL,
+AddressId           int4 NULL,
+Email               varchar(254) NOT NULL,
+Telephone           varchar(30) NULL,
+Department          varchar(254) NULL,
+IsEnabled           bpchar(1) NOT NULL,
+CreationDate        timestamp NOT NULL
+
+Primary key columns: Id
+
+names_pkey: Unique index on (id)
+namesfirstix: Non-unique index on (firstname)
+nameslastix: Non-unique index on (lastname)
+</code></pre>
+
+<p><code>.echo</code></p>
+
+<blockquote>
+  <p>Echoes all remaining arguments to standard output. This command is useful
+  primarily in scripts.</p>
+  
+  <p>Example:</p>
+</blockquote>
+
+<pre><code>.echo Don't look now, but I'm about to run SELECT
+</code></pre>
+
+<p><code>exit</code></p>
+
+<blockquote>
+  <p>Exit SQLShell. <code>exit</code> is equivalent to typing the key sequence
+  corresponding to an end-of-file condition (Ctrl-D on Unix systems, Ctrl-Z
+  on Windows).</p>
+</blockquote>
+
+<p><code>history</code></p>
+
+<blockquote>
+  <p>The <code>history</code> command (also callable as <code>h</code>), displays the command
+  history. The command has the general form:</p>
+</blockquote>
+
+<pre><code>history [-n] [regex]
+</code></pre>
+
+<blockquote>
+  <p><em>n</em> specifies the maximum number of commands to show from the history. If
+  omitted, all commands (or all matching commands, if <em>regex</em> is specified)
+  are shown.</p>
+  
+  <p><em>regex</em> is an optional regular expression that can be used to filter the
+  list of commands.</p>
+  
+  <p>Examples:</p>
+</blockquote>
+
+<pre><code>history -30         &lt;-- show the last 30 commands
+history -3 ^create  &lt;-- show the last 3 commands that match &quot;^create&quot;
+</code></pre>
+
+<p>See <strong>Command History</strong> for a complete explanation of SQLShell's</p>
+
+<blockquote>
+  <p>command history capabilities.</p>
+</blockquote>
+
+<p><code>r</code> or !</p>
+
+<blockquote>
+  <p>Re-issue a command from the history. General usage:</p>
+</blockquote>
+
+<pre><code>r [num|str]
+\![num|str]
+\!\!
+</code></pre>
+
+<blockquote>
+  <p>If <em>num</em> is present, it is the number of the command to re-run. If <em>str</em>
+  is specified, the most recent command that <em>str</em> (using a substring match)
+  is re-run.</p>
+  
+  <p>For example, consider this history:</p>
+</blockquote>
+
+<pre><code>sqlshell&gt; history
+1: .show tables;
+2: select * from foo;
+3: .desc foo;
+4: .desc foobar;
+</code></pre>
+
+<blockquote>
+  <p>Here are various <code>redo</code> invocations:</p>
+</blockquote>
+
+<pre><code>sqlshell&gt; r 1  &lt;--- re-runs command 1, &quot;.show tables&quot;
+sqlshell&gt; !1   &lt;--- re-runs command 1, &quot;.show tables&quot;
+sqlshell&gt; \!s   &lt;--- re-runs the most recent command that starts with &quot;s&quot;, which is &quot;select * from foo&quot;
+sqlshell&gt; r    &lt;--- re-runs the last command, &quot;.desc foobar&quot;
+sqlshell&gt; \!\!   &lt;--- also re-runs the last command, &quot;.desc foobar&quot;
+</code></pre>
+
+<p><code>rollback</code></p>
+
+<blockquote>
+  <p>Roll the current transaction back. Ignored if <code>autocommit</code> is enabled. For
+  compatibility with SQL scripts, this command does not begin with a dot.</p>
+</blockquote>
+
+<p><code>.run</code></p>
+
+<blockquote>
+  <p>Loads an external file of commands (typically SQL) and runs those commands in
+  the current session without exiting. After the commands are run, SQLShell
+  returns to its interactive prompt. Usage:</p>
+</blockquote>
+
+<pre><code>.run path
+</code></pre>
+
+<blockquote>
+  <p>A leading ~ character is honored as a substitute for the current user's 
+  home directory.</p>
+  
+  <p>Within the <code>.run</code> command, tab completion completes the pathname.</p>
+</blockquote>
+
+<p><code>.set</code></p>
+
+<blockquote>
+  <p>The <code>.set</code> command displays or alters internal SQLShell settings. Without
+  any parameters, <code>.set</code> displays all internal settings and their values:</p>
+</blockquote>
+
+<pre><code>sqlshell&gt; .set
+         ansi: true
+      catalog: 
+         echo: false
+      logging: info
+    maxbinary: 20
+</code></pre>
+
+<p>maxcompletions: 30
+       maxhistory: 2147483647
+           prompt: sqlshell&gt;
+           schema: public
+      showresults: true
+     showrowcount: true
+      showtimings: true
+     sortcolnames: false
+       stacktrace: false</p>
+
+<blockquote>
+  <p>The initial value for any setting may be placed in the <code>[settings]</code> section
+  of the configuration file.</p>
+  
+  <p>To set a variable, use either <code>.set var=value</code> or <code>.set var value</code>. For
+  example, the following two statements are equivalent:</p>
+</blockquote>
+
+<pre><code>.set echo on
+.set echo=on
+</code></pre>
+
+<blockquote>
+  <p>Boolean variables (such as <code>ansi</code> and <code>echo</code>) can take any of the following
+  boolean strings:</p>
+</blockquote>
+
+<pre><code>on, 1, yes, true
+off, 0, no, false
+</code></pre>
+
+<blockquote>
+  <p>Values can be quoted, either with paired single or double quotes. Currently,
+  the only real use for that feature is to clear string settings. Values like
+  <code>schema</code> can be cleared by setting them to the empty string, as follows:</p>
+</blockquote>
+
+<pre><code>.set schema=&quot;&quot;
+</code></pre>
+
+<blockquote>
+  <p>The supported settings are:</p>
+  
+  <ul>
+  <li><p><code>ansi</code>: Whether or not to use ANSI terminal escape sequences in output.
+  Currently, SQLShell only uses ANSI sequences to display errors and warnings
+  in color. Sometimes, however, it's useful to disable them. <strong>Default:</strong> on</p></li>
+  <li><p><code>catalog</code>: The catalog to use when resolving table names. If omitted,
+  then SQLShell considers all catalogs that are visible to the connected
+  user. This  value may also be initialized in the configuration section for 
+  the database. <strong>Default:</strong> none</p></li>
+  <li><p><code>echo</code>: Whether or not commands are echoed before they are run.
+  <strong>Default</strong>: off</p></li>
+  <li><p><code>logging</code>: The current log level, which affects the information logged
+  to the screen. Legal values are, in order of verbosity: <code>error</code>, <code>info</code>, 
+  <code>verbose</code>, <code>warning</code>, <code>debug</code>. <strong>Default:</strong> <code>info</code></p></li>
+  <li><p><code>maxbinary</code>: How many bytes or characters to display from binary (BLOB,
+  CLOB, LONGVARCHAR, etc.) columns. For non-character columns like BLOBs,
+  the bytes are displayed as two-character hexadecimal strings. If this
+  setting is 0, then SQLShell will not retrieve binary values and will display
+  placeholder strings like <code>&lt;binary&gt;</code> and <code>&lt;clob&gt;</code>, instead. <strong>Default:</strong> 0</p></li>
+  <li><p><code>maxcompletions</code>: The maximum number of possible completions to show.
+  This setting comes into play when you press the TAB key to complete a
+  string, and there are multiple possible completions for the string.
+  SQLShell will display up to <code>maxcompletions</code> of those possible completions,
+  in a columnar form, on the screen. If this setting is 0, then SQLShell
+  will display all of the possible completions.  <strong>Default:</strong> 30</p></li>
+  <li><p><code>maxhistory</code>: Sets the maximum number of entries in the command history.
+  <strong>Default:</strong> A really large number (the largest possible signed 32-bit
+  integer, 2147483647).</p></li>
+  <li><p><code>prompt</code>: Sets the primary prompt, which defaults to &quot;sqlshell&gt; &quot;.
+  You can change the prompt to anything you want. The string you pass to
+  <code>.set prompt</code> can contain the following escapes, which are substituted
+  as described. In all cases, if an escape has no value, an empty string
+  is subsituted.</p>
+  
+  <ul><li><code>%db%</code>: Substitute the name of the current database, if known.
+  The name is the section name in the configuration file, minus its
+  &quot;db_&quot; prefix.</li>
+  <li><code>%dbtype%</code>: The database type (Oracle, Microsoft SQL Server, etc.)</li>
+  <li><code>%user%</code>: The name of the user connected to the database.</li>
+  <li><code>%SP%</code>: A space</li></ul></li>
+  <li><p><code>schema</code>: The schema to use when resolving table names. If omitted,
+  then SQLShell considers all tables that are visible to the connected
+  user. This variable just sets the initial value for this setting. This 
+  value may also be initialized in the configuration section for the database.
+  <strong>Default:</strong> none</p></li>
+  <li><p><code>showrowcount</code>: Whether or not to display the number of rows retrieved or
+  affected by a SQL statement. <strong>Default:</strong> on</p></li>
+  <li><p><code>showtimings</code>: Whether or not to display how long each SQL statement takes
+  to run. <strong>Default:</strong> on</p></li>
+  <li><p><code>sortcolnames</code>: Whether or not to sort the names of the columns when
+  describing a table (via the <code>.desc</code> command). If this variable is off,
+  then columns are shown in the order the RDBMS returns them.
+  <strong>Default:</strong>: off</p></li>
+  <li><p><code>stacktrace</code>: Whether or not to display Scala stack traces when internal
+  exceptions occur. Useful mostly for debugging. <strong>Default:</strong> off</p></li>
+  </ul>
+</blockquote>
+
+<p><code>.show</code></p>
+
+<blockquote>
+  <p>The <code>.show</code> command displays certain information about the currently
+  connected database. Currently, it supports two sub-commands:</p>
+</blockquote>
+
+<pre><code>.show schemas
+</code></pre>
+
+<blockquote>
+  <p>Show the names of all user-visible schemas in the database. (There may not
+  be any.)</p>
+</blockquote>
+
+<pre><code>.show tables [pattern]
+.show tables/schema [pattern]
+</code></pre>
+
+<blockquote>
+  <p>Show the list of user-visible tables. If a schema is specified, restrict the
+  list to the tables in that schema. If no schema is specified, then either the
+  default schema (see <code>.set schema</code>) is used, or all visible tables are shown.</p>
+  
+  <p><code>pattern</code>, if specified, is a full or partial regular expression that can be
+  used to restrict the table names that are shown.</p>
+  
+  <p>For example:</p>
+</blockquote>
+
+<pre><code>sqlshell&gt; .show tables
+all_users  foo     fool
+tb_bar     tb_foo  userlocation
+
+sqlshell&gt; .show tables ^tb
+tb_bar  tb_foo
+
+sqlshell&gt; .show tables tb
+tb_bar  tb_foo
+
+sqlshell&gt; .show tables ^.*foo
+foo  fool  tb_foo
+
+sqlshell&gt; .show tables foo$
+foo  tb_foo
+</code></pre>
+
+<p>As you can see from the example, the regular expression is implicitly anchored
+to the beginning of the table name.</p>
+
+<h3>Extended Commands</h3>
+
+<p>If you type a command that SQLShell doesn't recognize as a SQL command or one
+of its internal commands, it passes the command straight through to the
+database and treats the command as it would treate a SQL <code>SELECT</code>. This
+policy allows you to use certain RDBMS-specific commands without SQLShell
+having to support them explicitly. For instance, here's what happens if you've
+connected SQLShell to a SQLite database and you try to use the SQLite
+<code>EXPLAIN</code> command:</p>
+
+<pre><code>sqlshell&gt; explain select distinct id from foo;
+41 rows returned.
+Execution time: 0.30 seconds
+
+addr  opcode         p1  p2  p3  p4                 p5  comment
+----  -------------  --  --  --  -----------------  --  -------
+0     Trace          0   0   0                      00  &lt;null&gt; 
+1     OpenEphemeral  1   2   0   keyinfo(1,BINARY)  00  &lt;null&gt; 
+2     Integer        0   3   0                      00  &lt;null&gt; 
+3     Integer        0   2   0                      00  &lt;null&gt; 
+4     Gosub          5   34  0                      00  &lt;null&gt; 
+5     Goto           0   37  0                      00  &lt;null&gt; 
+6     OpenRead       0   2   0   1                  00  &lt;null&gt; 
+7     Rewind         0   13  0                      00  &lt;null&gt; 
+8     Column         0   0   8                      00  &lt;null&gt; 
+9     Sequence       1   9   0                      00  &lt;null&gt; 
+10    MakeRecord     8   2   10                     00  &lt;null&gt; 
+11    IdxInsert      1   10  0                      00  &lt;null&gt; 
+12    Next           0   8   0                      01  &lt;null&gt; 
+13    Close          0   0   0                      00  &lt;null&gt; 
+14    Sort           1   36  0                      00  &lt;null&gt; 
+15    Column         1   0   7                      00  &lt;null&gt; 
+16    Compare        6   7   1   keyinfo(1,BINARY)  00  &lt;null&gt; 
+17    Jump           18  22  18                     00  &lt;null&gt; 
+18    Move           7   6   1                      00  &lt;null&gt; 
+19    Gosub          4   29  0                      00  &lt;null&gt; 
+20    IfPos          3   36  0                      00  &lt;null&gt; 
+21    Gosub          5   34  0                      00  &lt;null&gt; 
+22    Column         1   0   1                      00  &lt;null&gt; 
+23    Integer        1   2   0                      00  &lt;null&gt; 
+24    Next           1   15  0                      00  &lt;null&gt; 
+25    Gosub          4   29  0                      00  &lt;null&gt; 
+26    Goto           0   36  0                      00  &lt;null&gt; 
+27    Integer        1   3   0                      00  &lt;null&gt; 
+28    Return         4   0   0                      00  &lt;null&gt; 
+29    IfPos          2   31  0                      00  &lt;null&gt; 
+30    Return         4   0   0                      00  &lt;null&gt; 
+31    SCopy          1   11  0                      00  &lt;null&gt; 
+32    ResultRow      11  1   0                      00  &lt;null&gt; 
+33    Return         4   0   0                      00  &lt;null&gt; 
+34    Null           0   1   0                      00  &lt;null&gt; 
+35    Return         5   0   0                      00  &lt;null&gt; 
+36    Halt           0   0   0                      00  &lt;null&gt; 
+37    Transaction    0   0   0                      00  &lt;null&gt; 
+38    VerifyCookie   0   1   0                      00  &lt;null&gt; 
+39    TableLock      0   2   0   foo                00  &lt;null&gt; 
+40    Goto           0   6   0                      00  &lt;null&gt; 
+</code></pre>
+
+<p>Here's an example of running <code>ANALYZE</code> on a PostgreSQL database:</p>
+
+<pre><code>sqlshell&gt; analyze verbose;
+Execution time: 0.r4 seconds
+0 rows
+</code></pre>
+
+<h4>Restrictions</h4>
+
+<ul>
+<li>Some extended commands don't work well through SQLShell. Your mileage
+may vary.</li>
+<li>Since these extended commands are database-specific, they do not show
+up in command completion output, and they do not support command completion
+themselves.</li>
+</ul>
+
+<h2>Command History</h2>
+
+<p>SQLShell supports a <a href="http://www.gnu.org/software/bash/manual/"><code>bash</code></a>-like command history mechanism. Every
+command you type at the command prompt is saved in an internal memory
+buffer, accessible via the <code>history</code> command.</p>
+
+<p>SQLShell also supports a variety of readline-like libraries, including
+<a href="http://www.thrysoee.dk/editline/">EditLine</a>, <a href="http://tiswww.case.edu/php/chet/readline/rltop.html">GNU Readline</a> and <a href="http://jline.sourceforge.net/">JLine</a>.
+(JLine is shipped with SQLShell.) This means you can use the usual key
+bindings (the arrow keys, Emacs keys, etc.) to scroll through your history
+list, edit previous commands, and re-issue them.</p>
+
+<p>Upon exit, SQLShell saves its internal history buffer to a database-specific
+file, as long as the database's configuration section specifies a history file
+path via the <code>history</code> variable. For example:</p>
+
+<pre><code>[common]
+historyDir: ${env.HOME}/.sqlshell
+
+[drivers]
+postgres = org.postgresql.Driver
+
+[db_employees]
+aliases: payroll, people
+driver: postgres
+url: jdbc:postgresql://db.example.com/empdb
+user: admin
+password: foobar1
+history: $common.historyDir/employees.hist
+</code></pre>
+
+<p>The history file for the <code>employees</code> database is
+<code>$HOME/.sqlshell/employees.hist</code>.</p>
+
+<h2>Command Completion</h2>
+
+<p>SQLShell supports TAB-completion in various places, in the manner of the GNU
+<code>bash</code> shell. TAB-completion is (mostly) context sensitive. For example:</p>
+
+<p><code>.{TAB}</code>
+    Displays a list of all the &quot;.&quot; commands</p>
+
+<p><code>.set {TAB}</code>
+    Displays the variables you can set.</p>
+
+<p><code>.set v{TAB}</code>
+    Completes the variable name that starts with &quot;v&quot;. If multiple variables
+    start with &quot;v&quot;, then the common characters are completed, and a second
+    TAB will display all the matching variables.</p>
+
+<p><code>.connect {TAB}</code>
+    shows all the database names and aliases in the config file</p>
+
+<p><code>.connect a{TAB}</code>
+    Completes the database name or alias that starts with &quot;a&quot;. If multiple
+    names start with &quot;a&quot;, then the common characters are completed, and a second
+    TAB will display all the matching names.</p>
+
+<p><code>select * from {TAB}</code>
+    Shows the tables in the current database. (So does <code>select</code>\ <em>{TAB}</em>,
+    actually.) This works for <code>insert</code>, <code>update</code>, <code>delete</code>, <code>drop</code>,
+    and <code>.desc</code>, as well. The completion in SQL commands <em>only</em> completes
+    table names; it is not currently sensitive to SQL syntax.</p>
+
+<p><code>.history {TAB}</code>
+    Shows the commands in the history.</p>
+
+<p><code>.history s{TAB}</code>
+    Shows the names of all commands in the history beginning with &quot;s&quot;.</p>
+
+<p><code>.run {TAB}</code>
+    Lists all the files in the current directory</p>
+
+<p><code>.run f{TAB}</code>
+    Lists all the files in the current directory that start with &quot;s&quot;</p>
+
+<p><code>.run ~/{TAB}</code>
+    Lists all the files in your home directory</p>
+
+<p><code>.run ~/d{TAB}</code>
+    Lists all the files in your home directory that start with &quot;d&quot;</p>
+
+<p>etc.</p>
+
+<h2>Readline Implementations</h2>
+
+<p>SQLShell supports the following readline libraries:</p>
+
+<ul>
+<li><p><a href="http://www.thrysoee.dk/editline/">Editline</a>, via the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> JNI library.
+Editline has a more liberal BSD license. However, SQLShell cannot ship
+with built-in Editline support, because the process of enabling Editline
+differs on each platform. See below for instructions on getting Editline
+to work.</p>
+
+<p>On Unix-like systems, SQLShell works best with EditLine.</p></li>
+<li><p><a href="http://jline.sourceforge.net/">JLine</a>. JLine supports some of the &quot;standard&quot; Readline capabilities,
+and it's the readline library used by the <a href="http://www.scala-lang.org/">Scala</a> REPL. It's
+self-contained, requiring the installation of no third-party libraries.
+It also has a license permitting its inclusion and use in other software.
+SQLShell ships with JLine. But JLine doesn't support many of the features
+of more advance readline libraries, such as GNU Readline and Editline. For
+instance, it lacks support for non-arrow key escape sequences and an
+incremental reverse history search.</p>
+
+<p>On Windows systems, JLine is really your only option (aside from &quot;simple&quot;,
+below).</p></li>
+<li><p><a href="http://tiswww.case.edu/php/chet/readline/rltop.html">GNU Readline</a>, via the JNI <a href="http://java-readline.sourceforge.net/">Java-Readline</a>
+library. GNU Readline is licensed using the GNU Public License (GPL). If
+SQLShell were to link with GNU Readline, it, too, would have to be
+GPL-licensed. In addition, GNU Readline requires the presence of
+platform-specific C libraries. For those reasons, SQLShell does not ship
+with GNU Readline. However, if you install the right pieces, SQLShell
+<em>will</em> work with GNU Readline. See below.</p>
+
+<p><em>Note</em>: The <a href="http://java-readline.sourceforge.net/">Java-Readline</a> provides limited completion
+information. If you use GNU Readline with SQLShell, completion will not
+always work as expected.</p></li>
+<li><p>&quot;Simple&quot;, a simple Java-only library. &quot;Simple&quot; doesn't support keybindings,
+but it does support a command history. If you have the option of using
+JLine, GNU Readline, or Editline, you'll probably never want to use the
+&quot;Simple&quot; library; it's included solely as a fallback.</p></li>
+</ul>
+
+<p>By default, SQLShell looks for the following readline libraries, in order:</p>
+
+<ul>
+<li>Editline</li>
+<li>GNU Readline</li>
+<li>JLine</li>
+<li>Simple</li>
+</ul>
+
+<h3>Getting Editline to work</h3>
+
+<p>Editline keyboard bindings aren't always &quot;correct&quot; out of the box. For instance,
+tab completion didn't work for me on Ubuntu or Mac OS X. The underlying
+<a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a>
+problem, I put the following line in my <code>$HOME/.editrc</code> file:</p>
+
+<pre><code>bind \\t ed-complete
+</code></pre>
+
+<p>Since I am also a long-time Emacs user, I want an incremental reverse-search
+capability. To do that with Editline requires an additional line in <code>.editrc</code>:</p>
+
+<pre><code>bind '^R' em-inc-search-prev
+</code></pre>
+
+<p>Here are instructions on getting Editline installed and working on various
+platforms.</p>
+
+<h4>Mac OS X</h4>
+
+<ul>
+<li>Install the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> library, as described at its
+web site.</li>
+<li>Be sure that <code>libjavaeditline.jnilib</code> is in your <code>LD_LIBRARY_PATH</code>
+environment variable, and that <code>javaeditline.jar</code> is in your <code>CLASSPATH</code>.</li>
+<li>See the <em>editrc</em>(5) man page for keybinding customization instructions.</li>
+</ul>
+
+<h4>BSD</h4>
+
+<ul>
+<li>Install the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> library, as described at its
+web site.</li>
+<li>Be sure that <code>libjavaeditline.jnilib</code> is in your <code>LD_LIBRARY_PATH</code>
+environment variable, and that <code>javaeditline.jar</code> is in your <code>CLASSPATH</code>.</li>
+<li>See the <em>editrc</em>(5) man page for keybinding customization instructions.</li>
+</ul>
+
+<h4>Linux</h4>
+
+<p>These instructions differ, depending on the Linux distribution.</p>
+
+<h5>Ubuntu</h5>
+
+<ul>
+<li>Via <em>apt</em>, install the <code>libedit2</code> package, to get the base Editline C
+library and headers.</li>
+<li>Install the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> library, as described at its
+web site.</li>
+<li>Be sure that <code>libjavaeditline.jnilib</code> is in your <code>LD_LIBRARY_PATH</code>
+environment variable, and that <code>javaeditline.jar</code> is in your <code>CLASSPATH</code>.</li>
+<li>See the <em>editrc</em>(5) man page for keybinding customization instructions.</li>
+</ul>
+
+<h3>Getting GNU Readline to work</h3>
+
+<h4>Mac OS X</h4>
+
+<p>For Mac OS X, follow the instructions at
+<a href="http://blog.toonetown.com/2006/07/java-readline-on-mac-os-x-update.html">http://blog.toonetown.com/2006/07/java-readline-on-mac-os-x-update.html</a>.</p>
+
+<p>Note: While SQLShell will report that it is using GNU Readline, Mac OS X
+actually uses the Editline library, with a shim library to make it look more
+or less like GNU Readline to calling programs. To customize the key bindings,
+see the <em>editrc</em>(5) man page.</p>
+
+<h4>BSD</h4>
+
+<p><em>To be written</em></p>
+
+<h4>Linux</h4>
+
+<p>These instructions differ, depending on the Linux distribution.</p>
+
+<h5>Ubuntu</h5>
+
+<ul>
+<li>Via <em>apt</em>, install the <code>libreadline-java</code> package.</li>
+<li>Ensure that <code>/usr/share/java/libreadline-java.jar</code> is in your <code>CLASSPATH</code>.</li>
+<li>Ensure that <code>LD_LIBRARY_PATH</code> contains <code>/usr/lib/jni</code></li>
+</ul>
+
+<h3>Using a Specific Readline Library</h3>
+
+<p>You can force SQLShell to try to use a specific readline library, or to
+restrict the set of libraries it tries to find, via the <code>-r</code> (<code>--readline</code>)
+command line option. For instance, to force SQLShell to try Editline before
+Readline, you can use this command line:</p>
+
+<pre><code>$ sqlshell -r editline -r gnu -r jline somedbname
+</code></pre>
+
+<h2>License and Copyright</h2>
+
+<h1>Licenses</h1>
+
+<hr></hr>
+
+<h2>SQLShell License</h2>
+
+<p>This software is released under a BSD license, adapted from
+<a href="http://opensource.org/licenses/bsd-license.php">http://opensource.org/licenses/bsd-license.php</a></p>
+
+<p>Copyright © 2009, 2010 Brian M. Clapper.
+All rights reserved.</p>
+
+<p>Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:</p>
+
+<ul>
+<li><p>Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.</p></li>
+<li><p>Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.</p></li>
+<li><p>Neither the name &quot;clapper.org&quot; nor the names of its contributors may be
+used to endorse or promote products derived from this software without
+specific prior written permission.</p></li>
+</ul>
+
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.</p>
+
+<hr></hr>
+
+<h2>Licenses for Software Installed with SQLShell</h2>
+
+<h3>Scala</h3>
+
+<p>SQLShell ships with the <a href="http://www.scala-lang.org/">Scala</a> runtime and library.
+Scala is copyright © 2002-2010 EPFL, Lausanne, unless otherwise
+specified. All rights reserved.</p>
+
+<p>Scala, and its libraries, have the following disclaimer:</p>
+
+<p>THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS &quot;AS IS&quot; AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGE.</p>
+
+<p>For additional information, see the <a href="http://www.scala-lang.org/node/146">Scala license</a>, at
+<a href="http://www.scala-lang.org/node/146">http://www.scala-lang.org/node/146</a>.</p>
+
+<h3>Java-Readline</h3>
+
+<p>SQLShell ships with the <a href="http://java-readline.sourceforge.net/">Java-Readline</a> jar file. Java-Readline
+is licensed under the <a href="http://www.gnu.org/licenses/lgpl.html">GNU Lesser General Public License</a> (LGPL) and is
+copyright © 1998-2001 Bernhard Bablok.</p>
+
+<h3>Java-Editline</h3>
+
+<p>SQLShell ships with the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> library, a JNI
+wrapper around the BSD <a href="http://www.thrysoee.dk/editline/">Editline</a> library. Java EditLine is released
+under a BSD license and is copyright © 2010 Brian M. Clapper.</p>
+
+<h3>JLine</h3>
+
+<p>SQLShell will run with the <a href="http://jline.sourceforge.net/">JLine</a> library, a cross-platform command
+editing library. JLine is released under a <a href="http://www.opensource.org/licenses/bsd-license.php">BSD</a> license under a
+BSD-style license and is copyright © 2002-2006, Marc Prud'hommeaux.</p>
+
+<h3>Grizzled Scala Library</h3>
+
+<p>SQLShell ships with the <a href="http://bmc.github.com/grizzled-scala/">Grizzled Scala</a> library, which is
+licensed under a BSD license and is copyright © 2009-2010
+Brian M. Clapper.</p>
+
+<h3>opencsv</h3>
+
+<p>SQLShell ships with the <a href="http://opencsv.sourceforge.net/">opencsv</a> library, which is licensed under
+the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache 2.0 license</a> and is copyright © 2005
+Bytecode Pty Ltd.</p>
+
+<h3>JodaTime</h3>
+
+<p>SQLShell ships with the <a href="http://joda-time.sourceforge.net/index.html">Joda Time</a> library, which is licensed
+under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache 2.0 license</a> and is copyright ©
+2002-2009 Joda.org.</p>
+
+<h3>argot</h3>
+
+<p>SQLShell ships with the <a href="http://bmc.github.com/argot/">Argot</a> command line parsing library, which is
+licensed under a BSD license and is copyright © 2010 Brian M. Clapper.</p>
+
+<h3>IzPack</h3>
+
+<p>The SQLShell installer is built using the <a href="http://izpack.org/">IzPack</a> installer
+generator. IzPack is licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache 2.0
+license</a> and is copyright © 2001-2008 Julien Ponge.</p>
+
+<hr></hr></div>
+<hr></hr>
+<i>Generated 2010-11-09 22:58:47</i>
+</body>
+</html>
