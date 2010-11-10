@@ -70,7 +70,7 @@ with posterous.Publish
     val opencsv = "net.sf.opencsv" % "opencsv" % "1.8"
 
     val grizzled = "org.clapper" %% "grizzled-scala" % "1.0.3"
-    val argot = "org.clapper" %% "argot" % "0.1"
+    val argot = "org.clapper" %% "argot" % "0.2"
 
     /* ---------------------------------------------------------------------- *\
                          Custom tasks and actions

@@ -525,7 +525,7 @@ Before going into each specific type of command, here's a brief SQLShell
 transcript, to whet your appetite:
 
     $ sqlshell mydb
-    SQLShell, version 0.7.1 (2010/10/21 20:35:59)
+    SQLShell, version 0.7.1 (2010/11/09 22:53:14)
     Using Java EditLine
     Type "help" for help. Type ".about" for more information.
 
