@@ -4,6 +4,6 @@
 * Updated to [Argot][] 0.2.
 * Now compiles against [Scala][] 2.8.1.
 
-[Grizzled Scala]: http://bmc.github.com/grizzled-scala/
-[Argot]: http://bmc.github.com/argot/
+[Grizzled Scala]: http://software.clapper.org/grizzled-scala/
+[Argot]: http://software.clapper.org/argot/
 [Scala]: http://www.scala-lang.org/

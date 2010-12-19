@@ -4,6 +4,6 @@
 tool. SQLShell has history management, readline-like support (with tab
 completion), and other useful features.
 
-[sqlshell]: http://www.clapper.org/software/scala/sqlshell/
+[sqlshell]: http://software.clapper.org/scala/sqlshell/
 [scala]: http://www.scala-lang.org/
 [sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html

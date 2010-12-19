@@ -1,3 +1,3 @@
 * Fixed a command completion error in the `.show` command.
 
-[grizzled-scala]: http://www.clapper.org/software/scala/grizzled-scala/
+[grizzled-scala]: http://software.clapper.org/scala/grizzled-scala/

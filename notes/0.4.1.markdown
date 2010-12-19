@@ -6,5 +6,5 @@
 - Factored Markdown and EditFile logic into separate [SBT
   plugins][sbt-plugins], simplifying the build.
 
-[grizzled-scala]: http://www.clapper.org/software/scala/grizzled-scala/
-[sbt-plugins]: http://bmc.github.com/sbt-plugins/
+[grizzled-scala]: http://software.clapper.org/scala/grizzled-scala/
+[sbt-plugins]: http://software.clapper.org/sbt-plugins/

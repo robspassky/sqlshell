@@ -23,6 +23,6 @@
 
 [issue 3]: http://github.com/bmc/sqlshell/issues#issue/3
 [SBT]: http://code.google.com/p/simple-build-tool
-[Grizzled Scala]: http://bmc.github.com/grizzled-scala/
+[Grizzled Scala]: http://software.clapper.org/grizzled-scala/
 [IzPack]: http://izpack.org/
-[Markdown plugin]: http://bmc.github.com/sbt-plugins/markdown.html
+[Markdown plugin]: http://software.clapper.org/sbt-plugins/markdown.html

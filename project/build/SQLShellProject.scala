@@ -269,7 +269,7 @@ with posterous.Publish
             appVersion = projectVersion.value.toString
             appSubPath = "clapper.org/sqlshell"
             author("Brian M. Clapper", "bmc@clapper.org")
-            url = "http://bmc.github.com/sqlshell/"
+            url = "http://software.clapper.org/sqlshell/"
             javaVersion = "1.6"
             writeInstallationInfo = true
         }

@@ -10,5 +10,5 @@
 * Now bundles `javaeditline.jar` (but not the accompanying JNI library).
   See the [javaeditline web site][javaeditline] for details.
 
-[javaeditline]: http://www.clapper.org/software/java/javaeditline/
+[javaeditline]: http://software.clapper.org/java/javaeditline/
 [sbt]: http://code.google.com/p/simple-build-tool
