@@ -315,7 +315,7 @@ is described below. All section names must be unique within the file.</p>
 <p>Blank lines and comment lines are ignored; comment lines start with a &quot;#&quot;
 character.</p>
 
-<p>SQLShell uses the <a href="http://bmc.github.com/grizzled-scala/">Grizzled Scala</a> library's <code>grizzled.config</code> module to
+<p>SQLShell uses the <a href="http://software.clapper.org/grizzled-scala/">Grizzled Scala</a> library's <code>grizzled.config</code> module to
 parse its configuration, so it supports all the capabilities that module
 provides. The configuration file is a Win.INI-style file, with several
 enhancements, and supports:</p>
@@ -1417,7 +1417,7 @@ history: $common.historyDir/employees.hist
 <p>SQLShell supports the following readline libraries:</p>
 
 <ul>
-<li><p><a href="http://www.thrysoee.dk/editline/">Editline</a>, via the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> JNI library.
+<li><p><a href="http://www.thrysoee.dk/editline/">Editline</a>, via the <a href="http://software.clapper.org/java/javaeditline/">Java EditLine</a> JNI library.
 Editline has a more liberal BSD license. However, SQLShell cannot ship
 with built-in Editline support, because the process of enabling Editline
 differs on each platform. See below for instructions on getting Editline
@@ -1465,7 +1465,7 @@ JLine, GNU Readline, or Editline, you'll probably never want to use the
 
 <p>Editline keyboard bindings aren't always &quot;correct&quot; out of the box. For instance,
 tab completion didn't work for me on Ubuntu or Mac OS X. The underlying
-<a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a>
+<a href="http://software.clapper.org/java/javaeditline/">Java EditLine</a>
 problem, I put the following line in my <code>$HOME/.editrc</code> file:</p>
 
 <pre><code>bind \\t ed-complete
@@ -1483,7 +1483,7 @@ platforms.</p>
 <h4>Mac OS X</h4>
 
 <ul>
-<li>Install the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> library, as described at its
+<li>Install the <a href="http://software.clapper.org/java/javaeditline/">Java EditLine</a> library, as described at its
 web site.</li>
 <li>Be sure that <code>libjavaeditline.jnilib</code> is in your <code>LD_LIBRARY_PATH</code>
 environment variable, and that <code>javaeditline.jar</code> is in your <code>CLASSPATH</code>.</li>
@@ -1493,7 +1493,7 @@ environment variable, and that <code>javaeditline.jar</code> is in your <code>CL
 <h4>BSD</h4>
 
 <ul>
-<li>Install the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> library, as described at its
+<li>Install the <a href="http://software.clapper.org/java/javaeditline/">Java EditLine</a> library, as described at its
 web site.</li>
 <li>Be sure that <code>libjavaeditline.jnilib</code> is in your <code>LD_LIBRARY_PATH</code>
 environment variable, and that <code>javaeditline.jar</code> is in your <code>CLASSPATH</code>.</li>
@@ -1509,7 +1509,7 @@ environment variable, and that <code>javaeditline.jar</code> is in your <code>CL
 <ul>
 <li>Via <em>apt</em>, install the <code>libedit2</code> package, to get the base Editline C
 library and headers.</li>
-<li>Install the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> library, as described at its
+<li>Install the <a href="http://software.clapper.org/java/javaeditline/">Java EditLine</a> library, as described at its
 web site.</li>
 <li>Be sure that <code>libjavaeditline.jnilib</code> is in your <code>LD_LIBRARY_PATH</code>
 environment variable, and that <code>javaeditline.jar</code> is in your <code>CLASSPATH</code>.</li>
@@ -1629,7 +1629,7 @@ copyright © 1998-2001 Bernhard Bablok.</p>
 
 <h3>Java-Editline</h3>
 
-<p>SQLShell ships with the <a href="http://www.clapper.org/software/java/javaeditline/">Java EditLine</a> library, a JNI
+<p>SQLShell ships with the <a href="http://software.clapper.org/java/javaeditline/">Java EditLine</a> library, a JNI
 wrapper around the BSD <a href="http://www.thrysoee.dk/editline/">Editline</a> library. Java EditLine is released
 under a BSD license and is copyright © 2010 Brian M. Clapper.</p>
 
@@ -1641,7 +1641,7 @@ BSD-style license and is copyright © 2002-2006, Marc Prud'hommeaux.</p>
 
 <h3>Grizzled Scala Library</h3>
 
-<p>SQLShell ships with the <a href="http://bmc.github.com/grizzled-scala/">Grizzled Scala</a> library, which is
+<p>SQLShell ships with the <a href="http://software.clapper.org/grizzled-scala/">Grizzled Scala</a> library, which is
 licensed under a BSD license and is copyright © 2009-2010
 Brian M. Clapper.</p>
 
@@ -1659,7 +1659,7 @@ under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache 2.0 licens
 
 <h3>argot</h3>
 
-<p>SQLShell ships with the <a href="http://bmc.github.com/argot/">Argot</a> command line parsing library, which is
+<p>SQLShell ships with the <a href="http://software.clapper.org/argot/">Argot</a> command line parsing library, which is
 licensed under a BSD license and is copyright © 2010 Brian M. Clapper.</p>
 
 <h3>IzPack</h3>

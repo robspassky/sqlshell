@@ -239,7 +239,7 @@ enhancements, and supports:
 * Java-style metacharacters like `\t`, `\n` and `\u00a9`.
 * Comment lines, starting with a "#" character
 
-[Grizzled Scala]: http://bmc.github.com/grizzled-scala/
+[Grizzled Scala]: http://software.clapper.org/grizzled-scala/
 
 Each section consists of a set of variable/value pairs. Variable names can
 consist of alphanumerics and underscores; values can contain anything. SQLShell
@@ -1239,7 +1239,7 @@ SQLShell supports the following readline libraries:
   "Simple" library; it's included solely as a fallback.
 
 [javareadline]: http://java-readline.sourceforge.net/
-[javaeditline]: http://www.clapper.org/software/java/javaeditline/
+[javaeditline]: http://software.clapper.org/java/javaeditline/
 
 By default, SQLShell looks for the following readline libraries, in order:
 
@@ -1417,7 +1417,7 @@ SQLShell ships with the [Java EditLine][javaeditline] library, a JNI
 wrapper around the BSD [Editline][editline] library. Java EditLine is released
 under a BSD license and is copyright &copy; 2010 Brian M. Clapper.
 
-[javaeditline]: http://www.clapper.org/software/java/javaeditline/
+[javaeditline]: http://software.clapper.org/java/javaeditline/
 [editline]: http://www.thrysoee.dk/editline/
 
 ### JLine
@@ -1435,7 +1435,7 @@ SQLShell ships with the [Grizzled Scala][grizzled-scala] library, which is
 licensed under a BSD license and is copyright &copy; 2009-2010
 Brian M. Clapper.
 
-[grizzled-scala]: http://bmc.github.com/grizzled-scala/
+[grizzled-scala]: http://software.clapper.org/grizzled-scala/
 
 ### opencsv
 
@@ -1459,7 +1459,7 @@ under the [Apache 2.0 license][apache-license] and is copyright &copy;
 SQLShell ships with the [Argot][] command line parsing library, which is
 licensed under a BSD license and is copyright &copy; 2010 Brian M. Clapper.
 
-[Argot]: http://bmc.github.com/argot/
+[Argot]: http://software.clapper.org/argot/
 
 ### IzPack
 
