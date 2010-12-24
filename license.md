@@ -87,7 +87,7 @@ SQLShell ships with the [Java EditLine][javaeditline] library, a JNI
 wrapper around the BSD [Editline][editline] library. Java EditLine is released
 under a BSD-style license and is copyright &copy; 2010 Brian M. Clapper.
 
-[javaeditline]: http://www.clapper.org/software/java/javaeditline/
+[javaeditline]: http://software.clapper.org/java/javaeditline/
 [editline]: http://www.thrysoee.dk/editline/
 
 ### JLine
@@ -105,7 +105,7 @@ SQLShell ships with the [Grizzled Scala][grizzled-scala] library, which is
 licensed under a BSD-style license and is copyright &copy; 2009-2010
 Brian M. Clapper.
 
-[grizzled-scala]: http://www.clapper.org/software/scala/grizzled-scala/
+[grizzled-scala]: http://software.clapper.org/scala/grizzled-scala/
 
 ### opencsv
 
