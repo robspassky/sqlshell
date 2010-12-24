@@ -1239,7 +1239,7 @@ SQLShell supports the following readline libraries:
   "Simple" library; it's included solely as a fallback.
 
 [javareadline]: http://java-readline.sourceforge.net/
-[javaeditline]: http://www.clapper.org/software/java/javaeditline/
+[javaeditline]: http://software.clapper.org/javaeditline/
 
 By default, SQLShell looks for the following readline libraries, in order:
 
@@ -1417,7 +1417,6 @@ SQLShell ships with the [Java EditLine][javaeditline] library, a JNI
 wrapper around the BSD [Editline][editline] library. Java EditLine is released
 under a BSD license and is copyright &copy; 2010 Brian M. Clapper.
 
-[javaeditline]: http://www.clapper.org/software/java/javaeditline/
 [editline]: http://www.thrysoee.dk/editline/
 
 ### JLine
