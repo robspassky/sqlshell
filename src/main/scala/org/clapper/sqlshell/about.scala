@@ -3,7 +3,7 @@
   This software is released under a BSD license, adapted from
   http://opensource.org/licenses/bsd-license.php
 
-  Copyright (c) 2009-2010, Brian M. Clapper
+  Copyright (c) 2009-2011, Brian M. Clapper
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -70,7 +70,7 @@ class AboutInfo
      *
      * @return the copyright string
      */
-    val copyright = "Copyright (c) 2009-2010 Brian M. Clapper"
+    val copyright = "Copyright (c) 2009-2011 Brian M. Clapper"
 
     /**
      * Convenience method to get the program name.

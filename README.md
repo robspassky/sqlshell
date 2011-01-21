@@ -44,4 +44,4 @@ Some Features at a Glance
 [1]: http://www.scala-lang.org/
 
 ---
-Copyright &copy; 2009-2010 Brian M. Clapper, *bmc@clapper.org*
+Copyright &copy; 2009-2011 Brian M. Clapper, *bmc@clapper.org*
