@@ -196,6 +196,14 @@ with Wrapper with Sorter
     val setHandler = new SetHandler(this)
     val selectHandler = new SelectHandler(this, connection)
     val updateHandler = new UpdateHandler(this, connection)
+
+    /**
+     * The handler for unknown commands.
+     */
+    private val unknownHandler = new UnknownHandler(this,
+                                                    selectHandler,
+                                                    updateHandler)
+
     val transactionManager = new TransactionManager(this, connection)
     val handlers = transactionManager.handlers ++
                    List(new HistoryHandler(this),
@@ -209,14 +217,15 @@ with Wrapper with Sorter
                         new CreateHandler(this, connection),
                         new AlterHandler(this, connection),
                         new DropHandler(this, connection),
+                        new RDBMSSetHandler(this, updateHandler,
+                                            unknownHandler),
 
                         new CaptureHandler(this, selectHandler),
                         new ShowHandler(this, connection),
                         new DescribeHandler(this, connection,
                                             transactionManager),
                         new CommentHandler(this, connection),
-                        new BlockSQLHandler(this, selectHandler,
-                                            updateHandler),
+                        new BlockSQLHandler(this, selectHandler, updateHandler),
                         setHandler,
                         new EchoHandler,
                         new ExitHandler,
@@ -340,12 +349,6 @@ with Wrapper with Sorter
     }
 
     /**
-     * The handler for unknown commands.
-     */
-    private val unknownHandler = new UnknownHandler(this,
-                                                    selectHandler,
-                                                    updateHandler)
-    /**
      * The method that's called when an unknown command is typed.
      */
     override def handleUnknownCommand(commandName: String,
@@ -368,7 +371,16 @@ with Wrapper with Sorter
         logger.verbose("Caught exception.")
         logger.error(message)
         if (settings.booleanSettingIsTrue("stacktrace"))
+        {
+            e match
+            {
+                case es: SQLException =>
+                    println("SQLState " + es.getSQLState + ", error " +
+                            es.getErrorCode)
+            }
+
             e.printStackTrace(System.out)
+        }
 
         KeepGoing
     }
@@ -423,13 +435,8 @@ with Wrapper with Sorter
      */
     private[sqlshell] def getSchema(schemaString: String): Option[String] =
     {
-        val schemaOpt = schemaString match
-        {
-            case null => None
-            case s    => Some(s)
-        }
-
-        getSchema(schemaOpt)
+        // Option.apply(null) -> None
+        getSchema(Option(schemaString));
     }
 
     /**
@@ -467,9 +474,6 @@ with Wrapper with Sorter
     private[sqlshell] def tables(schema: Option[String],
                                  nameFilter: Regex): List[TableSpec] =
     {
-        def toOption(s: String): Option[String] =
-            if (s == null) None else Some(s)
-
         def getTableData(rs: ResultSet,
                          keep: TableSpec => Boolean): List[TableSpec] =
         {
@@ -477,9 +481,9 @@ with Wrapper with Sorter
 
             while (rs.next)
             {
-                val ts = new TableSpec(toOption(rs.getString("TABLE_NAME")),
-                                       toOption(rs.getString("TABLE_SCHEM")),
-                                       toOption(rs.getString("TABLE_TYPE")))
+                val ts = new TableSpec(Option(rs.getString("TABLE_NAME")),
+                                       Option(rs.getString("TABLE_SCHEM")),
+                                       Option(rs.getString("TABLE_TYPE")))
                 if (keep(ts))
                     result += ts
             }
@@ -986,11 +990,8 @@ trait JDBCHelper
      */
     protected def rsGetOpt[T](columnKey: String, get: String => T): Option[T] =
     {
-        get(columnKey) match
-        {
-            case null => None
-            case v    => Some(v)
-        }
+        // Option.apply(null) -> None
+        Option(get(columnKey))
     }
 }
 
@@ -1403,17 +1404,9 @@ with HiddenCommandHandler
         val block = newArgs mkString "\n"
         println(block)
 
-        // Try it as both a query and an update.
+        // Run as an update only.
 
-        try
-        {
-            selectHandler.runCommand("", block)
-        }
-
-        catch
-        {
-            case _ => updateHandler.runCommand("", block)
-        }
+        updateHandler.runCommand("", block)
     }
 }
 
@@ -1616,7 +1609,9 @@ extends SQLHandler(shell, connection) with Timer
             else
                 args
 
-        withSQLStatement(connection) { statement =>
+        withSQLStatement(connection)
+        {
+            statement =>
 
             val (elapsed, rows) = time[Int]
             {
@@ -1982,6 +1977,54 @@ class TransactionManager(val shell: SQLShell, val connection: Connection)
      * Gets all the handlers supplied by this class.
      */
     val handlers = List(BeginHandler, CommitHandler, RollbackHandler)
+}
+
+/**
+ * Handles a "set" command, mostly as a special case for SQL Server.
+ */
+class RDBMSSetHandler(shell: SQLShell,
+                      val updateHandler: UpdateHandler,
+                      val unknownHandler: UnknownHandler)
+extends SQLShellCommandHandler
+{
+    val CommandName = "set"
+    val Help = """Handle a "set" command."""
+    val dbVendor = shell.connectionInfo.databaseInfo.productName
+
+    def doRunCommand(commandName: String, args: String): CommandAction =
+    {
+        dbVendor match
+        {
+            case Some(s) if s.toLowerCase.contains("sql server") =>
+                sqlServerDoSet(commandName, args)
+                KeepGoing
+
+            case _ =>
+                unknownHandler.runCommand(commandName, args)
+        }
+    }
+
+    private def sqlServerDoSet(commandName: String, args: String): Unit =
+    {
+        // SQL Server. Run the "set" as an update. It'll throw an
+        // exception, but it'll throw one for a query, too.
+
+        try
+        {
+            updateHandler.runCommand(commandName, args)
+        }
+
+        catch
+        {
+            case e: SQLException =>
+                // Kludge: Ignore exception if it's bitching about a result set.
+                // Could use the SQL State, but it's not all granular enough
+                // (see as 07000 experimentally, which isn't helpful).
+                val msg = e.getMessage.toLowerCase
+                if (msg.indexOf("must not return a result") == -1)
+                    throw e
+        }
+    }
 }
 
 /**
