@@ -179,20 +179,20 @@ The following file specifies the same databases as in the examples, above:
     [settings]
     maxbinary: 20
 
-    [db.testdb]
+    [db_testdb]
     aliases: sqlite, test
     url: jdbc:sqlite:/tmp/test.db
     driver: sqlite
     history: ${env.HOME}/.sqlshell/test.hist
 
-    [db.customers]
+    [db_customers]
     aliases: oracle
     url: jdbc:oracle:thin:@db.example.com:1521:customers scott tiger
     driver: oracle
     user: scott
     password: tiger
 
-    [db.mydb]
+    [db_mydb]
     aliases=postgres
     url=jdbc:postgresql://localhost/mydb
     driver=postgresql
@@ -525,7 +525,8 @@ Before going into each specific type of command, here's a brief SQLShell
 transcript, to whet your appetite:
 
     $ sqlshell mydb
-    SQLShell, version 0.7.1 (2010/10/21 20:35:59)
+    SQLShell, version 0.7.2 (2011/01/20 23:27:04)
+    Copyright (c) 2009-2011 Brian M. Clapper
     Using Java EditLine
     Type "help" for help. Type ".about" for more information.
 
@@ -707,6 +708,10 @@ SQLShell will issue the entire function definition as one statement.
 Because SQLShell's special "block begin" and "block end" command are implemented
 as structured comments, the same script you run through SQLShell will also work
 in other database tools.
+
+*NOTE*: SQL block are run as update operations, not query operations, which
+means they are not checked for results. They are suited primarily to defining
+stored procedures.
 
 ### Other SQLShell-specific Commands
 
@@ -1343,7 +1348,7 @@ Licenses
 This software is released under a BSD license, adapted from
 <http://opensource.org/licenses/bsd-license.php>
 
-Copyright &copy; 2009, 2010 Brian M. Clapper.
+Copyright &copy; 2009-2011 Brian M. Clapper.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
