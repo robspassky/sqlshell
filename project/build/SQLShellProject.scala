@@ -69,7 +69,7 @@ with posterous.Publish
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val opencsv = "net.sf.opencsv" % "opencsv" % "1.8"
 
-    val grizzled = "org.clapper" %% "grizzled-scala" % "1.0.3"
+    val grizzled = "org.clapper" %% "grizzled-scala" % "1.0.4"
     val argot = "org.clapper" %% "argot" % "0.2"
 
     /* ---------------------------------------------------------------------- *\

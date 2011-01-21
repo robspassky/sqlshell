@@ -1198,6 +1198,14 @@ abstract class ResultSetStringifier(maxBinary: Int)
     }
 }
 
+private[sqlshell] case class ColumnData(tableName: String,
+                                        columnName: String,
+                                        rsIndex: Int,
+                                        displayWidth: Int)
+{
+    val format = "%-" + displayWidth + "s"
+}
+
 /**
  * Encapsulates the preprocessed results from a query.
  */
@@ -1213,7 +1221,7 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
                     OutputStreamWriter,
                     Reader}
 
-    private val columnData = new LinkedHashMap[String, Int]
+    private val columnData = new ListBuffer[ColumnData]
     private var totalRows = 0
 
     // Where we serialize the data. NOTE: SQLShell used to use an
@@ -1226,8 +1234,9 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
     // Get the column names and initialize the associated size.
 
     for {i <- 1 to metadata.getColumnCount
-         name = metadata.getColumnName(i)}
-        columnData += (name -> name.length)
+        columnName = metadata.getColumnName(i)
+         tableName = metadata.getTableName(i)}
+        columnData += ColumnData(tableName, columnName, i, columnName.length)
 
     class ResultIterator extends Iterator[Array[String]]
     {
@@ -1278,9 +1287,9 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
 
     /**
      * Return the stored column names, in the order they appeared in
-     * the result set.
+     * the result set. The names are qualified by the table names.
      */
-    def columnNamesAndSizes = columnData.clone
+    def columnNamesAndSizes = columnData.toList
 
     /**
      * Save a mapped row to the specified object stream.
@@ -1298,8 +1307,9 @@ private[sqlshell] class PreprocessedResults(val metadata: ResultSetMetaData,
         {
             val value = row(i - 1)
             val size = value.length
-            val max = math.max(columnData(name), size)
-            columnData(name) = max
+            val data = columnData(i - 1)
+            if (size > data.displayWidth)
+                columnData(i - 1) = data copy (displayWidth = size)
         }
     }
 
@@ -1559,40 +1569,30 @@ class SelectHandler(shell: SQLShell, connection: Connection)
             val preprocessedResults = cacheHandler.results
 
             // Note: Scala's format method doesn't left-justify.
-            def formatter = new java.util.Formatter
+            def fmt = new java.util.Formatter
 
             // Print column names...
-            val colNamesAndSizes = preprocessedResults.columnNamesAndSizes
-            val columnNames = colNamesAndSizes.keysIterator.toList
-            val columnFormats =
-                LinkedHashMap.empty[String,String].clone() ++=
-                (columnNames.map(c => (c, "%-" + colNamesAndSizes(c) + "s")))
+            val colData = preprocessedResults.columnNamesAndSizes
 
             println()
-            println(columnNames.map(c => formatter.format(columnFormats(c), c))
-                    .mkString(ColumnSeparator))
+            println(colData.map(c => fmt.format(c.format, c.columnName)).
+                            mkString(ColumnSeparator))
 
-            // ...and a separator.
-            val seps = columnNames.map { name =>
-                val size = colNamesAndSizes(name)
-                formatter.format(columnFormats(name), "-" * size)
-            }
+            // ...and a separator line.
 
-            println(seps mkString ColumnSeparator)
+            println(colData.map(c => fmt.format(c.format,
+                                                "-" * c.displayWidth)).
+                            mkString(ColumnSeparator))
 
             // Now, load the serialized results and dump them.
 
             for (resultRow <- preprocessedResults)
             {
-                val data =
-                {
-                    for {(name, i) <- columnNames.zipWithIndex
-                         size = colNamesAndSizes(name)
-                         fmt = columnFormats(name)}
-                        yield formatter.format(fmt, resultRow(i))
-                }
-
-                println(data mkString ColumnSeparator)
+                // colData(n).rsIndex is the result set index, which is 1-based.
+                // resultRow is 0-based.
+                println(colData.map(c => fmt.format(c.format,
+                                                    resultRow(c.rsIndex - 1))).
+                            mkString(ColumnSeparator))
             }
         }
     }

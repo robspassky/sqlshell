@@ -1,0 +1,8 @@
+* Fixed a bug: In a join, when display columns from two separate tables that
+  happen to have the same name, SQLShell was only displaying one of the columns.
+
+* Corrected some config-file exception messages (noted by
+  *brian.ewins /at/ gmail.com*) by pulling in a new version of the
+  [Grizzled Scala][] library.
+
+[Grizzled Scala]: http://software.clapper.org/grizzled-scala/
