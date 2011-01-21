@@ -5,8 +5,8 @@
   as `set showplan_text on;`, which reported errors, even though they worked.
   Reported by Mark D. Anderson (*mda /at/ discerning.com*).
 
-* Corrected some config-file exception messages (noted by
-  *brian.ewins /at/ gmail.com*) by pulling in a new version of the
+* Corrected some config-file exception messages (noted in a personal email,
+  by *brian.ewins /at/ gmail.com*) by pulling in a new version of the
   [Grizzled Scala][] library.
 
 [Grizzled Scala]: http://software.clapper.org/grizzled-scala/
