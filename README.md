@@ -8,9 +8,7 @@ SQLShell is a SQL command line tool, similar in concept to tools like
 Oracle's [SQL*Plus] [sqlplus], the PostgreSQL `psql` command, and
 MySQL's `mysql` tool.
 
-  [sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html
-
-SQLShell is a [Scala][1] rewrite of my Python *sqlcmd* tool (rewritten
+SQLShell is a [Scala][] rewrite of my Python [*sqlcmd*][] tool (rewritten
 because, as it turns out, JDBC is more consistent and portable than
 Python's DB API).
 
@@ -30,18 +28,19 @@ Some Features at a Glance
   getting a list of tables, querying the table's columns and their
   data types, listing the indexes and foreign keys for a table, etc.).
 
-* SQLShell provides a standard interface that looks and behaves the same
+* SQLShell provides a standard interface that looks and behaves the same,
   no matter what database you're using.
 
-* SQLShell supports any database engine or which a JDBC driver exists.
+* SQLShell supports any database engine for which a JDBC driver exists.
 
-* SQLShell is written in [Scala][1] and uses some third-party, open-source
-  Scala and Java libraries.
+* SQLShell is written in [Scala][].
 
 * SQLShell is open source, and is licensed under a liberal BSD-style
   license.
 
-[1]: http://www.scala-lang.org/
+[Scala]: http://www.scala-lang.org/
+[sqlplus]: http://www.oracle.com/technology/docs/tech/sql_plus/index.html
+[*sqlcmd*]: https://github.com/bmc/sqlcmd
 
 ---
 Copyright &copy; 2009-2011 Brian M. Clapper, *bmc@clapper.org*
