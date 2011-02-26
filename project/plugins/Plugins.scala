@@ -14,7 +14,7 @@ class Plugins(info: ProjectInfo) extends PluginDefinition(info)
         "http://maven.clapper.org/"
 
     val grizzled = "org.clapper" % "grizzled-scala" % "0.2"
-    val markdown = "org.clapper" % "sbt-markdown-plugin" % "0.2.1"
-    val editsource = "org.clapper" % "sbt-editsource-plugin" % "0.2.1"
-    val izpackPlugin = "org.clapper" % "sbt-izpack-plugin" % "0.2.1"
+    val markdown = "org.clapper" % "sbt-markdown-plugin" % "0.3.1"
+    val editsource = "org.clapper" % "sbt-editsource-plugin" % "0.3.1"
+    val izpackPlugin = "org.clapper" % "sbt-izpack-plugin" % "0.3.1"
 }
