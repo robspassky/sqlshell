@@ -232,6 +232,8 @@ with Wrapper with Sorter
                         aboutHandler)
 
     loadSettings(config, connectionInfo)
+    ShutdownHandler.onShutdown {handleAbort}
+
     aboutHandler.showAbbreviatedInfo
     wrapPrintln("Type \"" + helpHandler.CommandName + "\" for help. Type \"" +
                 aboutHandler.CommandName + "\" for more information.")
@@ -336,6 +338,17 @@ with Wrapper with Sorter
             logger.verbose("Saving history to \"" + path + "\"...")
             history.save(path)
         }
+    }
+
+    /**
+     * When the user hits interrupt...
+     */
+    def handleAbort =
+    {
+        // Can't always reliably reach inside the history handler (e.g.,
+        // readline or editline) without getting a core dump. So, for now,
+        // don't.
+        logger.error("Aborted.")
     }
 
     /**
