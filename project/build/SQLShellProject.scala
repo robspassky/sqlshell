@@ -243,7 +243,6 @@ with posterous.Publish
             runMarkdown(src, target, false)
 
         markdownWithoutTOC("README.md", targetDocsDir / "README.html")
-        markdownWithoutTOC("BUILDING.md", targetDocsDir / "BUILDING.html")
         markdownWithoutTOC("LICENSE.md", targetDocsDir / "LICENSE.html")
         markdownWithoutTOC(changeLog, targetDocsDir / "CHANGELOG.html")
         markdownWithTOC(usersGuide, targetDocsDir / "users-guide.html")
