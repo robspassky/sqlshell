@@ -52,7 +52,7 @@ SQLShell.
 Install SQLShell via the graphical installer jar, available in the
 [downloads area][]:
 
-    java -jar sqlshell-0.7.2-installer.jar
+    java -jar sqlshell-0.7.3-installer.jar
 
 This command will install SQLShell, a front-end Unix shell script or
 Windows BAT file, and all the dependencies. The installer jar file is signed
@@ -65,7 +65,7 @@ You can also install SQLShell from source.
 #### Prerequisites
 
 Building SQLShell requires [SBT] [sbt] (the Simple Build Tool), version
-0.7.4 or better. Install SBT 0.7.4, as described in the [SBT wiki] [sbt-setup].
+0.7.7 or better. Install SBT 0.7.7, as described in the [SBT wiki] [sbt-setup].
 
 #### Getting the source
 
@@ -103,6 +103,8 @@ directory. Once that's in place, you can build the installer with
 Consult the [User's Guide][] for complete documentation on SQLShell. The
 User's Guide is also shipped with the SQLShell source and can be installed
 via the binary graphical installer.
+
+The Change Log is [here](CHANGELOG.html).
 
 ## Copyright and License
 
