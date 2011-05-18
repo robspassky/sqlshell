@@ -1,0 +1,10 @@
+* Added a signal handler, for interrupts, though it cannot do much, since it
+  relies on a Java shutdown hook.
+* Now builds with Scala 2.9.0, not 2.8.1.
+* Updated to latest release of [sbt-plugins][] library.
+* Updated to use [SBT][] 0.7.7.
+* Updated to version 1.0.6 of the [Grizzled Scala][] library.
+* Updated to version 0.3.1 of the [Argot][] library.
+
+[sbt-plugins]: http://software.clapper.org/sbt-plugins/
+[Argot]: http://software.clapper.org/argot/

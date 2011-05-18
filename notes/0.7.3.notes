@@ -1,5 +1,0 @@
-* Updated to latest release of [sbt-plugins][] library.
-* Added a signal handler, for interrupts, though it cannot do much, since it
-  relies on a Java shutdown hook.
-
-[sbt-plugins]: http://software.clapper.org/sbt-plugins/

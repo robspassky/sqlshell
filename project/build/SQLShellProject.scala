@@ -69,8 +69,8 @@ with posterous.Publish
     val jodaTime = "joda-time" % "joda-time" % "1.6"
     val opencsv = "net.sf.opencsv" % "opencsv" % "1.8"
 
-    val grizzled = "org.clapper" %% "grizzled-scala" % "1.0.4"
-    val argot = "org.clapper" %% "argot" % "0.2"
+    val grizzled = "org.clapper" %% "grizzled-scala" % "1.0.6"
+    val argot = "org.clapper" %% "argot" % "0.3.1"
 
     /* ---------------------------------------------------------------------- *\
                          Custom tasks and actions
@@ -101,7 +101,7 @@ with posterous.Publish
     lazy val targetDocs = task {None} dependsOn(htmlDocs, markdownDocs)
 
     // Override the "doc" action to depend on additional doc targets
-    override def docAction = super.docAction dependsOn(changelog, targetDocs)
+    override def docAction = task {None} dependsOn(changelog, targetDocs)
 
     // Dependency should point the other way, but overriding compileAction
     // somehow causes createAboutInfo to run BEFORE the clean action (when

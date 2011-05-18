@@ -76,6 +76,7 @@ import scala.io.Source
 import scala.util.matching.Regex
 import scala.annotation.tailrec
 import scala.math
+import scala.sys
 
 import au.com.bytecode.opencsv.{CSVWriter, CSVReader}
 
@@ -2055,7 +2056,7 @@ extends SQLShellCommandHandler
     {
         if (commandName startsWith Constants.SpecialCommentPrefix)
         {
-            error("Unknown special command.");
+            sys.error("Unknown special command.");
         }
 
         else
