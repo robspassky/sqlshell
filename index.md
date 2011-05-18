@@ -104,7 +104,7 @@ Consult the [User's Guide][] for complete documentation on SQLShell. The
 User's Guide is also shipped with the SQLShell source and can be installed
 via the binary graphical installer.
 
-The Change Log is [here](CHANGELOG.html).
+If you're of a mind to do so, you can also peruse the [change log][].
 
 ## Copyright and License
 
@@ -135,3 +135,4 @@ request. Along with any patch you send:
 [sbt-setup]: http://code.google.com/p/simple-build-tool/wiki/Setup
 [license]: license.html
 [Brian M. Clapper]: mailto:bmc@clapper.org
+[change log]: CHANGELOG.html

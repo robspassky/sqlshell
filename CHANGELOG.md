@@ -481,6 +481,7 @@ Version 0.1:
 
 * Initial release.
 
+<<<<<<< HEAD
 Version 0.7.3:
 
 * Added a signal handler, for interrupts, though it cannot do much, since it
@@ -494,6 +495,8 @@ Version 0.7.3:
 [sbt-plugins]: http://software.clapper.org/sbt-plugins/
 [Argot]: http://software.clapper.org/argot/
 
+=======
+>>>>>>> f5ee2a6b5986ddbd2383c8d0b3fac685b039c6b0
 Version 0.7.2:
 
 * Fixed a bug: In a join, when display columns from two separate tables that
@@ -503,8 +506,13 @@ Version 0.7.2:
   as `set showplan_text on;`, which reported errors, even though they worked.
   Reported by Mark D. Anderson (*mda /at/ discerning.com*).
 
+<<<<<<< HEAD
 * Corrected some config-file exception messages (noted by
   *brian.ewins /at/ gmail.com*) by pulling in a new version of the
+=======
+* Corrected some config-file exception messages (noted in a personal email,
+  by *brian.ewins /at/ gmail.com*) by pulling in a new version of the
+>>>>>>> f5ee2a6b5986ddbd2383c8d0b3fac685b039c6b0
   [Grizzled Scala][] library.
 
 [Grizzled Scala]: http://software.clapper.org/grizzled-scala/
