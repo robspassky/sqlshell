@@ -1,0 +1,11 @@
+* Converted to [SBT][] 0.10.1.
+* Upgraded to [Grizzled Scala][] 1.0.7.
+* Upgraded to [Argot][] 0.3.3
+* Upgraded to [Joda Time][] 2.0.
+* Upgraded to [OpenCSV][] 2.0.
+
+[SBT]: https://github.com/harrah/xsbt/
+[Grizzled Scala]: http://software.clapper.org/grizzled-scala/
+[Argot]: http://software.clapper.org/argot/
+[Joda Time]: http://joda-time.sourceforge.net/
+[OpenCSV]: http://opencsv.sourceforge.net/
