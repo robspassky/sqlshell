@@ -1,4 +1,7 @@
 * Converted to [SBT][] 0.10.1.
+* Updated to use [sbt-izpack][], necessitating complete rewrite of
+  installation configuration.
+* Switched from the old Markdown SBT plugin to [sbt-lwm][].
 * Upgraded to [Grizzled Scala][] 1.0.7.
 * Upgraded to [Argot][] 0.3.3
 * Upgraded to [Joda Time][] 2.0.
@@ -9,3 +12,5 @@
 [Argot]: http://software.clapper.org/argot/
 [Joda Time]: http://joda-time.sourceforge.net/
 [OpenCSV]: http://opencsv.sourceforge.net/
+[sbt-izpack]: http://software.clapper.org/sbt-izpack/
+[sbt-lwm]: http://software.clapper.org/sbt-lwm/

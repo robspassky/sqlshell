@@ -7,7 +7,7 @@ version := "0.8"
 
 organization := "org.clapper"
 
-scalaVersion := "2.8.1"
+scalaVersion := "2.9.0-1"
 
 // ---------------------------------------------------------------------------
 // Additional compiler options and plugins
@@ -19,8 +19,6 @@ autoCompilerPlugins := true
 libraryDependencies <<= (scalaVersion, libraryDependencies) { (ver, deps) =>
     deps :+ compilerPlugin("org.scala-lang.plugins" % "continuations" % ver)
 }
-
-crossScalaVersions := Seq("2.9.0-1")
 
 // ---------------------------------------------------------------------------
 // ScalaTest dependendency
@@ -37,14 +35,17 @@ libraryDependencies <<= (scalaVersion, libraryDependencies) { (sv, deps) =>
     deps :+ "org.scalatest" % scalatestArtifact % scalatestVersion % "test"
 }
 
+crossScalaVersions := Seq("2.9.0-1", "2.8.1")
+
 // ---------------------------------------------------------------------------
 // IzPack
 
 seq(org.clapper.sbt.izpack.IzPack.izPackSettings: _*)
 
-configFile in IzPack <<= baseDirectory(_ / "src" / "izpack" / "install.yml")
+installSourceDir in IzPack <<= baseDirectory(_ / "src" / "main" / "izpack")
 
-installSourceDir in IzPack <<= baseDirectory(_ / "src" / "izpack")
+configFile in IzPack <<= (installSourceDir in IzPack) (_ / "install.yml")
+
 
 // ---------------------------------------------------------------------------
 // SBT LWM
@@ -65,7 +66,10 @@ flatten in LWM := true
 // Posterous-SBT
 
 libraryDependencies <<= (sbtVersion, scalaVersion, libraryDependencies) { (sbtv, scalav, deps) =>
-    deps :+ "net.databinder" %% "posterous-sbt" % ("0.3.0_sbt" + sbtv)
+    if (scalav == "2.8.1")
+        deps :+ "net.databinder" %% "posterous-sbt" % ("0.3.0_sbt" + sbtv)
+    else
+        deps
 }
 
 (name in Posterous) := "Grizzled Scala"
@@ -77,7 +81,9 @@ libraryDependencies ++= Seq(
     "jline" % "jline" % "0.9.94",
     "org.clapper" %% "grizzled-scala" % "1.0.7",
     "org.clapper" %% "argot" % "0.3.3",
+    "org.joda" % "joda-convert" % "1.1",
     "joda-time" % "joda-time" % "2.0",
+    "org.scala-tools.time" %% "time" % "0.4",
     "net.sf.opencsv" % "opencsv" % "2.0"
 )
 
