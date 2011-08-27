@@ -1,0 +1,126 @@
+# sbt-izpack installer configuration.
+# ---------------------------------------------------------------------------
+
+languages:
+  - eng
+  - chn
+  - deu
+  - fra
+  - jpn
+  - spa
+  - rus
+
+info:
+  appName: $toolName
+  appVersion: $appVersion
+  url: http://software.clapper.org/sqlshell/
+  appSubPath: clapper.org/sqlshell
+  javaVersion: 1.6
+  writeInstallationInfo: yes
+  author:
+    name: Brian Clapper
+    email: bmc@clapper.org
+
+packaging:
+  packager: single-volume
+
+guiprefs:
+  resizable: no
+  height: 768
+  width: 1024
+  laf:
+    name: looks
+    os: windows
+    variant: extwin
+  laf:
+    name: looks
+    os: unix
+
+#installerRequirement:
+#  condition: installonwindows
+#  message: Installer can only be run on Windows
+
+resources:
+  resource:
+    id: HTMLLicencePanel.licence
+    src: $targetDocDir/LICENSE.html
+    parse: no
+  resource:
+    id: HTMLInfoPanel.info
+    src: $targetDocDir/README.html
+    parse: no
+  resource:
+    id: Installer.image
+    src: $installSourceDir/sqlshell-logo.png
+  resource:
+    id: XInfoPanel.info
+    src: $installSourceDir/final-screen.txt
+    parse: yes
+    parseType: xml
+  installDirectory:
+    os: unix
+    path: /usr/local/sqlshell
+  installDirectory:
+    os: windows
+    path: C:/Program Files/clapper.org/sqlshell
+  installDirectory:
+    os: macosx
+    path: /Applications/sqlshell
+
+panels:
+  panel:
+    className: HelloPanel
+  panel:
+    className: HTMLInfoPanel
+  panel:
+    className: HTMLLicencePanel
+  panel:
+    className: TargetPanel
+  panel:
+    className: PacksPanel
+  panel:
+    className: InstallPanel
+  panel:
+    className: XInfoPanel
+  panel:
+    className: FinishPanel
+
+packs:
+  pack:
+    name: Core
+    required: true
+    preselected: true
+    description: $toolName jar file, binaries and dependent jars
+    singleFile:
+      src: $targetDocDir/LICENSE.html
+      targetFile: $INSTALL_PATH/LICENSE.html
+    singleFile:
+      src: $targetDocDir/README.html
+      targetFile: $INSTALL_PATH/README.html
+    singleFile:
+      src: $installSourceDir/sqlshell.sh
+      targetFile: $INSTALL_PATH/bin/sqlshell
+      os: unix, macosx
+    parsable:
+      targetFile: $INSTALL_PATH/bin/sqlshell
+      os: unix, macosx
+    executable:
+      targetFile: $INSTALL_PATH/bin/sqlshell
+      os: unix, macosx
+    singleFile:
+      src: $installSourceDir/sqlshell.bat
+      targetFile: $INSTALL_PATH/bin/sqlshell.bat
+      os: windows
+    parsable:
+      targetFile: $INSTALL_PATH/bin/sqlshell.bat
+      os: windows
+    singleFile:
+      src: $installSourceDir/sample.cfg
+      targetFile: $INSTALL_PATH/sample.cfg
+    singleFile:
+      src: $sqlshellJar
+      targetFile: $INSTALL_PATH/lib/sqlshell.jar
+    fileset:
+      includes: ${libraryDependencies}
+      regexExcludes: posterous, sbt-lwm, izpack
+      targetDir: $INSTALL_PATH/lib

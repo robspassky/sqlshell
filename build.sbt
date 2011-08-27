@@ -46,6 +46,24 @@ installSourceDir in IzPack <<= baseDirectory(_ / "src" / "main" / "izpack")
 
 configFile in IzPack <<= (installSourceDir in IzPack) (_ / "install.yml")
 
+variables in IzPack += ("toolName", "SQLShell")
+
+variables in IzPack <+= baseDirectory {bd =>
+    ("targetDocDir", (bd / "target" / "docs").toString)
+}
+
+variables in IzPack <+= baseDirectory {bd =>
+    ("targetDir", (bd / "target").toString)
+}
+
+variables in IzPack <+= (baseDirectory, scalaVersion, version) { (bd, sv, v) =>
+    ("jarDir", (bd / "target" / ("scala_" + sv)).toString)
+}
+
+variables in IzPack <+= (baseDirectory, scalaVersion, version) { (bd, sv, v) =>
+    ("sqlshellJar", (bd / "target" / ("scala_" + sv) / 
+                     ("sqlshell_%s-%s.jar" format (sv, v))).toString)
+}
 
 // ---------------------------------------------------------------------------
 // SBT LWM
@@ -55,6 +73,9 @@ seq(org.clapper.sbt.lwm.LWM.lwmSettings: _*)
 sourceFiles in LWM <++= baseDirectory { d =>
     (d / "src" / "docs" ** "*.md").get
 }
+
+sourceFiles in LWM <++= baseDirectory { d => (d / "README.md").get ++
+                                             (d / "LICENSE.md").get }
 
 targetDirectory in LWM <<= baseDirectory(_ / "target" / "docs")
 
@@ -72,7 +93,7 @@ libraryDependencies <<= (sbtVersion, scalaVersion, libraryDependencies) { (sbtv,
         deps
 }
 
-(name in Posterous) := "Grizzled Scala"
+(name in Posterous) := "SQLShell"
 
 // ---------------------------------------------------------------------------
 // Other dependendencies
@@ -86,6 +107,8 @@ libraryDependencies ++= Seq(
     "org.scala-tools.time" %% "time" % "0.4",
     "net.sf.opencsv" % "opencsv" % "2.0"
 )
+
+libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-library" % _)
 
 // ---------------------------------------------------------------------------
 // Publishing criteria
