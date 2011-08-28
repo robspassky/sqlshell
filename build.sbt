@@ -61,6 +61,8 @@ variables in IzPack <+= (baseDirectory, scalaVersion, version) { (bd, sv, v) =>
                      ("sqlshell_%s-%s.jar" format (sv, v))).toString)
 }
 
+createXML in IzPack <<= (createXML in IzPack).dependsOn(translate in LWM)
+
 // ---------------------------------------------------------------------------
 // SBT LWM
 
