@@ -3,7 +3,8 @@ markdown_lib/
 project/boot/
 project/build/target/
 project/plugins/lib_managed/
-project/plugins/project/
+project/plugins/project/target
+project/plugins/project/boot
 project/plugins/src_managed/
 project/plugins/target/
 target/
