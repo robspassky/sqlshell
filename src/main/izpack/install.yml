@@ -1,4 +1,4 @@
-# sbt-izpack installer configuration.
+# SQLShell sbt-izpack installer configuration.
 # ---------------------------------------------------------------------------
 
 languages:
@@ -36,10 +36,6 @@ guiprefs:
     name: looks
     os: unix
 
-#installerRequirement:
-#  condition: installonwindows
-#  message: Installer can only be run on Windows
-
 resources:
   resource:
     id: HTMLLicencePanel.licence
@@ -54,7 +50,7 @@ resources:
     src: $installSourceDir/sqlshell-logo.png
   resource:
     id: XInfoPanel.info
-    src: $installSourceDir/final-screen.txt
+    src: $installSourceDir/final_screen.txt
     parse: yes
     parseType: xml
   installDirectory:
@@ -118,9 +114,21 @@ packs:
       src: $installSourceDir/sample.cfg
       targetFile: $INSTALL_PATH/sample.cfg
     singleFile:
-      src: $sqlshellJar
+      src: $appJar
       targetFile: $INSTALL_PATH/lib/sqlshell.jar
     fileset:
       includes: ${libraryDependencies}
       regexExcludes: posterous, sbt-lwm, izpack
       targetDir: $INSTALL_PATH/lib
+  pack:
+    name: Documentation
+    required: false
+    preselected: false
+    description: "The $toolName User's Guide and other documents"
+    fileset:
+      includes: $targetDocDir/**/*.html
+      includes: $targetDocDir/**/*.js
+      includes: $targetDocDir/**/*.md
+      includes: $targetDocDir/**/*.css
+      includes: $targetDocDir/**/FAQ.html
+      targetDir: $INSTALL_PATH/docs

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Basic settings
 
-name := "sqlshell"
+name := "SQLShell"
 
 version := "0.8"
 
@@ -57,10 +57,6 @@ variables in IzPack <+= baseDirectory {bd =>
 }
 
 variables in IzPack <+= (baseDirectory, scalaVersion, version) { (bd, sv, v) =>
-    ("jarDir", (bd / "target" / ("scala_" + sv)).toString)
-}
-
-variables in IzPack <+= (baseDirectory, scalaVersion, version) { (bd, sv, v) =>
     ("sqlshellJar", (bd / "target" / ("scala_" + sv) / 
                      ("sqlshell_%s-%s.jar" format (sv, v))).toString)
 }
@@ -75,7 +71,8 @@ sourceFiles in LWM <++= baseDirectory { d =>
 }
 
 sourceFiles in LWM <++= baseDirectory { d => (d / "README.md").get ++
-                                             (d / "LICENSE.md").get }
+                                             (d / "LICENSE.md").get ++
+                                             (d / "FAQ.md").get }
 
 targetDirectory in LWM <<= baseDirectory(_ / "target" / "docs")
 
