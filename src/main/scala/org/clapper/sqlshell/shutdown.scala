@@ -39,18 +39,20 @@ package org.clapper.sqlshell
 
 import org.clapper.sqlshell.log.{logger, Verbose}
 
-class ShutdownThread(runOnShutdown: => Unit) extends Thread
-{
-    override def run(): Unit = runOnShutdown
+class ShutdownThread(runOnShutdown: => Unit) extends Thread {
+  override def run(): Unit = runOnShutdown
 }
 
-object ShutdownHandler
-{
-    /**
-     * Register a function to call on shutdown.
-     */
-    def onShutdown(runOnShutdown: => Unit) =
-    {
-        Runtime.getRuntime.addShutdownHook(new ShutdownThread(runOnShutdown))
-    }
+object ShutdownHandler {
+  /** Register a function to call on shutdown.
+    */
+  def addShutdownHook(runOnShutdown: => Unit) = {
+    val hook = new ShutdownThread(runOnShutdown)
+    Runtime.getRuntime.addShutdownHook(hook)
+    hook
+  }
+
+  def removeShutdownHook(hook: Thread) = {
+    Runtime.getRuntime.removeShutdownHook(hook);
+  }
 }

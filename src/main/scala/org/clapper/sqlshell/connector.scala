@@ -10,14 +10,14 @@
   modification, are permitted provided that the following conditions are
   met:
 
-  * Redistributions of source code must retain the above copyright notice,
+   * Redistributions of source code must retain the above copyright notice,
     this list of conditions and the following disclaimer.
 
-  * Redistributions in binary form must reproduce the above copyright
+   * Redistributions in binary form must reproduce the above copyright
     notice, this list of conditions and the following disclaimer in the
     documentation and/or other materials provided with the distribution.
 
-  * Neither the names "clapper.org", "SQLShell", nor the names of its
+   * Neither the names "clapper.org", "SQLShell", nor the names of its
     contributors may be used to endorse or promote products derived from
     this software without specific prior written permission.
 
@@ -33,11 +33,10 @@
   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   ---------------------------------------------------------------------------
-*/
-
-/**
- * Database connection stuff.
  */
+
+/** Database connection stuff.
+  */
 package org.clapper.sqlshell
 
 import grizzled.string.WordWrapper
@@ -48,31 +47,28 @@ import java.sql.{Connection => SQLConnection,
                  Driver => JDBCDriver,
                  DriverManager => JDBCDriverManager}
 
-/**
- * Contains information (parsed from the command line or the user) about the
- * database to which to connect
- */
+/** Contains information (parsed from the command line or the user) about the
+  * database to which to connect
+  */
 private[sqlshell] class DatabaseInfo(val dbName: Option[String],
                                      val dbDriver: Option[String],
                                      val dbURL: Option[String],
                                      val dbUser: Option[String],
-                                     val dbPassword: Option[String])
-{
-    def this() = this(None, None, None, None, None)
+                                     val dbPassword: Option[String]) {
+  def this() = this(None, None, None, None, None)
 
-    def this(dbName: Option[String]) =
-        this(dbName, None, None, None, None)
+  def this(dbName: Option[String]) =
+    this(dbName, None, None, None, None)
 
-    def this(dbDriver: Option[String],
-             dbURL: Option[String],
-             dbUser: Option[String],
-             dbPassword: Option[String]) =
-        this(None, dbDriver, dbURL, dbUser, dbPassword)
+  def this(dbDriver: Option[String],
+           dbURL: Option[String],
+           dbUser: Option[String],
+           dbPassword: Option[String]) =
+    this(None, dbDriver, dbURL, dbUser, dbPassword)
 }
 
-/**
- * Database metadata.
- */
+/** Database metadata.
+  */
 private[sqlshell] class DatabaseMetadata(val productName: Option[String],
                                          val productVersion: Option[String],
                                          val driverName: Option[String],
@@ -81,220 +77,209 @@ private[sqlshell] class DatabaseMetadata(val productName: Option[String],
                                          val jdbcURL: Option[String],
                                          val isolation: String)
 
-/**
- * Connection info.
- *
- * @param connection         the established connection
- * @param configInfo         the configuration options associated with the
- *                           connection
- * @param configSectionName  the configuration section name
- * @parma jdbcURL            the JDBC URL for the database
- */
+/** Connection info.
+  *
+  * @param connection         the established connection
+  * @param configInfo         the configuration options associated with the
+  *                           connection
+  * @param configSectionName  the configuration section name
+  * @parma jdbcURL            the JDBC URL for the database
+  */
 private[sqlshell] class ConnectionInfo(val connection: SQLConnection,
                                        val configInfo: Map[String, String],
                                        configSectionName: Option[String],
-                                       val jdbcURL: String)
-{
-    private val DbSectionName = """^db_(.*)$""".r
+                                       val jdbcURL: String) {
 
-    /**
-     * Get the DB name, which is the section name, with "db_" stripped off.
-     * Returns None if name is unknown.
-     */
-    val dbName = configSectionName match
-    {
-        case None                   => None
-        case Some(DbSectionName(s)) => Some(s)
-        case Some(s)                => Some(s)
-    }
+  private val DbSectionName = """^db_(.*)$""".r
 
-    def databaseInfo: DatabaseMetadata =
-    {
-        def toOption(s: String): Option[String] =
-            if ((s == null) || (s.trim == "")) None else Some(s)
+  /** Get the DB name, which is the section name, with "db_" stripped off.
+    * Returns None if name is unknown.
+    */
+  val dbName = configSectionName match {
+    case None                   => None
+    case Some(DbSectionName(s)) => Some(s)
+    case Some(s)                => Some(s)
+  }
 
-        val metadata = connection.getMetaData
+    def databaseInfo: DatabaseMetadata = {
 
-        val isolation =
-            connection.getTransactionIsolation match
-            {
-                case SQLConnection.TRANSACTION_READ_UNCOMMITTED =>
-                    "read uncommitted"
-                case SQLConnection.TRANSACTION_READ_COMMITTED =>
-                    "read committed"
-                case SQLConnection.TRANSACTION_REPEATABLE_READ =>
-                    "repeatable read"
-                case SQLConnection.TRANSACTION_SERIALIZABLE =>
-                    "serializable"
-                case SQLConnection.TRANSACTION_NONE =>
-                    "none"
-                case n =>
-                    "unknown transaction isolation value of " + n.toString
-            }
+      def toOption(s: String): Option[String] =
+        if ((s == null) || (s.trim == "")) None else Some(s)
 
-        new DatabaseMetadata(toOption(metadata.getDatabaseProductName),
-                             toOption(metadata.getDatabaseProductVersion),
-                             toOption(metadata.getDriverName),
-                             toOption(metadata.getDriverVersion),
-                             toOption(metadata.getUserName),
-                             toOption(metadata.getURL),
-                             isolation)
+      val metadata = connection.getMetaData
+
+      val isolation =
+        connection.getTransactionIsolation match {
+          case SQLConnection.TRANSACTION_READ_UNCOMMITTED =>
+            "read uncommitted"
+          case SQLConnection.TRANSACTION_READ_COMMITTED =>
+            "read committed"
+          case SQLConnection.TRANSACTION_REPEATABLE_READ =>
+            "repeatable read"
+          case SQLConnection.TRANSACTION_SERIALIZABLE =>
+            "serializable"
+          case SQLConnection.TRANSACTION_NONE =>
+            "none"
+          case n =>
+            "unknown transaction isolation value of " + n.toString
+        }
+
+      new DatabaseMetadata(toOption(metadata.getDatabaseProductName),
+                           toOption(metadata.getDatabaseProductVersion),
+                           toOption(metadata.getDriverName),
+                           toOption(metadata.getDriverVersion),
+                           toOption(metadata.getUserName),
+                           toOption(metadata.getURL),
+                           isolation)
     }
 }
 
-/**
- * Handles connecting to a database.
- */
-private[sqlshell] class DatabaseConnector(val config: Configuration)
-{
-    /**
-     * Connect to the database specified in a <tt>DatabaseInfo</tt>
-     * object, consulting the configuration, if necessary.
-     *
-     * @param info  the database information
-     *
-     * @return a <tt>ConnectionInfo</tt> object, containing the connection
-     *         and the configuration data for the database
-     */
-    def connect(info: DatabaseInfo): ConnectionInfo =
-    {
-        if (info.dbName != None)
-            connectByName(info.dbName.get)
+/** Handles connecting to a database.
+  */
+private[sqlshell] class DatabaseConnector(val config: Configuration) {
 
-        else
-        {
-            // The driver name might be an alias. If it is, get the real
-            // class name.
+  /** Connect to the database specified in a `DatabaseInfo`
+    * object, consulting the configuration, if necessary.
+    *
+    * @param info  the database information
+    *
+    * @return a `ConnectionInfo` object, containing the connection
+    *         and the configuration data for the database
+    */
+  def connect(info: DatabaseInfo): ConnectionInfo = {
+    if (info.dbName != None)
+      connectByName(info.dbName.get)
 
-            if (info.dbDriver == None)
-                throw new SQLShellException("JDBC driver name cannot be null.")
+    else {
+      // The driver name might be an alias. If it is, get the real
+      // class name.
 
-            if (info.dbURL == None)
-                throw new SQLShellException("JDBC URL cannot be null.")
+      if (info.dbDriver == None)
+        throw new SQLShellException("JDBC driver name cannot be null.")
 
-            val conn = connectJDBC(getDriver(info.dbDriver.get),
-                                   info.dbURL.get,
-                                   info.dbUser,
-                                   info.dbPassword)
-            val options = Map("driver" -> optionToString(info.dbDriver),
-                              "url" -> optionToString(info.dbURL),
-                              "user" -> optionToString(info.dbURL),
-                              "password" -> optionToString(info.dbPassword))
-            new ConnectionInfo(conn, options, None, info.dbURL.get)
-        }
+      if (info.dbURL == None)
+        throw new SQLShellException("JDBC URL cannot be null.")
+
+      val conn = connectJDBC(getDriver(info.dbDriver.get),
+                             info.dbURL.get,
+                             info.dbUser,
+                             info.dbPassword)
+      val options = Map("driver" -> optionToString(info.dbDriver),
+                        "url" -> optionToString(info.dbURL),
+                        "user" -> optionToString(info.dbURL),
+                        "password" -> optionToString(info.dbPassword))
+      new ConnectionInfo(conn, options, None, info.dbURL.get)
+    }
+  }
+
+  private def connectByName(dbName: String): ConnectionInfo = {
+
+    def option(sectionName: String, 
+               optionName: String,
+               required: Boolean): Option[String] = {
+
+      config.get(sectionName, optionName) match {
+        case None if (! required) =>
+          None
+
+        case None =>
+          throw new SQLShellConfigException(
+            "Missing required \"" + optionName + "\" option " +
+            "in configuration file section \"" + sectionName +
+            "\""
+          )
+
+        case Some(value) => 
+          Some(value)
+      }
     }
 
-    private def connectByName(dbName: String): ConnectionInfo =
-    {
-        def option(sectionName: String, 
-                   optionName: String,
-                   required: Boolean): Option[String] =
-            config.get(sectionName, optionName) match
-            {
-                case None if (! required) =>
-                    None
+    matchingSections(dbName) match {
+      case Nil =>
+        throw new SQLShellException("No databases match \"" + dbName + "\"")
 
-                case None =>
-                    throw new SQLShellConfigException(
-                        "Missing required \"" + optionName + "\" option " +
-                        "in configuration file section \"" + sectionName +
-                        "\"")
+      case sectionName :: Nil => {
+        // The driver name might be an alias. If it is, get the real
+        // class name.
+        val driverOption = option(sectionName, "driver", true)
+        val driverClassName = getDriver(driverOption.get)
+        val url = option(sectionName, "url", true).get
+        val conn = connectJDBC(driverClassName,
+                               url,
+                               option(sectionName, "user", false),
+                               option(sectionName, "password", false))
+        new ConnectionInfo(conn, config.options(sectionName), 
+                           Some(sectionName), url)
+      }
 
-                case Some(value) => 
-                    Some(value)
-            }
+      case matches => {
+        val message = "The following database sections " +
+        "all match \"" + dbName + "\": " +
+        matches.mkString(", ")
+        throw new SQLShellException(WordWrapper().wrap(message))
+      }
+    }
+  }
 
-        matchingSections(dbName) match
-        {
-            case Nil =>
-                throw new SQLShellException("No databases match \"" +
-                                            dbName + "\"")
+  def connectJDBC(driverClassName: String,
+                  url: String,
+                  user: Option[String],
+                  password: Option[String]): SQLConnection = {
+    val properties = new java.util.Properties
+    if (user != None)
+      properties.setProperty("user", user.get)
+    if (password != None)
+      properties.setProperty("password", password.get)
 
-            case sectionName :: Nil =>
-                // The driver name might be an alias. If it is, get the real
-                // class name.
-                val driverOption = option(sectionName, "driver", true)
-                val driverClassName = getDriver(driverOption.get)
-                val url = option(sectionName, "url", true).get
-                val conn = connectJDBC(driverClassName,
-                                       url,
-                                       option(sectionName, "user", false),
-                                       option(sectionName, "password", false))
-                new ConnectionInfo(conn, config.options(sectionName), 
-                                   Some(sectionName), url)
+    try {
+      val cls = Class.forName(driverClassName)
+      val driver = cls.newInstance.asInstanceOf[JDBCDriver]
+      val connection = driver.connect(url, properties)
 
-            case matches =>
-                val message = "The following database sections " +
-                              "all match \"" + dbName + "\": " +
-                              matches.mkString(", ")
-                throw new SQLShellException(WordWrapper().wrap(message))
-        }
+      // SQLite3 driver returns a null connection on connection
+      // failure.
+      if (connection == null)
+        throw new SQLShellException("Can't connect to \"" + url + "\"")
+      connection
     }
 
-    def connectJDBC(driverClassName: String,
-                    url: String,
-                    user: Option[String],
-                    password: Option[String]): SQLConnection =
-    {
-        val properties = new java.util.Properties
-        if (user != None)
-            properties.setProperty("user", user.get)
-        if (password != None)
-            properties.setProperty("password", password.get)
+    catch {
+      case e: ClassNotFoundException =>
+        val ex = new SQLShellException("JDBC driver class " +
+                                       "\"" + driverClassName +
+                                       "\" not found.")
+         ex.initCause(e)
+         throw ex
+    }
+  }
 
-        try
-        {
-            val cls = Class.forName(driverClassName)
-            val driver = cls.newInstance.asInstanceOf[JDBCDriver]
-            val connection = driver.connect(url, properties)
+  private def getDriver(driverName: String): String = {
+    config.get("drivers", driverName) match {
+      case None            => driverName
+      case Some(className) => className
+    }
+  }
 
-            // SQLite3 driver returns a null connection on connection
-            // failure.
-            if (connection == null)
-                throw new SQLShellException("Can't connect to \"" + url + "\"")
-            connection
-        }
-
-        catch
-        {
-            case e: ClassNotFoundException =>
-                val ex = new SQLShellException("JDBC driver class " +
-                                               "\"" + driverClassName +
-                                               "\" not found.")
-                ex.initCause(e)
-                throw ex
-        }
+  private def optionToString(option: Option[String]): String =
+    option match {
+      case None    => ""
+      case Some(s) => s
     }
 
-    private def getDriver(driverName: String): String =
-    {
-        config.get("drivers", driverName) match
-        {
-            case None            => driverName
-            case Some(className) => className
-        }
+  private def matchingSections(dbName: String): List[String] = {
+    val f = (s: String) => (s.startsWith("db_") && (s.length > 3))
+      val dbSections = config.sectionNames.filter(f).toList
+
+    def aliases(section: String): List[String] =
+      config.option(section, "aliases", "").split("[,\\s]").toList
+
+    val set = Set.empty[String] ++ {
+      for {section <- dbSections
+           db = section.substring(3)
+           name <- (db :: aliases(section))
+           if (name.startsWith(dbName))} yield section
     }
 
-    private def optionToString(option: Option[String]): String =
-        option match
-        {
-            case None    => ""
-            case Some(s) => s
-        }
-
-    private def matchingSections(dbName: String): List[String] =
-    {
-        val f = (s: String) => (s.startsWith("db_") && (s.length > 3))
-        val dbSections = config.sectionNames.filter(f).toList
-
-        def aliases(section: String): List[String] =
-            config.option(section, "aliases", "").split("[,\\s]").toList
-
-        val set = Set.empty[String] ++
-                  {for {section <- dbSections
-                        db = section.substring(3)
-                        name <- (db :: aliases(section))
-                        if (name.startsWith(dbName))} yield section}
-        set.toList
-    }
+    set.toList
+  }
 }

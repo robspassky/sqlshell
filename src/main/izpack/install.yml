@@ -130,5 +130,5 @@ packs:
       includes: $targetDocDir/**/*.js
       includes: $targetDocDir/**/*.md
       includes: $targetDocDir/**/*.css
-      includes: $targetDocDir/**/FAQ.html
+      includes: $targetDocDir/FAQ.html
       targetDir: $INSTALL_PATH/docs
