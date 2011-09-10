@@ -55,6 +55,10 @@ LWM.flatten in LWM.Config := true
 
 LWM.encoding in LWM.Config := "ISO-8859-1"
 
+doc in Compile <<= (doc in Compile).dependsOn(
+  LWM.translate in LWM.Config
+)
+
 // ---------------------------------------------------------------------------
 // IzPack
 
@@ -80,23 +84,25 @@ IzPack.variables in IzPack.Config <+=
 }
 
 IzPack.createXML in IzPack.Config <<=
-  (IzPack.createXML in IzPack.Config).dependsOn(LWM.translate in LWM.Config)
+  (IzPack.createXML in IzPack.Config).dependsOn(doc in Compile)
 
 // ---------------------------------------------------------------------------
 // Pamflet
 
-//seq(net.databinder.pamflet_plugin.PamfletPlugin.pamfletSettings: _*)
+seq(org.clapper.sbt.pamflet.PamfletPlugin.pamfletSettings: _*)
 
-//pamfletSourceDirs in Pamflet <<= baseDirectory(bd => 
-//    Seq(bd / "src" / "docs" / "users-guide")
-//)
+sourceDirectories in Pamflet <<= baseDirectory(bd => 
+  Seq(bd / "src" / "docs" / "users-guide")
+)
 
-//pamfletLogLevel in Pamflet := Level.Debug
+logLevel in Pamflet := Level.Debug
 
 // Force an edit of the pamflet template properties file, to substitute
 // variables.
 
-//generate in Pamflet <<= (generate in Pamflet).dependsOn(edit in EditSource)
+generate in Pamflet <<= (generate in Pamflet).dependsOn(
+  EditSource.edit in EditSource.Config
+)
 
 // ---------------------------------------------------------------------------
 // Edit Source settings. Only used to preprocess Pamflet stuff.

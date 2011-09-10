@@ -1,7 +1,5 @@
----
 title: SQLShell, a cross-platform, cross-database SQL command tool
-layout: users-guide
----
+%%%
 
 ## User's Guide
 
