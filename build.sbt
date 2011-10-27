@@ -129,7 +129,7 @@ EditSource.variables in EditSource.Config <+=
 
 libraryDependencies ++= Seq(
     "jline" % "jline" % "0.9.94",
-    "org.clapper" %% "grizzled-scala" % "1.0.8",
+    "org.clapper" %% "grizzled-scala" % "1.0.9",
     "org.clapper" %% "argot" % "0.3.5",
     "org.joda" % "joda-convert" % "1.1",
     "joda-time" % "joda-time" % "2.0",
@@ -152,8 +152,3 @@ publishMavenStyle := true
 
 credentials += Credentials(Path.userHome / "src" / "mystuff" / "scala" /
                            "nexus.scala-tools.org.properties")
-
-
-// ---------------------------------------------------------------------------
-// Tasks
-
