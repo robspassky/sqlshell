@@ -3,6 +3,27 @@ title: SQLShell Change Log
 layout: default
 ---
 
+Version 0.8.0:
+
+* "exit" and Ctrl-D no longer spit out an "Error: Aborted" message.
+* Converted to [SBT][] 0.10.1.
+* Updated to use [sbt-izpack][], necessitating complete rewrite of
+  installation configuration.
+  * Switched from the old Markdown SBT plugin to [sbt-lwm][].
+  * Upgraded to [Grizzled Scala][] 1.0.7.
+  * Upgraded to [Argot][] 0.3.3
+  * Upgraded to [Joda Time][] 2.0.
+  * Upgraded to [OpenCSV][] 2.0.
+  * Reformatted code to be more consistent with Scala coding standards.
+
+  [SBT]: https://github.com/harrah/xsbt/
+  [Grizzled Scala]: http://software.clapper.org/grizzled-scala/
+  [Argot]: http://software.clapper.org/argot/
+  [Joda Time]: http://joda-time.sourceforge.net/
+  [OpenCSV]: http://opencsv.sourceforge.net/
+  [sbt-izpack]: http://software.clapper.org/sbt-izpack/
+  [sbt-lwm]: http://software.clapper.org/sbt-lwm/
+
 Version 0.7.3:
 
 * Added a signal handler, for interrupts, though it cannot do much, since it

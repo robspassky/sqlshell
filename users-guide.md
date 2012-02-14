@@ -72,29 +72,28 @@ necessary to find it in the configuration file.
     -?
     -h
     --help                Show this usage message.
-
+    
     -V
     --version             Show version and exit.
-
+    
     -c config_file
     --config config_file  Specify configuration file. Defaults to:
                           $HOME/.sqlshell/config
-
+    
     -n
     --no-ansi
-    --noansi              Disable the use of ANSI terminal sequences. This
-                          option just sets the initial value for this
-                          setting. The value can be changed later from
-                          within SQLShell itself.
-
+    --noansi              Disable the use of ANSI terminal sequences. This option
+                          just sets the initial value for this setting. The value
+                          can be changed later from within SQLShell itself.
+    
     -r lib_name
     --readline lib_name   Specify readline libraries to use. Legal values:
-                          editline, getline, gnu, jline, simple. (May be 
-                          specified multiple times.)
-
+                          editline, getline, gnu, jline, simple. (May be specified
+                          multiple times.)
+    
     -s
     --stack               Show all exception stack traces.
-
+    
     -v
     --verbose             Enable various verbose messages. This option just sets
                           the initial verbosity value. The value can be changed
@@ -524,8 +523,9 @@ commands and do not require a semi-colon.
 Before going into each specific type of command, here's a brief SQLShell
 transcript, to whet your appetite:
 
+
     $ sqlshell mydb
-    SQLShell, version 0.7.2 (2011/01/20 23:27:04)
+    SQLShell, version 0.8.0 (2012/02/13 19:08:09)
     Copyright (c) 2009-2011 Brian M. Clapper
     Using Java EditLine
     Type "help" for help. Type ".about" for more information.
