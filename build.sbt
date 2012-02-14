@@ -5,7 +5,7 @@ import sqlshell.build.defs._
 
 name := "SQLShell"
 
-version := "0.8-SNAPSHOT"
+version := "0.8.0"
 
 organization := "org.clapper"
 
